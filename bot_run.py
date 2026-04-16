@@ -196,7 +196,7 @@ def about_command(db: Database):
         if not about:
             await interaction.response.send_message(f"**{meno}** nemá žiadne info.", ephemeral=True)
             return
-        await interaction.response.send_message(f"**{meno}**\n{about}")
+        await interaction.response.send_message(f"**{meno}**\n{about}", ephemeral=True)
     return _about
 
 

@@ -9,14 +9,13 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 
 ### Removed example dialogues
 - Removed `examples` field from character model — reduces token usage per message and prevents the model from repeating stale phrases
-- Replaced with `about` field — a short bio for the character
 
 ### Discord slash commands
 - `/zahul register_channel` — initializes the current channel for the bot
 - `/whitelist add` — adds characters to the channel whitelist (comma-separated)
 - `/whitelist remove` — removes characters from the channel whitelist
 - `/whitelist view` — shows the current whitelist for this channel
-- `/about <meno>` — posts the character's bio in the channel (visible to everyone)
+- `/about <meno>` — posts the character's Info / Author Note in the channel (visible to everyone)
 - `/tokens` — shows token usage per minute and per day
 - `/fallback status` — shows whether fallback is active and when primary returns
 - `/fallback on` / `/fallback off` — manually toggle fallback mode

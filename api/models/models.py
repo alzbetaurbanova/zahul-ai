@@ -68,10 +68,9 @@ class Channel(BaseModel):
 class CharacterData(BaseModel):
     """Represents the JSON object stored in the 'data' column of the 'characters' table."""
     persona: str
-    about: str = ""
     instructions: str
     avatar: Optional[str] = None
-    info: Optional[str] = None
+    about: Optional[str] = None
     temperature: Optional[float] = None
     history_limit: Optional[int] = None
     max_tokens: Optional[int] = None
@@ -91,7 +90,7 @@ class CharacterListItem(BaseModel):
     """A lightweight model for listing characters in the UI."""
     name: str
     avatar: str
-    info: str
+    about: str
 
 class CharacterCreate(BaseModel):
     """Model for creating a new character directly."""

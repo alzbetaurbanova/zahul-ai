@@ -114,7 +114,6 @@
   "name": "CharacterName",
   "data": {
     "persona": "Character description...",
-    "about": "Short bio shown via /about command.",
     "instructions": "Respond only in English.",
     "avatar": "https://...",
     "info": "Short description shown on card.",
@@ -154,7 +153,6 @@
                 </div>
 
                 <div><label for="persona" class="block mb-2 text-sm font-medium text-gray-300">Persona</label><textarea id="persona" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
-                <div><label for="about" class="block mb-2 text-sm font-medium text-gray-300">About</label><textarea id="about" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Short bio shown via /about command..."></textarea></div>
                 <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
 
                 <!-- Avatar -->
@@ -173,7 +171,7 @@
                 </div>
                 
                 <!-- Info -->
-                <div><label for="info" class="block mb-2 text-sm font-medium text-gray-300">Info / Author Note</label><input type="text" id="info" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></div>
+                <div><label for="about" class="block mb-2 text-sm font-medium text-gray-300">About</label><input type="text" id="about" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></div>
 
                 <!-- NEW: Triggers -->
                 <div>
@@ -182,9 +180,12 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="flex justify-end space-x-4 pt-4">
-                    <button type="button" id="delete-btn" class="hidden bg-transparent border border-gray-600 hover:bg-red-600 hover:border-red-600 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Delete</button>
-                    <button type="submit" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Create Character</button>
+                <div class="flex justify-between pt-4">
+                    <button type="button" id="export-btn" class="hidden bg-transparent border border-gray-600 hover:bg-gray-700 hover:border-gray-500 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Export JSON</button>
+                    <div class="flex space-x-4 ml-auto">
+                        <button type="button" id="delete-btn" class="hidden bg-transparent border border-gray-600 hover:bg-red-600 hover:border-red-600 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Delete</button>
+                        <button type="submit" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Create Character</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -205,18 +206,18 @@
             const formTitle = document.getElementById('form-title');
             const nameInput = document.getElementById('name');
             const personaInput = document.getElementById('persona');
-            const aboutInput = document.getElementById('about');
             const instructionsInput = document.getElementById('instructions');
             const avatarUrlInput = document.getElementById('avatar-url');
             const avatarUploadInput = document.getElementById('avatar-upload');
             const avatarPreview = document.getElementById('avatar-preview');
-            const infoInput = document.getElementById('info');
+            const infoInput = document.getElementById('about');
             const temperatureInput = document.getElementById('temperature');
             const charHistoryLimitInput = document.getElementById('char-history-limit');
             const charMaxTokensInput = document.getElementById('char-max-tokens');
             const triggersInput = document.getElementById('triggers');
             const saveBtn = document.getElementById('save-btn');
             const deleteBtn = document.getElementById('delete-btn');
+            const exportBtn = document.getElementById('export-btn');
             const toastContainer = document.getElementById('toast-container');
             
             // --- Modal Management ---
@@ -328,10 +329,9 @@
                     nameInput.readOnly = true;
 
                     personaInput.value = char.data.persona;
-                    aboutInput.value = char.data.about || '';
                     instructionsInput.value = char.data.instructions;
                     avatarUrlInput.value = char.data.avatar || '';
-                    infoInput.value = char.data.info || '';
+                    infoInput.value = char.data.about || '';
                     temperatureInput.value = char.data.temperature != null ? char.data.temperature : '';
                     charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
                     charMaxTokensInput.value = char.data.max_tokens != null ? char.data.max_tokens : '';
@@ -340,6 +340,7 @@
                     updateAvatarPreview(char.data.avatar);
                     saveBtn.textContent = 'Save Changes';
                     deleteBtn.classList.remove('hidden');
+                    exportBtn.classList.remove('hidden');
                     openModal();
                 } catch (error) {
                     showToast(`Failed to load character: ${name}`, 'error');
@@ -354,6 +355,7 @@
                 formTitle.textContent = 'Create New Character';
                 saveBtn.textContent = 'Create Character';
                 deleteBtn.classList.add('hidden');
+                exportBtn.classList.add('hidden');
                 updateAvatarPreview('https://via.placeholder.com/96');
             }
 
@@ -369,10 +371,9 @@
                 // Gather all data from the form
                 const characterData = {
                     persona: personaInput.value,
-                    about: aboutInput.value,
                     instructions: instructionsInput.value,
                     avatar: avatarUrlInput.value.trim() || null,
-                    info: infoInput.value.trim() || null,
+                    about: infoInput.value.trim() || null,
                     temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
                     history_limit: charHistoryLimitInput.value !== '' ? parseInt(charHistoryLimitInput.value) : null,
                     max_tokens: charMaxTokensInput.value !== '' ? parseInt(charMaxTokensInput.value) : null
@@ -423,6 +424,30 @@
                 } catch (error) {
                     showToast(`Error saving character: ${error.message}`, 'error');
                 }
+            }
+
+            function handleExport() {
+                if (!currentCharacterName) return;
+                const characterData = {
+                    name: nameInput.value,
+                    data: {
+                        persona: personaInput.value,
+                        about: infoInput.value.trim() || null,
+                        instructions: instructionsInput.value,
+                        avatar: avatarUrlInput.value.trim() || null,
+                        temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
+                        history_limit: charHistoryLimitInput.value !== '' ? parseInt(charHistoryLimitInput.value) : null,
+                        max_tokens: charMaxTokensInput.value !== '' ? parseInt(charMaxTokensInput.value) : null,
+                    },
+                    triggers: triggersInput.value.split(',').map(s => s.trim()).filter(Boolean)
+                };
+                const blob = new Blob([JSON.stringify(characterData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentCharacterName}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
             }
 
             // Handle character deletion (Unchanged)
@@ -561,8 +586,7 @@
                 } else {
                     instructionsInput.value = charData.instructions || '';
                 }
-                infoInput.value = charData.character_version || charData.info || charData.creator_notes || '';
-                aboutInput.value = charData.about || '';
+                infoInput.value = charData.about || charData.character_version || charData.creator_notes || '';
             }
             // getCharacterDataFromPng function (Unchanged from original)
             async function getCharacterDataFromPng(file) {
@@ -620,6 +644,7 @@
             // --- Event Listeners ---
             form.addEventListener('submit', handleFormSubmit);
             deleteBtn.addEventListener('click', handleDelete);
+            exportBtn.addEventListener('click', handleExport);
             avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
             avatarUrlInput.addEventListener('input', (e) => updateAvatarPreview(e.target.value));
             importFileInput.addEventListener('change', handleFileImport);

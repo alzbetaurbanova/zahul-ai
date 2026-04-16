@@ -76,10 +76,9 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
             # Assemble the data into the CharacterData structure
             character_data = {
                 "persona": f"<description>{description}</description>\n<personality>{personality}</personality>",
-                "about": "",
                 "instructions": f"[System Note: {system_prompt}]\n[System Note: {post_history}]",
                 "avatar": avatar,
-                "info": "Imported from Pygmalion/Tavern Card"
+                "about": "Imported from Pygmalion/Tavern Card"
             }
             return name, character_data
         except Exception as e:
@@ -94,10 +93,9 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
             character_data = {
                 "persona": raw_data.get("persona", ""),
-                "about": raw_data.get("about", ""),
                 "instructions": raw_data.get("instructions", ""),
                 "avatar": raw_data.get("avatar", None),
-                "info": raw_data.get("info", "Imported from zahul-ai Card")
+                "about": raw_data.get("about", "Imported from zahul-ai Card")
             }
             return name, character_data
         except Exception as e:
@@ -155,7 +153,7 @@ async def list_characters():
                 CharacterListItem(
                     name=char.get("name", ""),
                     avatar=char_data.get("avatar") or "",
-                    info=char_data.get("info") or ""
+                    about=char_data.get("about") or ""
                 )
             )
         return result

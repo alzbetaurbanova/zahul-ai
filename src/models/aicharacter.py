@@ -29,10 +29,9 @@ class ActiveCharacter:
         # Unpack the nested 'data' dictionary
         data = character_data.get('data', {})
         self.persona: str = data.get('persona', '')
-        self.about: str = data.get('about', '')
         self.instructions: str = data.get('instructions', '')
         self.avatar: Optional[str] = data.get('avatar', None)
-        self.info: Optional[str] = data.get('info', None)
+        self.about: Optional[str] = data.get('about', None)
         self.temperature: Optional[float] = data.get('temperature', None)
         self.history_limit: Optional[int] = data.get('history_limit', None)
         self.max_tokens: Optional[int] = data.get('max_tokens', None)
@@ -75,10 +74,9 @@ class ActiveCharacter:
         """Saves the current state of the character's data back to the database."""
         data_to_save = {
             "persona": self.persona,
-            "about": self.about,
             "instructions": self.instructions,
             "avatar": self.avatar,
-            "info": self.info
+            "about": self.about
         }
         self.db.update_character(name=self.name, data=data_to_save)
         print(f"Successfully saved character '{self.name}' to the database.")
@@ -102,11 +100,6 @@ class ActiveCharacter:
         self.persona = persona
         self.save()
 
-    def set_about(self, about: str):
-        """Setter for character about."""
-        self.about = about
-        self.save()
-
     def set_instructions(self, instructions: str):
         """Setter for character instructions."""
         self.instructions = instructions
@@ -117,7 +110,7 @@ class ActiveCharacter:
         self.avatar = avatar
         self.save()
 
-    def set_info(self, info: str):
-        """Setter for character info."""
-        self.info = info
+    def set_about(self, about: str):
+        """Setter for character about."""
+        self.about = about
         self.save()
