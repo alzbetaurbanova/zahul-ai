@@ -29,7 +29,7 @@ class ActiveCharacter:
         # Unpack the nested 'data' dictionary
         data = character_data.get('data', {})
         self.persona: str = data.get('persona', '')
-        self.examples: List[str] = data.get('examples', [])
+        self.about: str = data.get('about', '')
         self.instructions: str = data.get('instructions', '')
         self.avatar: Optional[str] = data.get('avatar', None)
         self.info: Optional[str] = data.get('info', None)
@@ -75,7 +75,7 @@ class ActiveCharacter:
         """Saves the current state of the character's data back to the database."""
         data_to_save = {
             "persona": self.persona,
-            "examples": self.examples,
+            "about": self.about,
             "instructions": self.instructions,
             "avatar": self.avatar,
             "info": self.info
@@ -87,22 +87,12 @@ class ActiveCharacter:
         """
         Generates the final character prompt for the LLM, replacing placeholders.
         """
-        # Replace placeholders in the persona and examples
         persona_processed = self.persona.replace('{{char}}', self.name).replace('{{user}}', user_name)
-        
-        examples_processed = []
-        for example in self.examples:
-            processed_line = example.replace('{{char}}', self.name).replace('{{user}}', user_name)
-            if not processed_line.startswith("[System"):
-                processed_line = f"[Reply] {processed_line} [End]"
-            examples_processed.append(processed_line)
 
-        # Build the prompt string
         character_desc = f"You are {self.name}, you embody their character, persona, goals, personality, and bias which is described in detail below:"
         persona_prompt = f"Your persona: {persona_processed}"
-        examples_prompt = "A history reference to your speaking quirks and behavior:\n" + '\n'.join(examples_processed)
 
-        return f"{character_desc}\n{persona_prompt}\n{examples_prompt}\n{self.instructions}"
+        return f"{character_desc}\n{persona_prompt}\n{self.instructions}"
 
     # --- Setters ---
     # Each setter now modifies the instance attribute and persists the change to the database.
@@ -112,9 +102,9 @@ class ActiveCharacter:
         self.persona = persona
         self.save()
 
-    def set_examples(self, examples: list):
-        """Setter for character examples."""
-        self.examples = examples
+    def set_about(self, about: str):
+        """Setter for character about."""
+        self.about = about
         self.save()
 
     def set_instructions(self, instructions: str):

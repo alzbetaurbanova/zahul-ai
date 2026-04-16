@@ -15,10 +15,6 @@ DEFAULT_PROMPT_TEMPLATE = """\
 <character_definition>
 You are {{ character.name }}, you embody their character, persona, goals, personality, and bias which is described in detail below:
 Your persona: {{ character.persona }}
-A history reference to your speaking quirks and behavior:
-{% for example in character.examples %}
-[Reply] {{ example }} [End]
-{% endfor %}
 </character_definition>
 
 <lore>
@@ -124,17 +120,6 @@ class PromptEngineer:
             template = self.jinja_env.from_string(rendered_character.persona)
             rendered_character.persona = template.render(inner_context)
 
-        if rendered_character.examples:
-            # Create a new list to hold the rendered examples
-            rendered_examples = []
-            # Loop through each example string in the list
-            for example_string in rendered_character.examples:
-                # Treat each string as a template and render it
-                template = self.jinja_env.from_string(example_string)
-                rendered_examples.append(template.render(inner_context))
-            # Replace the old list with the new list of rendered strings
-            rendered_character.examples = rendered_examples
-            
         if rendered_character.instructions:
             template = self.jinja_env.from_string(rendered_character.instructions)
             rendered_character.instructions = template.render(inner_context)

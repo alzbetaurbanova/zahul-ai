@@ -114,10 +114,7 @@
   "name": "CharacterName",
   "data": {
     "persona": "Character description...",
-    "examples": [
-      "user: Hello!",
-      "CharacterName: Hi there!"
-    ],
+    "about": "Short bio shown via /about command.",
     "instructions": "Respond only in English.",
     "avatar": "https://...",
     "info": "Short description shown on card.",
@@ -157,7 +154,7 @@
                 </div>
 
                 <div><label for="persona" class="block mb-2 text-sm font-medium text-gray-300">Persona</label><textarea id="persona" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
-                <div><label for="examples" class="block mb-2 text-sm font-medium text-gray-300">Example Dialogues</label><textarea id="examples" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Separate each example with a line of three dashes, e.g., ---"></textarea></div>
+                <div><label for="about" class="block mb-2 text-sm font-medium text-gray-300">About</label><textarea id="about" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Short bio shown via /about command..."></textarea></div>
                 <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
 
                 <!-- Avatar -->
@@ -208,7 +205,7 @@
             const formTitle = document.getElementById('form-title');
             const nameInput = document.getElementById('name');
             const personaInput = document.getElementById('persona');
-            const examplesInput = document.getElementById('examples');
+            const aboutInput = document.getElementById('about');
             const instructionsInput = document.getElementById('instructions');
             const avatarUrlInput = document.getElementById('avatar-url');
             const avatarUploadInput = document.getElementById('avatar-upload');
@@ -331,7 +328,7 @@
                     nameInput.readOnly = true;
 
                     personaInput.value = char.data.persona;
-                    examplesInput.value = char.data.examples.join('\n---\n');
+                    aboutInput.value = char.data.about || '';
                     instructionsInput.value = char.data.instructions;
                     avatarUrlInput.value = char.data.avatar || '';
                     infoInput.value = char.data.info || '';
@@ -372,7 +369,7 @@
                 // Gather all data from the form
                 const characterData = {
                     persona: personaInput.value,
-                    examples: examplesInput.value.split('\n---\n').map(s => s.trim()).filter(Boolean),
+                    about: aboutInput.value,
                     instructions: instructionsInput.value,
                     avatar: avatarUrlInput.value.trim() || null,
                     info: infoInput.value.trim() || null,
@@ -495,7 +492,7 @@
                     name: "CharacterName",
                     data: {
                         persona: "[CharacterName's persona: ...]",
-                        examples: [],
+                        about: "",
                         instructions: "[System Note: ...]",
                         avatar: null,
                         info: "A short description of this character.",
@@ -565,9 +562,7 @@
                     instructionsInput.value = charData.instructions || '';
                 }
                 infoInput.value = charData.character_version || charData.info || charData.creator_notes || '';
-                let examples = charData.mes_example || charData.example_dialogue || '';
-                examples = examples.replace(/<START>/g, '\n---\n').trim();
-                examplesInput.value = examples;
+                aboutInput.value = charData.about || '';
             }
             // getCharacterDataFromPng function (Unchanged from original)
             async function getCharacterDataFromPng(file) {

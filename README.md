@@ -46,6 +46,7 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 - Fallback duration, token limits (per minute / per day) all set from the web panel
 - `/tokens` — check current token usage and active model at any time
 - `/fallback status/on/off` — manually control fallback mode
+- `/about <name>` — display a character's bio in the channel
 - Switch providers without losing your characters or settings
 
 ### Per-character fine-tuning

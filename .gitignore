@@ -22,3 +22,6 @@ static/uploads/
 
 # Data directory (contains database and secrets)
 data/
+
+# Webhook (server-side only)
+webhook/

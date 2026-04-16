@@ -76,7 +76,7 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
             # Assemble the data into the CharacterData structure
             character_data = {
                 "persona": f"<description>{description}</description>\n<personality>{personality}</personality>",
-                "examples": [examples_str] if examples_str else [],
+                "about": "",
                 "instructions": f"[System Note: {system_prompt}]\n[System Note: {post_history}]",
                 "avatar": avatar,
                 "info": "Imported from Pygmalion/Tavern Card"
@@ -94,7 +94,7 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
             character_data = {
                 "persona": raw_data.get("persona", ""),
-                "examples": raw_data.get("examples", []),
+                "about": raw_data.get("about", ""),
                 "instructions": raw_data.get("instructions", ""),
                 "avatar": raw_data.get("avatar", None),
                 "info": raw_data.get("info", "Imported from zahul-ai Card")

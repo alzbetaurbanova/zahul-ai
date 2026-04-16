@@ -47,10 +47,10 @@ class Zahul(discord.Client):
         # --- Slash Commands ---
         # Register command groups, passing the database instance to them
         self.tree.add_command(CoreCommands(self.db))
-        self.tree.add_command(ConfigCommands(self.db))
         self.tree.add_command(WhitelistCommands(self.db))
         self.tree.add_command(FallbackGroup())
         self.tree.add_command(tokens_command)
+        self.tree.add_command(about_command(self.db))
         
         # Sync commands globally. For development, you might sync to a specific guild.
         await self.tree.sync()
@@ -185,6 +185,21 @@ class EditCaptionModal(discord.ui.Modal, title='Edit Image Caption'):
             await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
 
 # --- Standalone Commands ---
+def about_command(db: Database):
+    @app_commands.command(name="about", description="Zobrazí info o postave.")
+    async def _about(interaction: discord.Interaction, meno: str):
+        char = db.get_character(name=meno)
+        if not char:
+            await interaction.response.send_message(f"Postava **{meno}** neexistuje.", ephemeral=True)
+            return
+        about = char.get("data", {}).get("about", "").strip()
+        if not about:
+            await interaction.response.send_message(f"**{meno}** nemá žiadne info.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"**{meno}**\n{about}")
+    return _about
+
+
 @app_commands.command(name="tokens", description="Zobrazí využitie tokenov.")
 async def tokens_command(interaction: discord.Interaction):
     from src.utils.llm_new import get_tokens_used_last_minute, get_daily_tokens_used, get_fallback_info
@@ -271,28 +286,6 @@ class CoreCommands(app_commands.Group):
         self.db.create_channel(channel_id, server_id, interaction.guild.name, default_data)
         await interaction.response.send_message(f"Channel '{interaction.channel.name}' has been successfully registered!", ephemeral=True)
 
-class ConfigCommands(app_commands.Group):
-    def __init__(self, db: Database):
-        super().__init__(name="config", description="Channel configuration commands")
-        self.db = db
-
-    @app_commands.command(name="set_instruction", description="Set a special instruction for the AI in this channel.")
-    async def set_instruction(self, interaction: discord.Interaction, instruction: str):
-        channel = ActiveChannel.from_id(str(interaction.channel.id), self.db)
-        if not channel:
-            await interaction.response.send_message("This channel is not registered. Use `/zahul register_channel` first.", ephemeral=True)
-            return
-        channel.set_instruction(instruction)
-        await interaction.response.send_message(f"Instruction for this channel has been set.", ephemeral=True)
-
-    @app_commands.command(name="set_global_note", description="Set a global note (lore) for the AI in this channel.")
-    async def set_global_note(self, interaction: discord.Interaction, note: str):
-        channel = ActiveChannel.from_id(str(interaction.channel.id), self.db)
-        if not channel:
-            await interaction.response.send_message("This channel is not registered.", ephemeral=True)
-            return
-        channel.set_global_note(note)
-        await interaction.response.send_message(f"Global note for this channel has been set.", ephemeral=True)
 
 class WhitelistCommands(app_commands.Group):
     def __init__(self, db: Database):

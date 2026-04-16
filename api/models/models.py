@@ -68,7 +68,7 @@ class Channel(BaseModel):
 class CharacterData(BaseModel):
     """Represents the JSON object stored in the 'data' column of the 'characters' table."""
     persona: str
-    examples: List[str]
+    about: str = ""
     instructions: str
     avatar: Optional[str] = None
     info: Optional[str] = None

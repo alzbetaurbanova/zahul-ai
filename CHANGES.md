@@ -7,6 +7,21 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 
 ## Quality of Life Improvements
 
+### Removed example dialogues
+- Removed `examples` field from character model — reduces token usage per message and prevents the model from repeating stale phrases
+- Replaced with `about` field — a short bio for the character
+
+### Discord slash commands
+- `/zahul register_channel` — initializes the current channel for the bot
+- `/whitelist add` — adds characters to the channel whitelist (comma-separated)
+- `/whitelist remove` — removes characters from the channel whitelist
+- `/whitelist view` — shows the current whitelist for this channel
+- `/about <meno>` — posts the character's bio in the channel (visible to everyone)
+- `/tokens` — shows token usage per minute and per day
+- `/fallback status` — shows whether fallback is active and when primary returns
+- `/fallback on` / `/fallback off` — manually toggle fallback mode
+- All commands except `/about` are ephemeral (only visible to the user who ran them)
+
 ### Configurable base model with automatic fallback
 - Base model and fallback model are fully configurable from the AI Config panel in the web UI
 - Automatic switch to the fallback model when the primary hits a rate limit
@@ -16,13 +31,7 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 ### Token usage tracking
 - Tracks tokens used per minute (TPM) and per day (TPD)
 - Limits are configurable from the AI Config panel (no need to edit code)
-- Token usage visible via `/tokens` Discord slash command
 - Fallback token usage tracked separately and reset when fallback ends
-
-### Fallback management commands
-- `/fallback status` — shows whether fallback is active and when primary returns
-- `/fallback on` / `/fallback off` — manually toggle fallback mode
-- All commands are ephemeral (only visible to the user who ran them)
 
 ### Per-character temperature and token overrides
 - Each character can have its own `temperature` and `max_tokens` values
@@ -44,8 +53,10 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 ### Panel authentication
 - Optional password protection for the web panel
 - Set a password via AI Config - Panel Security section
+- Optional password hint — displayed on the login page after 3 failed attempts
 - Session persists for 7 days, logout button in navbar
 - Auth can be disabled at code level via `PANEL_AUTH_ENABLED` flag in `main.py`
+
 
 ---
 
