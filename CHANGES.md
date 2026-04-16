@@ -32,6 +32,16 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Thread-safe image uploading using the bot's own event loop
 - Automatically finds the system channel or falls back to the first registered channel
 
+### Persistent avatar storage
+- Avatar uploads are saved locally to `static/avatars/` instead of Discord CDN
+- Avatars no longer expire or disappear after bot restarts
+
+### Panel authentication
+- Optional password protection for the web panel
+- Set a password via AI Config - Panel Security section
+- Session persists for 7 days, logout button in navbar
+- Auth can be disabled at code level via `PANEL_AUTH_ENABLED` flag in `main.py`
+
 ---
 
 ## Adapted for Slovak Audience

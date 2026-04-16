@@ -4,11 +4,13 @@
 import argparse
 import asyncio
 import os
+import secrets
 import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # --- Local Imports ---
 from api.routers import characters, servers, config, discord as discord_router, preset
@@ -92,12 +94,51 @@ async def initialize_database():
     db.set_config("db_initialized", True)
     print("--- Database initialization complete! ---")
 
+# --- Panel Auth ---
+# Set to True to require a password to access the web panel.
+# Password is configured via the AI Config panel (panel_password field).
+PANEL_AUTH_ENABLED = True
+
+# In-memory session tokens (cleared on restart)
+_sessions: set = set()
+
+
+# --- Auth Middleware ---
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not PANEL_AUTH_ENABLED:
+            return await call_next(request)
+
+        path = request.url.path
+        # Always allow login page and static assets
+        if path.startswith("/login") or path.startswith("/static") or path in ("/favicon.ico", "/zahul"):
+            return await call_next(request)
+
+        # Check session cookie
+        token = request.cookies.get("zahul_session")
+        if token and token in _sessions:
+            return await call_next(request)
+
+        # Check if password is set - if not, skip auth (first-run setup)
+        db = Database()
+        panel_password = db.get_config("panel_password") or ""
+        if not panel_password:
+            return await call_next(request)
+
+        # Not authenticated - redirect HTML pages, return 401 for API
+        if path.startswith("/api"):
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+        return RedirectResponse(url="/login", status_code=302)
+
+
 # --- FastAPI App Setup ---
 
 app = FastAPI(
     title="zahul-ai Configuration API",
     description="API for managing character, channel, and bot configurations"
 )
+
+app.add_middleware(AuthMiddleware)
 
 @app.on_event("startup")
 async def startup_event():
@@ -163,11 +204,37 @@ async def get_editor_html():
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("static/favicon.ico")
+    return FileResponse("static/favicon.png")
 
 @app.get("/zahul", include_in_schema=False)
 async def zahul_logo():
-    return FileResponse("static/favicon.ico")
+    return FileResponse("static/favicon.png")
+
+# --- Auth Endpoints ---
+
+@app.get("/login", response_class=FileResponse, include_in_schema=False)
+async def get_login():
+    return "static/login.html"
+
+@app.post("/login", include_in_schema=False)
+async def post_login(password: str = Form(...)):
+    db = Database()
+    panel_password = db.get_config("panel_password") or ""
+    if panel_password and password == panel_password:
+        token = secrets.token_hex(32)
+        _sessions.add(token)
+        response = RedirectResponse(url="/", status_code=302)
+        response.set_cookie("zahul_session", token, httponly=True, samesite="lax", max_age=86400 * 7)
+        return response
+    return RedirectResponse(url="/login?error=1", status_code=302)
+
+@app.get("/logout", include_in_schema=False)
+async def logout(request: Request):
+    token = request.cookies.get("zahul_session")
+    _sessions.discard(token)
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("zahul_session")
+    return response
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

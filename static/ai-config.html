@@ -48,10 +48,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="hidden md:flex items-center">
+                <div class="hidden md:flex items-center space-x-4">
                     <span class="text-sm text-gray-400 mr-2">Status:</span>
                     <span id="bot-status-indicator" class="status-indicator"></span>
                     <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
                 </div>
             </div>
         </div>
@@ -196,6 +197,15 @@
                         </div>
                     </fieldset>
 
+                    <!-- Panel Security -->
+                    <fieldset class="border border-gray-700 rounded-lg p-4">
+                        <legend class="text-lg font-semibold text-primary px-2">Panel Security</legend>
+                        <div class="mt-4">
+                            <label for="panel_password" class="block mb-2 text-sm font-medium text-gray-300">Panel Password <span class="text-gray-500 font-normal">(leave empty to disable)</span></label>
+                            <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Set a password to protect this panel">
+                        </div>
+                    </fieldset>
+
                     <!-- Main Save Button -->
                     <div class="flex justify-end pt-4">
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
@@ -245,6 +255,7 @@
                 'default_character', 'ai_endpoint', 'base_llm', 'temperature', 'auto_cap',
                 'history_limit', 'max_tokens',
                 'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
+                'panel_password',
                 'ai_key', 'discord_key', 'use_prefill', 'dm_list',
                 'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api'
             ];

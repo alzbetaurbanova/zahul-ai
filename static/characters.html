@@ -62,10 +62,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="hidden md:flex items-center">
+                <div class="hidden md:flex items-center space-x-4">
                     <span class="text-sm text-gray-400 mr-2">Status:</span>
                     <span id="bot-status-indicator" class="status-indicator"></span>
                     <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
                 </div>
             </div>
         </div>
@@ -393,7 +394,7 @@
                 }
             }
             
-            // Avatar upload logic (Unchanged)
+            // Avatar upload logic
             async function uploadFile(file) {
                  if (!file) return;
                 const formData = new FormData();
@@ -402,11 +403,12 @@
                 avatarUrlInput.value = 'Uploading...';
                 saveBtn.disabled = true;
                 try {
-                    const response = await fetch(`${API_BASE}/upload_image`, { method: 'POST', body: formData });
+                    const charName = nameInput.value.trim() || 'avatar';
+                    const response = await fetch(`${API_BASE}/save_avatar?name=${encodeURIComponent(charName)}`, { method: 'POST', body: formData });
                     if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Upload failed.'); }
                     const result = await response.json();
-                    avatarUrlInput.value = result.cdn_url;
-                    updateAvatarPreview(result.cdn_url);
+                    avatarUrlInput.value = result.url;
+                    updateAvatarPreview(result.url);
                     showToast('Avatar uploaded successfully!');
                 } catch (error) {
                     showToast(`Avatar upload failed: ${error.message}`, 'error');

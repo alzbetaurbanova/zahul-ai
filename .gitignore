@@ -9,10 +9,16 @@ wheels/
 # Virtual environments
 .venv
 venv
+
+# Temp and generated files
 temp.jpg
-*.png
-*.jpg
-*.webp
 *.jsonl
 *.db
 *.log
+
+# User-uploaded images (generated at runtime)
+static/avatars/
+static/uploads/
+
+# Data directory (contains database and secrets)
+data/

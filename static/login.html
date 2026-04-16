@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --darker: #0f172a;
+        }
+        body { background-color: var(--darker); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="flex justify-center mb-6">
+            <img src="/zahul" alt="zahul-ai" class="h-12 w-auto mr-3">
+            <span class="text-white font-bold text-2xl self-center">zahul-ai</span>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-xl">
+            <h2 class="text-white text-xl font-semibold mb-6 text-center">Panel Login</h2>
+            <form method="POST" action="/login">
+                <div class="mb-5">
+                    <label for="password" class="block mb-2 text-sm font-medium text-gray-300">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        autofocus
+                        class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5"
+                        placeholder="Enter panel password"
+                    >
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition duration-200">
+                    Login
+                </button>
+            </form>
+            <div id="error-msg" class="mt-4 text-red-400 text-sm text-center hidden">
+                Incorrect password. Try again.
+            </div>
+        </div>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('error')) {
+            document.getElementById('error-msg').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
