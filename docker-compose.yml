@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  zahul:
+    container_name: zahul_ai
+    build: .
+    ports:
+      - "5666:5666"
+
+    environment:
+      - DATABASE_URL=/app/data/bot.db
+      - TZ=Europe/Bratislava
+
+    command: python main.py --host 0.0.0.0
+
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src
+      - ./main.py:/app/main.py
+      - ./bot_run.py:/app/bot_run.py
+      - ./api:/app/api
+      - ./static:/app/static
+    restart: unless-stopped

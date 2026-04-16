@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy">
+    <title>zahul-ai - Characters</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1; --primary-dark: #4f46e5; --dark: #1e293b;
+            --darker: #0f172a; --light: #f8fafc;
+        }
+        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
+        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
+        .nav-link.active { border-bottom: 2px solid var(--primary); }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); }
+        #name:read-only {
+            background-color: #334155 !important;
+            cursor: not-allowed;
+        }
+        .modal { transition: opacity 0.3s ease; }
+        .modal-content { max-height: 90vh; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-inactive { background-color: #ef4444; }
+        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        #avatar-upload {
+            color: #cbd5e1; background: transparent; font-size: 0.9rem; cursor: pointer;
+        }
+        #avatar-upload::file-selector-button {
+            background: #1f2937; color: #e2e8f0; border: 1px solid #374151; padding: 0.5rem 1rem;
+            border-radius: 0.5rem; font-weight: 600; transition: background 0.2s, border-color 0.2s; cursor: pointer;
+        }
+        #avatar-upload::file-selector-button:hover { background: #2d3748; border-color: #4b5563; }
+        #avatar-upload::file-selector-button:active { background: #4f46e5; border-color: #4f46e5; color: white; }
+
+    </style>
+</head>
+<body class="bg-darker text-light">
+    <div id="toast-container" class="toast z-50"></div>
+
+    <!-- Navbar (Unchanged) -->
+    <nav class="bg-darker border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <a href="/" class="flex items-center space-x-3 text-white">
+                            <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
+                            <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
+                        </a>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i> Dashboard</a>
+                            <a href="/servers" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-server mr-2"></i> Servers</a>
+                            <a href="/characters" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-robot mr-2"></i> Characters</a>
+                            <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-cog mr-2"></i> Config</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center">
+                    <span class="text-sm text-gray-400 mr-2">Status:</span>
+                    <span id="bot-status-indicator" class="status-indicator"></span>
+                    <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-6 sm:p-8">
+        <div class="max-w-7xl mx-auto">
+            <h1 class="text-3xl font-bold text-white mb-8">Character Management</h1>
+            <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <p class="text-gray-400 col-span-full">Loading characters...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="import-file-input" class="hidden" accept=".json,.png">
+
+    <!-- Import Info Modal -->
+    <div id="import-info-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <div class="bg-gray-900 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
+            <div class="border-b border-gray-800 p-5 flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-white"><i class="fas fa-upload mr-2 text-indigo-400"></i>Import Character Card</h2>
+                <button id="import-info-close" class="text-gray-400 hover:text-white transition"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4 text-sm">
+                <div>
+                    <p class="text-gray-400 font-medium mb-2">Supported formats</p>
+                    <div class="space-y-1">
+                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.png</span><span class="text-gray-300">SillyTavern / TavernAI character card (metadata embedded in PNG)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.json</span><span class="text-gray-300">Native format (below) or Pygmalion / TavernAI JSON export</span></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-gray-400 font-medium mb-2">Native JSON template</p>
+                    <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300 overflow-x-auto leading-relaxed">{
+  "name": "CharacterName",
+  "data": {
+    "persona": "Character description...",
+    "examples": [
+      "user: Hello!",
+      "CharacterName: Hi there!"
+    ],
+    "instructions": "Respond only in English.",
+    "avatar": "https://...",
+    "info": "Short description shown on card.",
+    "temperature": null,
+    "history_limit": null,
+    "max_tokens": null
+  },
+  "triggers": ["trigger1", "trigger2"]
+}</pre>
+                </div>
+                <p class="text-gray-500 text-xs">Leave <code class="text-gray-400">temperature</code>, <code class="text-gray-400">history_limit</code>, <code class="text-gray-400">max_tokens</code> as <code class="text-gray-400">null</code> to use global config values. Triggers can be added after import.</p>
+            </div>
+            <div class="border-t border-gray-800 p-5 flex gap-3 justify-end">
+                <button id="import-template-download" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-lg transition-colors"><i class="fas fa-download mr-2"></i>Download Template</button>
+                <button id="import-info-proceed" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"><i class="fas fa-folder-open mr-2"></i>Choose File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character Edit/Create Modal -->
+    <div id="character-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-40 opacity-0 pointer-events-none">
+        <div class="modal-content bg-gray-900 rounded-lg shadow-2xl w-full max-w-3xl overflow-y-auto border border-gray-700">
+            <div class="sticky top-0 bg-gray-900 border-b border-gray-800 p-6 z-10 flex justify-between items-center">
+                <h2 id="form-title" class="text-xl font-semibold text-white">Select or Create a Character</h2>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-white transition"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            
+            <form id="character-form" class="space-y-6 p-6">
+                <!-- Name, Persona, Examples, Instructions (Unchanged) -->
+                <div><label for="name" class="block mb-2 text-sm font-medium text-gray-300">Name</label><input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" required></div>
+
+                <!-- Per-character overrides -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="temperature" min="0" max="2" step="0.1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 0.7"></div>
+                    <div><label for="char-history-limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="char-history-limit" min="1" max="50" step="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 10"></div>
+                    <div><label for="char-max-tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Tokens <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 256"></div>
+                </div>
+
+                <div><label for="persona" class="block mb-2 text-sm font-medium text-gray-300">Persona</label><textarea id="persona" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
+                <div><label for="examples" class="block mb-2 text-sm font-medium text-gray-300">Example Dialogues</label><textarea id="examples" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Separate each example with a line of three dashes, e.g., ---"></textarea></div>
+                <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
+
+                <!-- Avatar -->
+                <div>
+                    <label class="block mb-2 text-sm font-medium text-gray-300">Avatar</label>
+                    <div class="flex items-center gap-4">
+                        <img id="avatar-preview" src="" alt="" class="w-24 h-24 rounded-lg object-cover bg-gray-800 flex-shrink-0">
+                        <div class="flex-grow space-y-2">
+                            <input type="text" id="avatar-url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Paste image URL">
+                            <div class="flex items-center gap-3">
+                                <input id="avatar-upload" type="file" accept="image/*" class="block text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer">
+                                <a href="/editor" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Info -->
+                <div><label for="info" class="block mb-2 text-sm font-medium text-gray-300">Info / Author Note</label><input type="text" id="info" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></div>
+
+                <!-- NEW: Triggers -->
+                <div>
+                    <label for="triggers" class="block mb-2 text-sm font-medium text-gray-300">Triggers</label>
+                    <input type="text" id="triggers" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Comma-separated, e.g., hello, hey bot, respond">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" id="delete-btn" class="hidden bg-transparent border border-gray-600 hover:bg-red-600 hover:border-red-600 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Delete</button>
+                    <button type="submit" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Create Character</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const API_BASE = '/api/characters';
+            let currentCharacterName = null;
+
+            // --- DOM Elements ---
+            const characterGrid = document.getElementById('character-grid');
+            const modal = document.getElementById('character-modal');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const importFileInput = document.getElementById('import-file-input');
+            const form = document.getElementById('character-form');
+            const formTitle = document.getElementById('form-title');
+            const nameInput = document.getElementById('name');
+            const personaInput = document.getElementById('persona');
+            const examplesInput = document.getElementById('examples');
+            const instructionsInput = document.getElementById('instructions');
+            const avatarUrlInput = document.getElementById('avatar-url');
+            const avatarUploadInput = document.getElementById('avatar-upload');
+            const avatarPreview = document.getElementById('avatar-preview');
+            const infoInput = document.getElementById('info');
+            const temperatureInput = document.getElementById('temperature');
+            const charHistoryLimitInput = document.getElementById('char-history-limit');
+            const charMaxTokensInput = document.getElementById('char-max-tokens');
+            const triggersInput = document.getElementById('triggers');
+            const saveBtn = document.getElementById('save-btn');
+            const deleteBtn = document.getElementById('delete-btn');
+            const toastContainer = document.getElementById('toast-container');
+            
+            // --- Modal Management ---
+            const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
+            const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
+
+            // --- Core Functions ---
+
+            // REWORKED: Fetch and display all characters efficiently
+            async function fetchAndDisplayCharacters() {
+                characterGrid.innerHTML = '<p class="text-gray-400 col-span-full">Loading characters...</p>';
+                try {
+                    const response = await fetch(API_BASE); // Single API call!
+                    if (!response.ok) throw new Error('Failed to fetch character list');
+                    const characters = await response.json(); // Gets List[CharacterListItem]
+
+                    characterGrid.innerHTML = ''; // Clear loading message
+
+                    // Add "New Character" card
+                    const newCharCard = document.createElement('div');
+                    newCharCard.className = 'flex items-center justify-center aspect-square bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-primary hover:text-primary transition-colors';
+                    newCharCard.innerHTML = `<div class="text-center"><i class="fas fa-plus fa-3x"></i><p class="mt-2 font-semibold">New Character</p></div>`;
+                    newCharCard.addEventListener('click', () => { resetForm(); openModal(); });
+                    characterGrid.appendChild(newCharCard);
+
+                    // Add "Import Character" card
+                    const importCard = document.createElement('div');
+                    importCard.className = 'flex items-center justify-center aspect-square bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-primary hover:text-primary transition-colors';
+                    importCard.innerHTML = `<div class="text-center"><i class="fas fa-upload fa-3x"></i><p class="mt-2 font-semibold">Import Card</p></div>`;
+                    importCard.addEventListener('click', () => openImportInfoModal());
+                    characterGrid.appendChild(importCard);
+
+                    // Add cards for each character from the list
+                    characters.forEach(char => {
+                        const card = document.createElement('div');
+                        card.className = 'group relative aspect-square bg-gray-900 rounded-lg cursor-pointer overflow-hidden shadow-lg transition-transform transform hover:scale-105 border border-gray-800';
+                        card.innerHTML = `
+                            <img src="${char.avatar || 'https://via.placeholder.com/200'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                            <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
+                        `;
+                        card.addEventListener('click', () => loadCharacterForEdit(char.name));
+                        characterGrid.appendChild(card);
+                    });
+
+                } catch (error) {
+                    console.error(error);
+                    characterGrid.innerHTML = '<p class="text-red-500 col-span-full">Failed to load characters.</p>';
+                    showToast('Failed to load characters.', 'error');
+                }
+            }
+
+            // Load a specific character's data into the modal for editing
+            async function loadCharacterForEdit(name) {
+                try {
+                    const response = await fetch(`${API_BASE}/${name}`);
+                    const char = await response.json();
+                    
+                    resetForm();
+                    currentCharacterName = name;
+
+                    formTitle.textContent = `Editing: ${char.name}`;
+                    nameInput.value = char.name;
+                    nameInput.readOnly = true;
+
+                    personaInput.value = char.data.persona;
+                    examplesInput.value = char.data.examples.join('\n---\n');
+                    instructionsInput.value = char.data.instructions;
+                    avatarUrlInput.value = char.data.avatar || '';
+                    infoInput.value = char.data.info || '';
+                    temperatureInput.value = char.data.temperature != null ? char.data.temperature : '';
+                    charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
+                    charMaxTokensInput.value = char.data.max_tokens != null ? char.data.max_tokens : '';
+                    triggersInput.value = char.triggers.join(', ');
+
+                    updateAvatarPreview(char.data.avatar);
+                    saveBtn.textContent = 'Save Changes';
+                    deleteBtn.classList.remove('hidden');
+                    openModal();
+                } catch (error) {
+                    showToast(`Failed to load character: ${name}`, 'error');
+                }
+            }
+
+            // Reset the form to its default "create" state
+            function resetForm() {
+                currentCharacterName = null;
+                form.reset();
+                nameInput.readOnly = false;
+                formTitle.textContent = 'Create New Character';
+                saveBtn.textContent = 'Create Character';
+                deleteBtn.classList.add('hidden');
+                updateAvatarPreview('https://via.placeholder.com/96');
+            }
+
+            // REWORKED: Handle form submission (both create and update)
+            async function handleFormSubmit(event) {
+                event.preventDefault();
+                
+                const name = nameInput.value.trim();
+                if (!name) {
+                    showToast('Character name is required.', 'error'); return;
+                }
+
+                // Gather all data from the form
+                const characterData = {
+                    persona: personaInput.value,
+                    examples: examplesInput.value.split('\n---\n').map(s => s.trim()).filter(Boolean),
+                    instructions: instructionsInput.value,
+                    avatar: avatarUrlInput.value.trim() || null,
+                    info: infoInput.value.trim() || null,
+                    temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
+                    history_limit: charHistoryLimitInput.value !== '' ? parseInt(charHistoryLimitInput.value) : null,
+                    max_tokens: charMaxTokensInput.value !== '' ? parseInt(charMaxTokensInput.value) : null
+                };
+                const triggers = triggersInput.value.split(',').map(s => s.trim()).filter(Boolean);
+
+                try {
+                    let response;
+                    let url;
+                    let method;
+                    let body;
+
+                    if (currentCharacterName) {
+                        // --- UPDATE existing character ---
+                        url = `${API_BASE}/${currentCharacterName}`;
+                        method = 'PUT';
+                        body = JSON.stringify({
+                            data: characterData,
+                            triggers: triggers
+                        });
+                    } else {
+                        // --- CREATE new character ---
+                        url = `${API_BASE}/`; // Use the root POST endpoint
+                        method = 'POST';
+                        body = JSON.stringify({
+                            name: name,
+                            data: characterData,
+                            triggers: triggers
+                        });
+                    }
+
+                    response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'An unknown error occurred.');
+                    }
+
+                    const result = await response.json();
+                    showToast(`Character '${result.name}' saved successfully!`);
+                    closeModal();
+                    await fetchAndDisplayCharacters();
+
+                } catch (error) {
+                    showToast(`Error saving character: ${error.message}`, 'error');
+                }
+            }
+
+            // Handle character deletion (Unchanged)
+            async function handleDelete() {
+                if (!currentCharacterName || !confirm(`Are you sure you want to delete '${currentCharacterName}'? This cannot be undone.`)) {
+                    return;
+                }
+                try {
+                    const response = await fetch(`${API_BASE}/${currentCharacterName}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'An unknown error occurred.');
+                    }
+                    showToast(`Character '${currentCharacterName}' deleted.`);
+                    closeModal();
+                    await fetchAndDisplayCharacters();
+                } catch (error) {
+                    showToast(`Error deleting character: ${error.message}`, 'error');
+                }
+            }
+            
+            // Avatar upload logic (Unchanged)
+            async function uploadFile(file) {
+                 if (!file) return;
+                const formData = new FormData();
+                formData.append('image', file);
+                const originalUrl = avatarUrlInput.value;
+                avatarUrlInput.value = 'Uploading...';
+                saveBtn.disabled = true;
+                try {
+                    const response = await fetch(`${API_BASE}/upload_image`, { method: 'POST', body: formData });
+                    if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Upload failed.'); }
+                    const result = await response.json();
+                    avatarUrlInput.value = result.cdn_url;
+                    updateAvatarPreview(result.cdn_url);
+                    showToast('Avatar uploaded successfully!');
+                } catch (error) {
+                    showToast(`Avatar upload failed: ${error.message}`, 'error');
+                    avatarUrlInput.value = originalUrl; updateAvatarPreview(originalUrl);
+                } finally {
+                    saveBtn.disabled = false; avatarUploadInput.value = '';
+                }
+            }
+            
+            const updateAvatarPreview = (url) => { avatarPreview.src = url || 'https://via.placeholder.com/96'; };
+
+            // --- Import Info Modal ---
+            const importInfoModal = document.getElementById('import-info-modal');
+            const importInfoClose = document.getElementById('import-info-close');
+            const importInfoProceed = document.getElementById('import-info-proceed');
+            const importTemplateDownload = document.getElementById('import-template-download');
+
+            function openImportInfoModal() {
+                importInfoModal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+            function closeImportInfoModal() {
+                importInfoModal.classList.add('opacity-0', 'pointer-events-none');
+            }
+            importInfoClose.addEventListener('click', closeImportInfoModal);
+            importInfoProceed.addEventListener('click', () => {
+                closeImportInfoModal();
+                importFileInput.click();
+            });
+            importTemplateDownload.addEventListener('click', () => {
+                const template = {
+                    name: "CharacterName",
+                    data: {
+                        persona: "[CharacterName's persona: ...]",
+                        examples: [],
+                        instructions: "[System Note: ...]",
+                        avatar: null,
+                        info: "A short description of this character.",
+                        temperature: null,
+                        history_limit: null,
+                        max_tokens: null
+                    },
+                    triggers: ["CharacterName"]
+                };
+                const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'character_template.json';
+                a.click();
+            });
+
+            // Import Functions (Largely Unchanged)
+            // Note: When importing, triggers will be empty. Users can add them before saving.
+            function handleFileImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (file.name.endsWith('.json')) { processJsonFile(file); } 
+                else if (file.name.endsWith('.png')) { processPngFile(file); } 
+                else { showToast('Unsupported file type. Please select a .json or .png card.', 'error'); }
+                event.target.value = '';
+            }
+            function processJsonFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        resetForm();
+                        populateFormWithCardData(data);
+                        openModal();
+                    } catch (error) { showToast('Failed to parse JSON file.', 'error'); }
+                };
+                reader.readAsText(file);
+            }
+            async function processPngFile(file) {
+                showToast('Processing PNG card...', 'success');
+                try {
+                    const data = await getCharacterDataFromPng(file);
+                    if (!data) { throw new Error('No character data found in the PNG file.'); }
+                    resetForm();
+                    populateFormWithCardData(data);
+                    updateAvatarPreview(URL.createObjectURL(file));
+                    openModal();
+                    await uploadFile(file);
+                } catch (error) { showToast(error.message, 'error'); }
+            }
+            function populateFormWithCardData(data) {
+                const charData = data.data || data; // Handle different card formats
+                nameInput.value = charData.name || '';
+                // Attempt to parse Pygmalion/Tavern fields
+                const description = charData.description || '';
+                const personality = charData.personality || '';
+                if (description || personality) {
+                    personaInput.value = `<description>\n${description}\n</description>\n<personality>\n${personality}\n</personality>`;
+                } else {
+                    personaInput.value = charData.persona || ''; // Fallback for our format
+                }
+                const systemPrompt = charData.system_prompt ||  '';
+                const postHistory = charData.post_history_instructions || '';
+                if(systemPrompt || postHistory) {
+                    instructionsInput.value = `[System Note: ${systemPrompt}]\n[System Note: ${postHistory}]`;
+                } else {
+                    instructionsInput.value = charData.instructions || '';
+                }
+                infoInput.value = charData.character_version || charData.info || charData.creator_notes || '';
+                let examples = charData.mes_example || charData.example_dialogue || '';
+                examples = examples.replace(/<START>/g, '\n---\n').trim();
+                examplesInput.value = examples;
+            }
+            // getCharacterDataFromPng function (Unchanged from original)
+            async function getCharacterDataFromPng(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const arrayBuffer = e.target.result;
+                            const dataView = new DataView(arrayBuffer);
+                            if (dataView.getUint32(0) !== 0x89504E47 || dataView.getUint32(4) !== 0x0D0A1A0A) {
+                                return reject(new Error("Not a valid PNG file."));
+                            }
+                            let offset = 8;
+                            while (offset < dataView.byteLength) {
+                                const length = dataView.getUint32(offset);
+                                const type = String.fromCharCode.apply(null, new Uint8Array(arrayBuffer, offset + 4, 4));
+                                if (type === 'tEXt') {
+                                    const chunkData = new Uint8Array(arrayBuffer, offset + 8, length);
+                                    const decoder = new TextDecoder('iso-8859-1');
+                                    const text = decoder.decode(chunkData);
+                                    const nullIndex = text.indexOf('\0');
+                                    if (nullIndex > 0) {
+                                        const key = text.substring(0, nullIndex);
+                                        const value = text.substring(nullIndex + 1);
+                                        if (key === 'chara') {
+                                            const decodedJson = atob(value);
+                                            const parsedData = JSON.parse(decodedJson);
+                                            return resolve(parsedData);
+                                        }
+                                    }
+                                }
+                                if (type === 'IEND') break;
+                                offset += 12 + length;
+                            }
+                            resolve(null);
+                        } catch (err) { reject(new Error("Could not parse character data from PNG.")); }
+                    };
+                    reader.onerror = () => reject(new Error("Failed to read the file."));
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            // Utility Functions (Unchanged)
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                const icon = type === 'success' ? '<i class="fas fa-check-circle mr-2"></i>' : '<i class="fas fa-exclamation-circle mr-2"></i>';
+                const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+                toast.className = `${bgColor} text-white py-2 px-4 rounded-lg shadow-lg flex items-center animate-pulse`;
+                toast.innerHTML = `${icon} ${message}`;
+                toastContainer.innerHTML = '';
+                toastContainer.appendChild(toast);
+                setTimeout(() => { toast.remove(); }, 4000);
+            }
+
+            // --- Event Listeners ---
+            form.addEventListener('submit', handleFormSubmit);
+            deleteBtn.addEventListener('click', handleDelete);
+            avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
+            avatarUrlInput.addEventListener('input', (e) => updateAvatarPreview(e.target.value));
+            importFileInput.addEventListener('change', handleFileImport);
+            modalCloseBtn.addEventListener('click', closeModal);
+
+            // --- Initial Load ---
+            fetchAndDisplayCharacters();
+        });
+    // --- Bot Status Indicator ---
+    (function() {
+        const indicator = document.getElementById('bot-status-indicator');
+        const text = document.getElementById('bot-status-text');
+        const classes = ['status-active', 'status-inactive', 'status-starting'];
+        function update(status) {
+            indicator.classList.remove(...classes);
+            if (status === 'active') { indicator.classList.add('status-active'); text.textContent = 'Active'; }
+            else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); text.textContent = status.charAt(0).toUpperCase() + status.slice(1); }
+            else { indicator.classList.add('status-inactive'); text.textContent = 'Inactive'; }
+        }
+        function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => update(d.status)).catch(() => update('inactive')); }
+        poll();
+        setInterval(poll, 2500);
+    })();
+    </script>
+</body>
+</html>

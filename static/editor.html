@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Avatar Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #6366f1; --primary-dark: #4f46e5; --darker: #0f172a; --light: #f8fafc; }
+        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
+        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-inactive { background-color: #ef4444; }
+        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        #avatar-canvas { cursor: grab; display: block; background: #1e293b; border-radius: 0.5rem; }
+        #avatar-canvas:active { cursor: grabbing; }
+        .slider-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+        .slider-row label { width: 90px; font-size: 0.8rem; color: #94a3b8; }
+        .slider-row input[type=range] { flex: 1; accent-color: #6366f1; }
+        .slider-row span { width: 40px; font-size: 0.8rem; color: #e2e8f0; text-align: right; }
+        #circle-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 0.5rem; pointer-events: none;
+            background: radial-gradient(circle 178px at center, transparent 176px, rgba(0,0,0,0.6) 178px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="bg-darker border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-3 text-white mr-10">
+                        <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
+                        <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
+                    </a>
+                    <div class="hidden md:flex items-baseline space-x-4">
+                        <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                        <a href="/servers" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-server mr-2"></i>Servers</a>
+                        <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i>Characters</a>
+                        <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-cog mr-2"></i>Config</a>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center">
+                    <span class="text-sm text-gray-400 mr-2">Status:</span>
+                    <span id="bot-status-indicator" class="status-indicator"></span>
+                    <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="max-w-5xl mx-auto p-8 space-y-8">
+        <h1 class="text-3xl font-bold text-white">Avatar Editor</h1>
+
+        <div class="flex gap-10 flex-wrap">
+            <!-- Canvas + previews -->
+            <div class="flex-shrink-0 space-y-4">
+                <!-- Main canvas with circle overlay -->
+                <div style="position: relative; display: inline-block;">
+                    <canvas id="avatar-canvas" width="360" height="360"></canvas>
+                    <div id="circle-overlay"></div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex gap-2 flex-wrap">
+                    <button id="reset-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded transition-colors">Reset</button>
+                    <button id="export-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-1.5 rounded transition-colors"><i class="fas fa-download mr-1"></i>Export PNG</button>
+                    <button id="discord-upload-btn" class="bg-[#5865f2] hover:bg-[#4752c4] text-white text-sm font-semibold px-4 py-1.5 rounded transition-colors"><i class="fab fa-discord mr-1"></i>Save on Discord</button>
+                </div>
+
+                <!-- Discord CDN URL result -->
+                <div id="cdn-result" class="hidden mt-1">
+                    <p class="text-xs text-gray-400 mb-1">Discord CDN URL — click to copy:</p>
+                    <div class="flex gap-2">
+                        <input id="cdn-url" type="text" readonly class="bg-gray-800 border border-gray-700 text-indigo-300 text-xs rounded-lg flex-grow p-2 cursor-pointer" onclick="this.select()">
+                        <button id="cdn-copy-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 rounded-lg transition-colors"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+
+                <!-- Discord preview -->
+                <div>
+                    <p class="text-xs text-gray-500 mb-2 uppercase tracking-wide">Discord preview</p>
+                    <div class="flex items-center gap-3">
+                        <canvas id="discord-preview" width="40" height="40" style="border-radius: 50%; background: #36393f; display: block; flex-shrink: 0;"></canvas>
+                        <div class="text-xs text-gray-500 leading-relaxed">
+                            <p class="text-gray-300 font-semibold text-sm">Character Name</p>
+                            <p>This is how your avatar<br>appears on Discord.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex-grow min-w-[280px] space-y-5">
+                <!-- Load from URL -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Image URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="url-input" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg flex-grow p-2.5" placeholder="https://...">
+                        <button id="url-load-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 rounded-lg transition-colors">Load</button>
+                    </div>
+                </div>
+
+                <!-- Import PNG -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Import PNG</label>
+                    <label for="file-input" class="flex items-center gap-3 cursor-pointer bg-gray-800 border border-gray-700 hover:border-indigo-500 text-gray-300 hover:text-white text-sm rounded-lg p-2.5 transition-colors">
+                        <i class="fas fa-file-image text-indigo-400"></i>
+                        <span id="file-label">Choose a PNG or image file…</span>
+                    </label>
+                    <input type="file" id="file-input" accept="image/*" class="hidden">
+                </div>
+
+                <!-- Sliders -->
+                <div class="pt-1">
+                    <div class="slider-row"><label>Zoom</label><input type="range" id="sl-zoom" min="0.1" max="2" step="0.01" value="1"><span id="sl-zoom-val">1.00</span></div>
+                    <div class="slider-row"><label>Brightness</label><input type="range" id="sl-brightness" min="-100" max="100" step="1" value="0"><span id="sl-brightness-val">0</span></div>
+                    <div class="slider-row"><label>Contrast</label><input type="range" id="sl-contrast" min="-100" max="100" step="1" value="0"><span id="sl-contrast-val">0</span></div>
+                    <div class="slider-row"><label>Hue</label><input type="range" id="sl-hue" min="-180" max="180" step="1" value="0"><span id="sl-hue-val">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export result -->
+        <div id="result" class="hidden">
+            <p class="text-sm text-gray-400 mb-2">Exported — right-click to save, or download started automatically.</p>
+            <img id="result-img" src="" alt="exported" class="rounded-lg max-w-xs border border-gray-700">
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('avatar-canvas');
+        const ctx = canvas.getContext('2d');
+        const discordCanvas = document.getElementById('discord-preview');
+        const dctx = discordCanvas.getContext('2d');
+        const DISCORD_SIZE = 40;
+        const urlInput = document.getElementById('url-input');
+        const urlLoadBtn = document.getElementById('url-load-btn');
+        const fileInput = document.getElementById('file-input');
+        const fileLabel = document.getElementById('file-label');
+        const resetBtn = document.getElementById('reset-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const resultDiv = document.getElementById('result');
+        const resultImg = document.getElementById('result-img');
+        const slZoom = document.getElementById('sl-zoom');
+        const slBrightness = document.getElementById('sl-brightness');
+        const slContrast = document.getElementById('sl-contrast');
+        const slHue = document.getElementById('sl-hue');
+        const slZoomVal = document.getElementById('sl-zoom-val');
+        const slBrightnessVal = document.getElementById('sl-brightness-val');
+        const slContrastVal = document.getElementById('sl-contrast-val');
+        const slHueVal = document.getElementById('sl-hue-val');
+
+        let img = null, offsetX = 0, offsetY = 0, dragging = false, dragStartX = 0, dragStartY = 0, loadToken = 0;
+
+        function getFilter() {
+            const b = parseInt(slBrightness.value), c = parseInt(slContrast.value), h = parseInt(slHue.value);
+            return `brightness(${100+b}%) contrast(${100+c}%) hue-rotate(${h}deg)`;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!img) return;
+            const zoom = parseFloat(slZoom.value);
+            ctx.filter = getFilter();
+            const w = img.naturalWidth * zoom, ht = img.naturalHeight * zoom;
+            ctx.drawImage(img, (canvas.width - w) / 2 + offsetX, (canvas.height - ht) / 2 + offsetY, w, ht);
+            ctx.filter = 'none';
+            updateDiscordPreview();
+        }
+
+        function updateDiscordPreview() {
+            const S = DISCORD_SIZE;
+            dctx.clearRect(0, 0, S, S);
+            if (!img) return;
+            dctx.save();
+            dctx.beginPath();
+            dctx.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2);
+            dctx.clip();
+            const scale = S / canvas.width;
+            const zoom = parseFloat(slZoom.value);
+            dctx.filter = getFilter();
+            const w = img.naturalWidth * zoom * scale, ht = img.naturalHeight * zoom * scale;
+            dctx.drawImage(img, (S - w) / 2 + offsetX * scale, (S - ht) / 2 + offsetY * scale, w, ht);
+            dctx.filter = 'none';
+            dctx.restore();
+        }
+
+        function toProxied(src) {
+            if (src && (src.startsWith('http://') || src.startsWith('https://')))
+                return `/api/characters/proxy_image?url=${encodeURIComponent(src)}`;
+            return src;
+        }
+
+        function loadImage(src) {
+            const token = ++loadToken;
+            canvas.width = canvas.width;
+            const i = new Image();
+            i.onload = () => {
+                if (token !== loadToken) return;
+                img = i;
+                const autoZoom = Math.min(canvas.width / i.naturalWidth, canvas.height / i.naturalHeight);
+                slZoom.value = Math.max(0.1, Math.min(2, autoZoom));
+                slZoomVal.textContent = parseFloat(slZoom.value).toFixed(2);
+                offsetX = 0; offsetY = 0;
+                draw();
+            };
+            i.onerror = () => alert('Failed to load image. Check the URL.');
+            i.src = toProxied(src);
+        }
+
+        function resetControls() {
+            slZoom.value = 1; slBrightness.value = 0; slContrast.value = 0; slHue.value = 0;
+            slZoomVal.textContent = '1.00'; slBrightnessVal.textContent = '0'; slContrastVal.textContent = '0'; slHueVal.textContent = '0';
+            offsetX = 0; offsetY = 0;
+        }
+
+        [[slZoom, slZoomVal, v => parseFloat(v).toFixed(2)], [slBrightness, slBrightnessVal, v => v],
+         [slContrast, slContrastVal, v => v], [slHue, slHueVal, v => v]
+        ].forEach(([s, l, f]) => s.addEventListener('input', () => { l.textContent = f(s.value); draw(); }));
+
+        canvas.addEventListener('mousedown', e => { dragging = true; dragStartX = e.clientX - offsetX; dragStartY = e.clientY - offsetY; });
+        window.addEventListener('mousemove', e => { if (!dragging) return; offsetX = e.clientX - dragStartX; offsetY = e.clientY - dragStartY; draw(); });
+        window.addEventListener('mouseup', () => dragging = false);
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const z = Math.min(2, Math.max(0.1, parseFloat(slZoom.value) + (e.deltaY > 0 ? -0.05 : 0.05)));
+            slZoom.value = z; slZoomVal.textContent = z.toFixed(2); draw();
+        }, { passive: false });
+
+        urlLoadBtn.addEventListener('click', () => { if (urlInput.value.trim()) loadImage(urlInput.value.trim()); });
+        urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') urlLoadBtn.click(); });
+
+        fileInput.addEventListener('change', e => {
+            const f = e.target.files[0];
+            if (!f) return;
+            fileLabel.textContent = f.name;
+            loadImage(URL.createObjectURL(f));
+        });
+
+        resetBtn.addEventListener('click', () => { resetControls(); if (img) draw(); });
+
+        const cdnResult = document.getElementById('cdn-result');
+        const cdnUrlInput = document.getElementById('cdn-url');
+        const cdnCopyBtn = document.getElementById('cdn-copy-btn');
+        const discordUploadBtn = document.getElementById('discord-upload-btn');
+
+        discordUploadBtn.addEventListener('click', async () => {
+            if (!img) { alert('Load an image first.'); return; }
+            discordUploadBtn.disabled = true;
+            discordUploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Uploading...';
+            try {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                const formData = new FormData();
+                formData.append('image', blob, 'avatar.png');
+                const resp = await fetch('/api/characters/upload_image', { method: 'POST', body: formData });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || resp.status);
+                }
+                const { cdn_url } = await resp.json();
+                cdnUrlInput.value = cdn_url;
+                cdnResult.classList.remove('hidden');
+                navigator.clipboard.writeText(cdn_url).catch(() => {});
+            } catch (e) {
+                alert(`Upload failed: ${e.message}`);
+            } finally {
+                discordUploadBtn.disabled = false;
+                discordUploadBtn.innerHTML = '<i class="fab fa-discord mr-1"></i>Save on Discord';
+            }
+        });
+
+        cdnCopyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(cdnUrlInput.value);
+            cdnCopyBtn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => cdnCopyBtn.innerHTML = '<i class="fas fa-copy"></i>', 2000);
+        });
+
+        exportBtn.addEventListener('click', () => {
+            if (!img) { alert('Load an image first.'); return; }
+            try {
+                const dataUrl = canvas.toDataURL('image/png');
+                resultImg.src = dataUrl;
+                resultDiv.classList.remove('hidden');
+                const a = document.createElement('a');
+                a.href = dataUrl; a.download = 'avatar.png'; a.click();
+            } catch(e) {
+                alert('Export failed (CORS). Use file upload instead of URL.');
+            }
+        });
+
+        // --- Bot Status Indicator ---
+        (function() {
+            const indicator = document.getElementById('bot-status-indicator');
+            const text = document.getElementById('bot-status-text');
+            const classes = ['status-active', 'status-inactive', 'status-starting'];
+            function update(status) {
+                indicator.classList.remove(...classes);
+                if (status === 'active') { indicator.classList.add('status-active'); text.textContent = 'Active'; }
+                else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); text.textContent = status.charAt(0).toUpperCase() + status.slice(1); }
+                else { indicator.classList.add('status-inactive'); text.textContent = 'Inactive'; }
+            }
+            function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => update(d.status)).catch(() => update('inactive')); }
+            poll();
+            setInterval(poll, 2500);
+        })();
+    </script>
+</body>
+</html>
