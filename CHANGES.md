@@ -7,11 +7,11 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 
 ## Quality of Life Improvements
 
-### Groq API with automatic fallback
-- Switched to Groq API (llama-3.3-70b-versatile as primary model)
-- Automatic fallback to a secondary model (llama-3.1-8b-instant) when the primary hits a rate limit
-- Fallback duration and both model names are fully configurable from the AI Config panel in the web UI
-- Fallback state is persisted to disk — survives bot restarts
+### Configurable base model with automatic fallback
+- Base model and fallback model are fully configurable from the AI Config panel in the web UI
+- Automatic switch to the fallback model when the primary hits a rate limit
+- Fallback duration is configurable from the web UI
+- Fallback state is persisted to disk - survives bot restarts
 
 ### Token usage tracking
 - Tracks tokens used per minute (TPM) and per day (TPD)
