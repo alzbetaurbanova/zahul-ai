@@ -13,7 +13,8 @@
   </a>
 </p>
 <h1 align="center">zahul-ai</h1>
-<h3 align="center">A Discord roleplay bot — based on <a href="https://github.com/Iteranya/viel-ai">viel-ai</a> by Artes Paradox. See <a href="CHANGES.md">CHANGES.md</a> for what's different.</h3>
+
+A Discord roleplay bot - based on [viel-ai](https://github.com/Iteranya/viel-ai) by Artes Paradox. See [CHANGES.md](CHANGES.md) for what's different.
 
 ---
 
