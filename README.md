@@ -41,8 +41,8 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 - Built-in prompt template editor with Jinja2 support
 
 ### Any AI backend you want
-- Works with OpenAI, Groq, Claude, or any OpenAI-compatible endpoint
-- Automatic fallback to a secondary model when the primary hits rate limits — configurable from the UI
+- Works with any OpenAI-compatible endpoint
+- Configurable base model and automatic fallback when the primary hits rate limits
 - Fallback duration, token limits (per minute / per day) all set from the web panel
 - `/tokens` — check current token usage and active model at any time
 - `/fallback status/on/off` — manually control fallback mode
