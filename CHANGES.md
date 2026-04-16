@@ -36,6 +36,11 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Avatar uploads are saved locally to `static/avatars/` instead of Discord CDN
 - Avatars no longer expire or disappear after bot restarts
 
+### Character filtering by server
+- Dropdown on the Characters page to filter characters by server
+- Shows only characters whitelisted in at least one channel of the selected server
+- Direct Messages excluded from the filter list
+
 ### Panel authentication
 - Optional password protection for the web panel
 - Set a password via AI Config - Panel Security section

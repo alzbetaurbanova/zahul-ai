@@ -204,6 +204,10 @@
                             <label for="panel_password" class="block mb-2 text-sm font-medium text-gray-300">Panel Password <span class="text-gray-500 font-normal">(leave empty to disable)</span></label>
                             <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Set a password to protect this panel">
                         </div>
+                        <div class="mt-4">
+                            <label for="panel_password_hint" class="block mb-2 text-sm font-medium text-gray-300">Password Hint <span class="text-gray-500 font-normal">(shown on login page)</span></label>
+                            <input type="text" id="panel_password_hint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. Check your notes">
+                        </div>
                     </fieldset>
 
                     <!-- Main Save Button -->
@@ -255,7 +259,7 @@
                 'default_character', 'ai_endpoint', 'base_llm', 'temperature', 'auto_cap',
                 'history_limit', 'max_tokens',
                 'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
-                'panel_password',
+                'panel_password', 'panel_password_hint',
                 'ai_key', 'discord_key', 'use_prefill', 'dm_list',
                 'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api'
             ];
@@ -408,6 +412,11 @@
         poll();
         setInterval(poll, 2500);
     })();
+    </script>
+    <script>
+        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
+            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
+        });
     </script>
 </body>
 </html>

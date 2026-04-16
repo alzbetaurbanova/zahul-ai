@@ -111,7 +111,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
         # Always allow login page and static assets
-        if path.startswith("/login") or path.startswith("/static") or path in ("/favicon.ico", "/zahul"):
+        if path.startswith("/login") or path.startswith("/static") or path in ("/favicon.ico", "/zahul", "/api/panel-hint", "/api/auth-enabled"):
             return await call_next(request)
 
         # Check session cookie
@@ -235,6 +235,20 @@ async def logout(request: Request):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("zahul_session")
     return response
+
+@app.get("/api/auth-enabled", include_in_schema=False)
+async def auth_enabled():
+    if not PANEL_AUTH_ENABLED:
+        return {"enabled": False}
+    db = Database()
+    panel_password = db.get_config("panel_password") or ""
+    return {"enabled": bool(panel_password)}
+
+@app.get("/api/panel-hint", include_in_schema=False)
+async def panel_hint():
+    db = Database()
+    hint = db.get_config("panel_password_hint") or ""
+    return {"hint": hint}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

@@ -308,5 +308,10 @@
         setInterval(poll, 2500);
     })();
     </script>
+    <script>
+        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
+            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
+        });
+    </script>
 </body>
 </html>

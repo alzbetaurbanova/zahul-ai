@@ -75,7 +75,15 @@
     <!-- Main Content -->
     <main class="flex-grow p-6 sm:p-8">
         <div class="max-w-7xl mx-auto">
-            <h1 class="text-3xl font-bold text-white mb-8">Character Management</h1>
+            <div class="flex items-center justify-between mb-8">
+                <h1 class="text-3xl font-bold text-white">Character Management</h1>
+                <div class="flex items-center gap-2">
+                    <label for="server-filter" class="text-sm text-gray-400 whitespace-nowrap">Filter by server:</label>
+                    <select id="server-filter" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="all">All</option>
+                    </select>
+                </div>
+            </div>
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 <p class="text-gray-400 col-span-full">Loading characters...</p>
             </div>
@@ -218,6 +226,49 @@
             const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
             const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
 
+            // --- Server Filter ---
+            const serverFilter = document.getElementById('server-filter');
+            let allCharacters = [];
+            let serverWhitelists = {}; // server_id -> Set of character names
+
+            async function loadServerFilter() {
+                try {
+                    const res = await fetch('/api/servers/');
+                    if (!res.ok) return;
+                    const servers = await res.json();
+                    servers.filter(s => !s.server_name.toLowerCase().includes('direct message')).forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.server_id;
+                        opt.textContent = s.server_name;
+                        serverFilter.appendChild(opt);
+                    });
+                    // Load whitelists for all servers
+                    await Promise.all(servers.map(async s => {
+                        const r = await fetch(`/api/servers/${s.server_id}/channels`);
+                        if (!r.ok) return;
+                        const channels = await r.json();
+                        const names = new Set();
+                        channels.forEach(ch => (ch.data.whitelist || []).forEach(n => names.add(n)));
+                        serverWhitelists[s.server_id] = names;
+                    }));
+                } catch(e) {}
+            }
+
+            function applyFilter() {
+                const selected = serverFilter.value;
+                const cards = characterGrid.querySelectorAll('[data-char-name]');
+                cards.forEach(card => {
+                    if (selected === 'all') {
+                        card.style.display = '';
+                    } else {
+                        const whitelist = serverWhitelists[selected] || new Set();
+                        card.style.display = whitelist.has(card.dataset.charName) ? '' : 'none';
+                    }
+                });
+            }
+
+            serverFilter.addEventListener('change', applyFilter);
+
             // --- Core Functions ---
 
             // REWORKED: Fetch and display all characters efficiently
@@ -248,6 +299,7 @@
                     characters.forEach(char => {
                         const card = document.createElement('div');
                         card.className = 'group relative aspect-square bg-gray-900 rounded-lg cursor-pointer overflow-hidden shadow-lg transition-transform transform hover:scale-105 border border-gray-800';
+                        card.dataset.charName = char.name;
                         card.innerHTML = `
                             <img src="${char.avatar || 'https://via.placeholder.com/200'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
@@ -256,6 +308,7 @@
                         card.addEventListener('click', () => loadCharacterForEdit(char.name));
                         characterGrid.appendChild(card);
                     });
+                    applyFilter();
 
                 } catch (error) {
                     console.error(error);
@@ -578,6 +631,7 @@
             modalCloseBtn.addEventListener('click', closeModal);
 
             // --- Initial Load ---
+            loadServerFilter();
             fetchAndDisplayCharacters();
         });
     // --- Bot Status Indicator ---
@@ -595,6 +649,11 @@
         poll();
         setInterval(poll, 2500);
     })();
+    </script>
+    <script>
+        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
+            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
+        });
     </script>
 </body>
 </html>

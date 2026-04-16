@@ -40,6 +40,9 @@
                     Login
                 </button>
             </form>
+            <div id="hint-msg" class="mt-3 text-gray-500 text-xs text-center hidden">
+                Hint: <span id="hint-text"></span>
+            </div>
             <div id="error-msg" class="mt-4 text-red-400 text-sm text-center hidden">
                 Incorrect password. Try again.
             </div>
@@ -49,6 +52,18 @@
         const params = new URLSearchParams(window.location.search);
         if (params.get('error')) {
             document.getElementById('error-msg').classList.remove('hidden');
+            const attempts = parseInt(localStorage.getItem('login_attempts') || '0') + 1;
+            localStorage.setItem('login_attempts', attempts);
+            if (attempts >= 3) {
+                fetch('/api/panel-hint').then(r => r.json()).then(d => {
+                    if (d.hint) {
+                        document.getElementById('hint-text').textContent = d.hint;
+                        document.getElementById('hint-msg').classList.remove('hidden');
+                    }
+                });
+            }
+        } else {
+            localStorage.removeItem('login_attempts');
         }
     </script>
 </body>

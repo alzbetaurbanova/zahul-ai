@@ -27,6 +27,8 @@ class BotConfig(BaseModel):
     fallback_duration: int = 7200
     token_limit_tpm: int = 12000
     token_limit_tpd: int = 100000
+    panel_password: str = ""
+    panel_password_hint: str = ""
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)
