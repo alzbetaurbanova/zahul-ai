@@ -73,7 +73,7 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 ### Run locally
 
 ```bash
-git clone https://github.com/yourusername/zahul-ai.git
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
 cd zahul-ai
 pip install -r requirements.txt
 python main.py
