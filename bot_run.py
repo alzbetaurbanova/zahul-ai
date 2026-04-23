@@ -5,6 +5,11 @@ from discord import app_commands
 import traceback
 from typing import Optional
 
+# --- Autocap runtime state ---
+_autocap_unlimited: bool = False           # True = no cap, ignores DB value
+_autocap_previous: Optional[int] = None   # last manually set value (restored by /autocap on)
+_autocap_revert_task: Optional[asyncio.Task] = None
+
 from api.db.database import Database
 from api.models.models import BotConfig
 from src.models.dimension import ActiveChannel
@@ -49,6 +54,7 @@ class Zahul(discord.Client):
         self.tree.add_command(CoreCommands(self.db))
         self.tree.add_command(WhitelistCommands(self.db))
         self.tree.add_command(FallbackGroup())
+        self.tree.add_command(AutocapGroup())
         self.tree.add_command(tokens_command)
         self.tree.add_command(about_command(self.db))
         
@@ -262,6 +268,92 @@ class FallbackGroup(app_commands.Group):
         llm._clear_fallback_state()
         llm.reset_fallback_tokens()
         await interaction.response.send_message("✅ Fallback vypnutý, prepínam na primary.", ephemeral=True)
+
+
+class AutocapGroup(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="autocap", description="Chain limit — controls how many times the bot reacts to another bot's message")
+
+    @app_commands.command(name="set", description="Set the bot-to-bot chain limit.")
+    @app_commands.describe(value="Number of bot-to-bot replies allowed in a chain")
+    async def set_cap(self, interaction: discord.Interaction, value: int):
+        global _autocap_unlimited, _autocap_previous, _autocap_revert_task
+        if value < 0:
+            await interaction.response.send_message("❌ Value must be 0 or higher.", ephemeral=True)
+            return
+        if _autocap_revert_task and not _autocap_revert_task.done():
+            _autocap_revert_task.cancel()
+            _autocap_revert_task = None
+        _autocap_unlimited = False
+        _autocap_previous = value
+        bot: Zahul = interaction.client
+        bot.db.set_config("auto_cap", value)
+        await interaction.response.send_message(f"✅ Chain limit set to **{value}**.", ephemeral=True)
+
+    @app_commands.command(name="off", description="Disable the chain limit (unlimited). Auto-reverts after given hours.")
+    @app_commands.describe(hours="Hours until auto-revert to previous value (default: 2)")
+    async def off(self, interaction: discord.Interaction, hours: Optional[float] = 2.0):
+        global _autocap_unlimited, _autocap_previous, _autocap_revert_task
+        bot: Zahul = interaction.client
+        if _autocap_revert_task and not _autocap_revert_task.done():
+            _autocap_revert_task.cancel()
+
+        if _autocap_previous is None:
+            _autocap_previous = get_bot_config(bot.db).auto_cap
+
+        _autocap_unlimited = True
+
+        async def _revert():
+            global _autocap_unlimited
+            await asyncio.sleep(hours * 3600)
+            _autocap_unlimited = False
+            try:
+                await interaction.followup.send(
+                    f"⏰ Chain limit auto-reverted to **{_autocap_previous}** after {hours}h.", ephemeral=True
+                )
+            except Exception:
+                pass
+
+        _autocap_revert_task = asyncio.create_task(_revert())
+        from datetime import datetime, timedelta
+        revert_at = (datetime.now() + timedelta(hours=hours)).strftime("%H:%M")
+        await interaction.response.send_message(
+            f"✅ Chain limit **disabled** (unlimited).\n⏰ Auto-reverts to **{_autocap_previous}** at **{revert_at}**.",
+            ephemeral=True
+        )
+
+    @app_commands.command(name="on", description="Re-enable the chain limit with the last set value.")
+    async def on(self, interaction: discord.Interaction):
+        global _autocap_unlimited, _autocap_revert_task
+        bot: Zahul = interaction.client
+        if _autocap_revert_task and not _autocap_revert_task.done():
+            _autocap_revert_task.cancel()
+            _autocap_revert_task = None
+        _autocap_unlimited = False
+        restore = _autocap_previous if _autocap_previous is not None else get_bot_config(bot.db).auto_cap
+        await interaction.response.send_message(f"✅ Chain limit re-enabled at **{restore}**.", ephemeral=True)
+
+    @app_commands.command(name="reset", description="Reset to the value configured in AI Config panel, cancel any active timer.")
+    async def reset(self, interaction: discord.Interaction):
+        global _autocap_unlimited, _autocap_previous, _autocap_revert_task
+        bot: Zahul = interaction.client
+        if _autocap_revert_task and not _autocap_revert_task.done():
+            _autocap_revert_task.cancel()
+            _autocap_revert_task = None
+        _autocap_unlimited = False
+        _autocap_previous = None
+        default = get_bot_config(bot.db).auto_cap
+        await interaction.response.send_message(f"✅ Chain limit reset to **{default}** (from AI Config).", ephemeral=True)
+
+    @app_commands.command(name="status", description="Show current chain limit status.")
+    async def status(self, interaction: discord.Interaction):
+        bot: Zahul = interaction.client
+        if _autocap_unlimited:
+            revert_info = f" — reverts to **{_autocap_previous}** when `/autocap on` or timer expires" if _autocap_previous is not None else ""
+            await interaction.response.send_message(f"♾️ Chain limit: **unlimited**{revert_info}", ephemeral=True)
+        else:
+            cap = _autocap_previous if _autocap_previous is not None else get_bot_config(bot.db).auto_cap
+            await interaction.response.send_message(f"🔗 Chain limit: **{cap}** bot-to-bot replies per chain.", ephemeral=True)
 
 
 # --- Slash Command Groups ---

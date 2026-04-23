@@ -30,9 +30,9 @@ async def bot_behavior(message: discord.Message, bot) -> None:
     if not channel:
         return # Channel is not registered, so we ignore it.
 
-    # # Reset the auto-reply counter if a human speaks
-    # if not message.webhook_id:
-    #     bot.auto_reply_count = 0
+    # Reset the auto-reply counter if a human speaks
+    if not message.webhook_id:
+        bot.auto_reply_count = 0
 
     # --- Determine if the bot should activate ---
 
@@ -104,8 +104,12 @@ async def bot_behavior(message: discord.Message, bot) -> None:
 
     # D. Activated by another bot's message (bot-to-bot interaction)
     if message.webhook_id:
-        # Fetch the GLOBAL cap from the bot's loaded configuration
-        cap = bot.config.auto_cap
+        import bot_run
+        if bot_run._autocap_unlimited:
+            cap = 999999
+        else:
+            from src.utils.llm_new import get_bot_config
+            cap = bot_run._autocap_previous if bot_run._autocap_previous is not None else get_bot_config(bot.db).auto_cap
         
         # Check if the GLOBAL auto-reply cap has been reached
         if bot.auto_reply_count >= cap:

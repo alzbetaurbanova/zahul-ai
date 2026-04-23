@@ -42,7 +42,7 @@
                     <div class="hidden md:block">
                         <div class="ml-10 flex items-baseline space-x-4">
                             <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i> Dashboard</a>
-                            <a href="/servers" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-server mr-2"></i> Servers</a>
+                            
                             <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i> Characters</a>
                             <a href="/ai-config" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-cog mr-2"></i> AI Config</a>
                         </div>
@@ -85,18 +85,22 @@
                            <div>
                                 <label for="history_limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(messages)</span></label>
                                 <input type="number" id="history_limit" step="1" min="1" max="50" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 10">
+                                <p class="text-xs text-gray-500 mt-1">How many past messages the AI sees as context.</p>
                             </div>
                             <div>
                                 <label for="max_tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Output Tokens</label>
                                 <input type="number" id="max_tokens" step="1" min="64" max="4096" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 256">
+                                <p class="text-xs text-gray-500 mt-1">Max response length. Can be overridden per character.</p>
                             </div>
                             <div>
                                 <label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature</label>
                                 <input type="number" id="temperature" step="0.1" min="0" max="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <p class="text-xs text-gray-500 mt-1">0 = predictable, 2 = chaotic. Can be overridden per character.</p>
                             </div>
                             <div>
-                                <label for="auto_cap" class="block mb-2 text-sm font-medium text-gray-300">Auto Response Cap</label>
+                                <label for="auto_cap" class="block mb-2 text-sm font-medium text-gray-300">Chain Limit</label>
                                 <input type="number" id="auto_cap" step="1" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <p class="text-xs text-gray-500 mt-1">Max bot-to-bot replies per chain. Default for <code class="text-indigo-400">/autocap reset</code>.</p>
                             </div>
 
                         </div>

@@ -125,10 +125,14 @@ class PromptEngineer:
             rendered_character.instructions = template.render(inner_context)
 
         # --- STEP 3: Create the context for the MAIN template ---
-        # This now uses our pre-rendered character object.
+        from src.models.dimension import DM_SERVER_ID
+        channel_context = copy.copy(self.channel)
+        if channel_context.server_id == DM_SERVER_ID:
+            channel_context.global_note = None
+
         base_context = {
-            "character": rendered_character, # <-- Using the rendered version!
-            "channel": self.channel,
+            "character": rendered_character,
+            "channel": channel_context,
             "user": self.user_name,
             "history": history,
             "message": self.message

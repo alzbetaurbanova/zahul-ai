@@ -185,7 +185,7 @@ async def generate_response(task: QueueItem, db: Database):
             return await client.chat.completions.create(
                 model=model,
                 stop=task.stop,
-                max_tokens=bot_config.max_tokens,
+                max_tokens=max_tokens,
                 temperature=temperature,
                 messages=messages
             )

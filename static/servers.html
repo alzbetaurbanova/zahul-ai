@@ -41,7 +41,6 @@
                     <div class="hidden md:block">
                         <div class="ml-10 flex items-baseline space-x-4">
                             <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i> Dashboard</a>
-                            <a href="/servers" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-server mr-2"></i> Servers</a>
                             <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i> Characters</a>
                             <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white">
                                     <i class="fas fa-cog mr-2"></i> AI Config
@@ -109,15 +108,11 @@
                                 <label for="instruction" class="block mb-2 text-sm font-medium text-gray-300">Instruction</label>
                                 <textarea id="instruction" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5"></textarea>
                             </div>
-                            <div>
-                                <label for="global_note" class="block mb-2 text-sm font-medium text-gray-300">Global Note (Lore)</label>
-                                <textarea id="global_note" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5"></textarea>
-                            </div>
-                            <div>
+                            <div id="whitelist-field">
                                 <label for="whitelist" class="block mb-2 text-sm font-medium text-gray-300">Character Whitelist (comma-separated)</label>
                                 <textarea id="whitelist" rows="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave empty to allow all"></textarea>
                             </div>
-                            <div class="flex items-center justify-between">
+                            <div id="system-channel-field" class="flex items-center justify-between">
                                 <div>
                                     <label for="is_system_channel" class="text-sm font-medium text-gray-300">System Channel</label>
                                     <p class="text-xs text-gray-500">Used for bot uploads and system tasks.</p>
@@ -180,7 +175,6 @@
             // Form fields
             const nameInput = document.getElementById('name');
             const instructionInput = document.getElementById('instruction');
-            const globalNoteInput = document.getElementById('global_note');
             const whitelistInput = document.getElementById('whitelist');
             const isSystemChannelInput = document.getElementById('is_system_channel');
 
@@ -237,9 +231,12 @@
                 configPanel.classList.remove('hidden');
                 formTitle.textContent = `Editing #${channel.data.name}`;
 
+                const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
+                document.getElementById('whitelist-field').classList.toggle('hidden', isDM);
+                document.getElementById('system-channel-field').classList.toggle('hidden', isDM);
+
                 nameInput.value = channel.data.name || '';
                 instructionInput.value = channel.data.instruction || '';
-                globalNoteInput.value = channel.data.global || '';
                 whitelistInput.value = (channel.data.whitelist || []).join(', ');
                 isSystemChannelInput.checked = channel.data.is_system_channel || false;
             }
@@ -248,12 +245,13 @@
                 event.preventDefault();
                 if (!currentChannel || !currentServer) return;
 
+                const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
                 const updatedData = {
                     name: nameInput.value,
                     instruction: instructionInput.value,
-                    global: globalNoteInput.value, // Make sure key is 'global'
-                    whitelist: whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
-                    is_system_channel: isSystemChannelInput.checked
+                    global: null,
+                    whitelist: isDM ? [] : whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
+                    is_system_channel: isDM ? false : isSystemChannelInput.checked
                 };
                 
                 try {

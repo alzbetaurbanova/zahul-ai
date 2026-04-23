@@ -56,7 +56,7 @@
                     <div class="hidden md:block">
                         <div class="ml-10 flex items-baseline space-x-4">
                             <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i> Dashboard</a>
-                            <a href="/servers" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-server mr-2"></i> Servers</a>
+                            
                             <a href="/characters" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-robot mr-2"></i> Characters</a>
                             <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-cog mr-2"></i> Config</a>
                         </div>
@@ -75,9 +75,15 @@
     <!-- Main Content -->
     <main class="flex-grow p-6 sm:p-8">
         <div class="max-w-7xl mx-auto">
-            <div class="flex items-center justify-between mb-8">
-                <h1 class="text-3xl font-bold text-white">Character Management</h1>
-                <div class="flex items-center gap-2">
+            <h1 class="text-3xl font-bold text-white mb-6">Character Management</h1>
+            <div class="flex items-center gap-3 mb-8">
+                <button id="new-char-btn" class="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-dashed border-gray-600 rounded-lg text-sm text-gray-300 hover:border-primary hover:text-primary transition-colors cursor-pointer">
+                    <i class="fas fa-plus"></i> New Character
+                </button>
+                <button id="import-card-btn" class="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-dashed border-gray-600 rounded-lg text-sm text-gray-300 hover:border-primary hover:text-primary transition-colors cursor-pointer">
+                    <i class="fas fa-upload"></i> Import Card
+                </button>
+                <div class="flex items-center gap-2 ml-auto">
                     <label for="server-filter" class="text-sm text-gray-400 whitespace-nowrap">Filter by server:</label>
                     <select id="server-filter" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
                         <option value="all">All</option>
@@ -279,19 +285,7 @@
 
                     characterGrid.innerHTML = ''; // Clear loading message
 
-                    // Add "New Character" card
-                    const newCharCard = document.createElement('div');
-                    newCharCard.className = 'flex items-center justify-center aspect-square bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-primary hover:text-primary transition-colors';
-                    newCharCard.innerHTML = `<div class="text-center"><i class="fas fa-plus fa-3x"></i><p class="mt-2 font-semibold">New Character</p></div>`;
-                    newCharCard.addEventListener('click', () => { resetForm(); openModal(); });
-                    characterGrid.appendChild(newCharCard);
-
-                    // Add "Import Character" card
-                    const importCard = document.createElement('div');
-                    importCard.className = 'flex items-center justify-center aspect-square bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-primary hover:text-primary transition-colors';
-                    importCard.innerHTML = `<div class="text-center"><i class="fas fa-upload fa-3x"></i><p class="mt-2 font-semibold">Import Card</p></div>`;
-                    importCard.addEventListener('click', () => openImportInfoModal());
-                    characterGrid.appendChild(importCard);
+                    characters.sort((a, b) => a.name.localeCompare(b.name));
 
                     // Add cards for each character from the list
                     characters.forEach(char => {
@@ -643,6 +637,8 @@
 
             // --- Event Listeners ---
             form.addEventListener('submit', handleFormSubmit);
+            document.getElementById('new-char-btn').addEventListener('click', () => { resetForm(); openModal(); });
+            document.getElementById('import-card-btn').addEventListener('click', () => openImportInfoModal());
             deleteBtn.addEventListener('click', handleDelete);
             exportBtn.addEventListener('click', handleExport);
             avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
