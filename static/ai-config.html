@@ -73,35 +73,32 @@
                         <legend class="text-lg font-semibold text-primary px-2">Core AI Settings</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div>
-                                <label for="default_character" class="block mb-2 text-sm font-medium text-gray-300">Default Character Name</label>
-                                <input type="text" id="default_character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
-                            </div>
-                            <div>
-                                <label for="base_llm" class="block mb-2 text-sm font-medium text-gray-300">Base LLM Model</label>
-                                <input type="text" id="base_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required placeholder="e.g., gryphe/mythomax-l2-13b">
-                            </div>
-                            <div>
                                 <label for="ai_endpoint" class="block mb-2 text-sm font-medium text-gray-300">AI Endpoint URL</label>
                                 <input type="text" id="ai_endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature</label>
-                                    <input type="number" id="temperature" step="0.1" min="0" max="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                                </div>
-                                <div>
-                                    <label for="auto_cap" class="block mb-2 text-sm font-medium text-gray-300">Auto Response Cap</label>
-                                    <input type="number" id="auto_cap" step="1" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                                </div>
-                                <div>
-                                    <label for="history_limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(messages)</span></label>
-                                    <input type="number" id="history_limit" step="1" min="1" max="50" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 10">
-                                </div>
-                                <div>
-                                    <label for="max_tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Output Tokens</label>
-                                    <input type="number" id="max_tokens" step="1" min="64" max="4096" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 256">
-                                </div>
+                            <div>
+                                <label for="base_llm" class="block mb-2 text-sm font-medium text-gray-300">Primary Model</label>
+                                <input type="text" id="base_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required placeholder="e.g., gryphe/mythomax-l2-13b">
                             </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                           <div>
+                                <label for="history_limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(messages)</span></label>
+                                <input type="number" id="history_limit" step="1" min="1" max="50" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 10">
+                            </div>
+                            <div>
+                                <label for="max_tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Output Tokens</label>
+                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 256">
+                            </div>
+                            <div>
+                                <label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature</label>
+                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label for="auto_cap" class="block mb-2 text-sm font-medium text-gray-300">Auto Response Cap</label>
+                                <input type="number" id="auto_cap" step="1" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+
                         </div>
                     </fieldset>
 
@@ -112,20 +109,22 @@
                             <div>
                                 <label for="fallback_llm" class="block mb-2 text-sm font-medium text-gray-300">Fallback Model</label>
                                 <input type="text" id="fallback_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., llama-3.1-8b-instant">
-                                <p class="text-xs text-gray-500 mt-1">Model použitý pri rate limite primary modelu.</p>
+                                <p class="text-xs text-gray-500 mt-1">Model used when the primary hits a rate limit.</p>
                             </div>
                             <div>
-                                <label for="fallback_duration" class="block mb-2 text-sm font-medium text-gray-300">Fallback Duration <span class="text-gray-500 font-normal">(sekúnd)</span></label>
+                                <label for="fallback_duration" class="block mb-2 text-sm font-medium text-gray-300">Fallback Duration <span class="text-gray-500 font-normal">(seconds)</span></label>
                                 <input type="number" id="fallback_duration" step="60" min="60" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 7200">
-                                <p class="text-xs text-gray-500 mt-1">Ako dlho ostane fallback aktívny (7200 = 2 hod).</p>
+                                <p class="text-xs text-gray-500 mt-1">How long the fallback stays active (7200 = 2 hrs).</p>
                             </div>
                             <div>
-                                <label for="token_limit_tpm" class="block mb-2 text-sm font-medium text-gray-300">Token Limit / minútu</label>
+                                <label for="token_limit_tpm" class="block mb-2 text-sm font-medium text-gray-300">Rate Limit Trigger <span class="text-gray-500 font-normal">(tokens / minute)</span></label>
                                 <input type="number" id="token_limit_tpm" step="1000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 12000">
+                                <p class="text-xs text-gray-500 mt-1">Primary switches to fallback when this per-minute limit is reached.</p>
                             </div>
                             <div>
-                                <label for="token_limit_tpd" class="block mb-2 text-sm font-medium text-gray-300">Token Limit / deň</label>
+                                <label for="token_limit_tpd" class="block mb-2 text-sm font-medium text-gray-300">Daily Token Budget <span class="text-gray-500 font-normal">(tokens / day)</span></label>
                                 <input type="number" id="token_limit_tpd" step="10000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 100000">
+                                <p class="text-xs text-gray-500 mt-1">Total token budget tracked across all models. Visible via <code class="text-indigo-400">/tokens</code>.</p>
                             </div>
                         </div>
                     </fieldset>
@@ -136,11 +135,21 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div>
                                 <label for="ai_key" class="block mb-2 text-sm font-medium text-gray-300">AI API Key</label>
-                                <input type="password" id="ai_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave blank to keep existing key">
+                                <div class="relative">
+                                    <input type="password" id="ai_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
+                                    <button type="button" onclick="toggleVisibility('ai_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                             </div>
-                             <div>
+                            <div>
                                 <label for="discord_key" class="block mb-2 text-sm font-medium text-gray-300">Discord Bot Token</label>
-                                <input type="password" id="discord_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave blank to keep existing key">
+                                <div class="relative">
+                                    <input type="password" id="discord_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
+                                    <button type="button" onclick="toggleVisibility('discord_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </fieldset>
@@ -148,7 +157,22 @@
                     <!-- DM Access Control (New Section) -->
                     <fieldset class="border border-gray-700 rounded-lg p-4">
                         <legend class="text-lg font-semibold text-primary px-2">DM Access Control</legend>
-                        <div class="mt-4">
+                        <div class="mt-2 mb-4">
+                            <label for="default_character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
+                            <input type="text" id="default_character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
+                            <p class="text-xs text-gray-500 mt-1">Character used for DMs and @mentions when no trigger is matched.</p>
+                        </div>
+                        <div class="border-t border-gray-700 pt-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-300">Allow Direct Messages</p>
+                                <p class="text-xs text-gray-500">Let specific users DM the bot directly.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="dm_toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        <div id="dm-fields" class="hidden mt-4">
                             <label for="dm_list" class="block mb-2 text-sm font-medium text-gray-300">Allowed Discord Usernames</label>
                             <p class="text-xs text-gray-500 mb-2">Users listed here are permitted to DM the bot. <strong>Enter one username per line.</strong></p>
                             <textarea id="dm_list" rows="5" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 font-mono" placeholder="username1&#10;username2"></textarea>
@@ -166,10 +190,10 @@
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input id="use_prefill" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
-                            <div class="border-t border-gray-700 my-4"></div>
+                            <div class="border-t border-gray-700"></div>
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label for="multimodal_enable" class="font-medium text-gray-300">Enable Multimodal (Vision)</label>
@@ -177,10 +201,10 @@
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
-                            <div id="multimodal-options" class="pl-6 pt-4 space-y-4 border-l-2 border-gray-700">
+                            <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
                                     <label for="multimodal_ai_model" class="block mb-2 text-sm font-medium text-gray-300">Multimodal Model</label>
                                     <input type="text" id="multimodal_ai_model" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., google/gemini-pro-vision">
@@ -191,22 +215,14 @@
                                 </div>
                                 <div>
                                     <label for="multimodal_ai_api" class="block mb-2 text-sm font-medium text-gray-300">Multimodal API Key</label>
-                                    <input type="password" id="multimodal_ai_api" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave blank to keep existing key">
+                                    <div class="relative">
+                                        <input type="password" id="multimodal_ai_api" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
+                                        <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </fieldset>
-
-                    <!-- Panel Security -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">Panel Security</legend>
-                        <div class="mt-4">
-                            <label for="panel_password" class="block mb-2 text-sm font-medium text-gray-300">Panel Password <span class="text-gray-500 font-normal">(leave empty to disable)</span></label>
-                            <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Set a password to protect this panel">
-                        </div>
-                        <div class="mt-4">
-                            <label for="panel_password_hint" class="block mb-2 text-sm font-medium text-gray-300">Password Hint <span class="text-gray-500 font-normal">(shown on login page)</span></label>
-                            <input type="text" id="panel_password_hint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. Check your notes">
                         </div>
                     </fieldset>
 
@@ -232,6 +248,41 @@
                         </button>
                     </div>
                 </fieldset>
+
+                <!-- Panel Security -->
+                <fieldset class="border border-gray-700 rounded-lg p-4">
+                    <legend class="text-lg font-semibold text-primary px-2">Panel Security</legend>
+                    <div class="flex items-center justify-between mt-2">
+                        <div>
+                            <p class="text-sm font-medium text-gray-300">Enable Panel Password</p>
+                            <p class="text-xs text-gray-500">Protect this panel with a password on login.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="security_toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    <div id="security-fields" class="hidden">
+                        <div class="mt-4">
+                            <label for="panel_password" class="block mb-2 text-sm font-medium text-gray-300">Panel Password</label>
+                            <div class="relative">
+                                <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Enter new password">
+                                <button type="button" onclick="toggleVisibility('panel_password', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label for="panel_password_hint" class="block mb-2 text-sm font-medium text-gray-300">Password Hint <span class="text-gray-500 font-normal">(shown on login page)</span></label>
+                            <input type="text" id="panel_password_hint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. Check your notes">
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-4">
+                        <button id="save-security-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                            Save Security
+                        </button>
+                    </div>
+                </fieldset>
             </div>
         </div>
     </main>
@@ -246,12 +297,23 @@
             const toastContainer = document.getElementById('toast-container');
             const multimodalToggle = document.getElementById('multimodal_enable');
             const multimodalOptions = document.getElementById('multimodal-options');
-            const multimodalInputs = multimodalOptions.querySelectorAll('input');
 
             // Prompt Editor Elements
             const promptTemplateInput = document.getElementById('prompt_template');
             const savePromptBtn = document.getElementById('save-prompt-btn');
-            let currentPresetDescription = null; 
+            let currentPresetDescription = null;
+
+            // Security Elements
+            const securityToggle = document.getElementById('security_toggle');
+            const securityFields = document.getElementById('security-fields');
+            const saveSecurityBtn = document.getElementById('save-security-btn');
+            const panelPasswordInput = document.getElementById('panel_password');
+            const panelPasswordHintInput = document.getElementById('panel_password_hint');
+
+
+            // DM Access Control Elements
+            const dmToggle = document.getElementById('dm_toggle');
+            const dmFields = document.getElementById('dm-fields');
 
             // Map keys to element IDs for easy access
             // ADDED: 'dm_list'
@@ -259,7 +321,6 @@
                 'default_character', 'ai_endpoint', 'base_llm', 'temperature', 'auto_cap',
                 'history_limit', 'max_tokens',
                 'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
-                'panel_password', 'panel_password_hint',
                 'ai_key', 'discord_key', 'use_prefill', 'dm_list',
                 'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api'
             ];
@@ -285,7 +346,27 @@
                         }
                     }
                     toggleMultimodalOptions();
+                    const dmVal = elements['dm_list'] ? elements['dm_list'].value.trim() : '';
+                    dmToggle.checked = dmVal.length > 0;
+                    toggleDmFields();
                 } catch (error) { showToast(error.message, 'error'); }
+            }
+
+            async function loadSecurityStatus() {
+                try {
+                    const response = await fetch('/api/auth-enabled');
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    securityToggle.checked = data.enabled;
+                    toggleSecurityFields();
+                    if (data.enabled) {
+                        const hintRes = await fetch('/api/panel-hint');
+                        if (hintRes.ok) {
+                            const hintData = await hintRes.json();
+                            panelPasswordHintInput.value = hintData.hint || '';
+                        }
+                    }
+                } catch (error) { /* silently ignore */ }
             }
 
             async function handleConfigSubmit(event) {
@@ -330,11 +411,52 @@
 
                 } catch (error) { showToast(error.message, 'error'); }
             }
-            
+
+            function toggleSecurityFields() {
+                if (securityToggle.checked) {
+                    securityFields.classList.remove('hidden');
+                } else {
+                    securityFields.classList.add('hidden');
+                    panelPasswordInput.value = '';
+                    panelPasswordHintInput.value = '';
+                }
+            }
+
+            async function handleSecuritySave() {
+                const isEnabled = securityToggle.checked;
+                const configData = {
+                    panel_password: isEnabled ? panelPasswordInput.value : '',
+                    panel_password_hint: isEnabled ? panelPasswordHintInput.value : ''
+                };
+                try {
+                    const response = await fetch('/api/config', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(configData)
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Failed to save security config.');
+                    }
+                    showToast(isEnabled ? 'Panel password saved!' : 'Panel password disabled!');
+                    panelPasswordInput.value = '';
+                } catch (error) { showToast(error.message, 'error'); }
+            }
+
+            function toggleDmFields() {
+                if (dmToggle.checked) {
+                    dmFields.classList.remove('hidden');
+                } else {
+                    dmFields.classList.add('hidden');
+                }
+            }
+
             function toggleMultimodalOptions() {
-                const isEnabled = multimodalToggle.checked;
-                multimodalOptions.style.opacity = isEnabled ? '1' : '0.5';
-                multimodalInputs.forEach(input => { input.disabled = !isEnabled; });
+                if (multimodalToggle.checked) {
+                    multimodalOptions.classList.remove('hidden');
+                } else {
+                    multimodalOptions.classList.add('hidden');
+                }
             }
 
             // --- Prompt Preset Functions ---
@@ -391,11 +513,27 @@
             form.addEventListener('submit', handleConfigSubmit);
             multimodalToggle.addEventListener('change', toggleMultimodalOptions);
             savePromptBtn.addEventListener('click', savePrompt);
+            securityToggle.addEventListener('change', toggleSecurityFields);
+            saveSecurityBtn.addEventListener('click', handleSecuritySave);
+            dmToggle.addEventListener('change', toggleDmFields);
 
             // --- Initial Load ---
             loadConfig();
             loadPrompt();
+            loadSecurityStatus();
         });
+
+    function toggleVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
 
     // --- Bot Status Indicator ---
     (function() {

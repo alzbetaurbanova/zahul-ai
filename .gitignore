@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 venv
+token_usage.txt
 
 # Temp and generated files
 temp.jpg
