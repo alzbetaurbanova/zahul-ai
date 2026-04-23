@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # --- Local Imports ---
-from api.routers import characters, servers, config, discord as discord_router, preset
+from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router
 from api.db.database import Database
 from src.plugins.manager import PluginManager
 
@@ -163,6 +163,7 @@ app.include_router(servers.router)
 app.include_router(config.router)
 app.include_router(discord_router.router)
 app.include_router(preset.router)
+app.include_router(tasks_router.router)
 
 # Set up CORS
 app.add_middleware(
@@ -196,6 +197,11 @@ async def get_servers_html():
 async def get_servers_html():
     """Serve the servers.html page."""
     return "static/ai-config.html"
+
+@app.get("/scheduler", response_class=FileResponse)
+async def get_scheduler_html():
+    """Serve the scheduler.html page."""
+    return "static/scheduler.html"
 
 @app.get("/editor", response_class=FileResponse)
 async def get_editor_html():

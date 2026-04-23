@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #6366f1; --primary-dark: #4f46e5; --dark: #1e293b; --darker: #0f172a; --light: #f8fafc; }
+        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
+        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
+        .nav-link.active { border-bottom: 2px solid var(--primary); }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-inactive { background-color: #ef4444; }
+        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .modal-backdrop { background: rgba(0,0,0,0.75); }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+    </style>
+</head>
+<body class="bg-darker text-light min-h-screen">
+    <div id="toast-container" class="toast"></div>
+
+    <!-- Navbar -->
+    <nav class="bg-darker border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-3 text-white flex-shrink-0">
+                        <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
+                        <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
+                    </a>
+                    <div class="hidden md:block ml-10">
+                        <div class="flex items-baseline space-x-4">
+                            <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                            <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i>Characters</a>
+                            <a href="/scheduler" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-clock mr-2"></i>Scheduler</a>
+                            <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-cog mr-2"></i>AI Config</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-4">
+                    <span class="text-sm text-gray-400 mr-2">Status:</span>
+                    <span id="bot-status-indicator" class="status-indicator"></span>
+                    <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="p-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h1 class="text-3xl font-bold text-white">Scheduler</h1>
+                <button id="create-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-plus mr-2"></i>New Task
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-4 items-end justify-between">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Type</label>
+                    <select id="filter-type" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                        <option value="">All</option>
+                        <option value="schedule">Schedule</option>
+                        <option value="reminder">Reminder</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Status</label>
+                    <select id="filter-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                        <option value="">All</option>
+                        <option value="active">Active</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="done">Done</option>
+                        <option value="disabled">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">From</label>
+                    <input type="date" id="filter-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">To</label>
+                    <input type="date" id="filter-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                </div>
+                <button id="clear-filter-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
+            </div>
+
+            <!-- Task List -->
+            <div id="task-list" class="space-y-3">
+                <div class="text-gray-500 text-center py-12">Loading...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create / Edit Modal -->
+    <div id="modal" class="hidden fixed inset-0 modal-backdrop flex items-start justify-center z-50 p-4 pt-16">
+        <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-6 border-b border-gray-800">
+                <h2 id="modal-title" class="text-xl font-bold text-white">New Task</h2>
+                <button id="modal-close" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="task-form" class="p-6 space-y-4">
+                <input type="hidden" id="task-id">
+
+                <!-- Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                    <div class="flex gap-2">
+                        <button type="button" data-type="reminder" id="type-reminder"
+                            class="type-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-amber-600 border-amber-500 text-white">
+                            <i class="fas fa-bell mr-1"></i> Reminder
+                        </button>
+                        <button type="button" data-type="schedule" id="type-schedule"
+                            class="type-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white">
+                            <i class="fas fa-rotate mr-1"></i> Schedule
+                        </button>
+                    </div>
+                    <input type="hidden" id="selected-type" value="reminder">
+                </div>
+
+                <!-- Name (schedules only) -->
+                <div id="name-field">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+                    <input type="text" id="f-name" placeholder="Task label..." class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                </div>
+
+                <!-- Character -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Character</label>
+                    <select id="f-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <option value="">Loading characters...</option>
+                    </select>
+                </div>
+
+                <!-- Target -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Target Type</label>
+                    <div class="flex gap-2">
+                        <button type="button" data-target="channel" id="ttype-channel"
+                            class="ttype-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-indigo-600 border-indigo-500 text-white">
+                            <i class="fas fa-hashtag mr-1"></i> Channel
+                        </button>
+                        <button type="button" data-target="dm" id="ttype-dm"
+                            class="ttype-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white">
+                            <i class="fas fa-user mr-1"></i> DM
+                        </button>
+                    </div>
+                    <input type="hidden" id="f-target-type" value="channel">
+                </div>
+
+                <!-- Channel combobox -->
+                <div id="target-channel-fields">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Channel</label>
+                    <div class="relative">
+                        <input type="text" id="f-channel-input" autocomplete="off" placeholder="Type to search or paste ID..."
+                            class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <div id="f-channel-dropdown" class="hidden absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- DM combobox -->
+                <div id="target-dm-fields" class="hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">User</label>
+                    <div class="relative">
+                        <input type="text" id="f-dm-input" autocomplete="off" placeholder="Type to search or paste ID..."
+                            class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <div id="f-dm-dropdown" class="hidden absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Message mode + instructions -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label id="instructions-label" class="text-sm font-medium text-gray-300">Message Text</label>
+                        <div id="mode-toggle" class="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+                            <button type="button" data-mode="exact" id="mode-exact"
+                                class="mode-btn px-3 py-1 rounded-md text-xs font-medium transition-colors bg-indigo-600 text-white">
+                                Exact
+                            </button>
+                            <button type="button" data-mode="generate" id="mode-generate"
+                                class="mode-btn px-3 py-1 rounded-md text-xs font-medium transition-colors text-gray-400 hover:text-white">
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="f-message-mode" value="exact">
+                    <textarea id="f-instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 resize-none"
+                        placeholder="What the character will say..."></textarea>
+                </div>
+
+                <!-- Reminder fields -->
+                <div id="reminder-fields">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Date & Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
+                    <input type="datetime-local" id="f-scheduled-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                </div>
+
+                <!-- Schedule fields -->
+                <div id="schedule-fields" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Repeat Days</label>
+                        <div class="flex flex-wrap gap-2" id="day-checkboxes">
+                            <!-- JS populated -->
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
+                        <input type="time" id="f-repeat-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5">
+                    </div>
+                </div>
+
+                <!-- Status (edit only) -->
+                <div id="status-field" class="hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                    <select id="f-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <option value="upcoming">Upcoming</option>
+                        <option value="active">Active</option>
+                        <option value="done">Done</option>
+                        <option value="disabled">Disabled</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="modal-cancel" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg text-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        const API = '/api/tasks';
+        const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+        // --- DOM refs ---
+        const taskList = document.getElementById('task-list');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const form = document.getElementById('task-form');
+        const taskIdInput = document.getElementById('task-id');
+        const reminderFields = document.getElementById('reminder-fields');
+        const scheduleFields = document.getElementById('schedule-fields');
+        const statusField = document.getElementById('status-field');
+        const toastContainer = document.getElementById('toast-container');
+        const dayCheckboxes = document.getElementById('day-checkboxes');
+
+        // Build day pill buttons
+        DAYS.forEach((d, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.dataset.day = i;
+            btn.className = 'day-pill px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white';
+            btn.textContent = d;
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('bg-indigo-600');
+                btn.classList.toggle('border-indigo-500');
+                btn.classList.toggle('text-white');
+                btn.classList.toggle('bg-gray-800');
+                btn.classList.toggle('border-gray-700');
+                btn.classList.toggle('text-gray-400');
+            });
+            dayCheckboxes.appendChild(btn);
+        });
+
+        function getSelectedDays() {
+            return [...document.querySelectorAll('.day-pill')].filter(b => b.classList.contains('bg-indigo-600')).map(b => parseInt(b.dataset.day));
+        }
+
+        function setSelectedDays(days) {
+            document.querySelectorAll('.day-pill').forEach(b => {
+                const active = days.includes(parseInt(b.dataset.day));
+                b.classList.toggle('bg-indigo-600', active);
+                b.classList.toggle('border-indigo-500', active);
+                b.classList.toggle('text-white', active);
+                b.classList.toggle('bg-gray-800', !active);
+                b.classList.toggle('border-gray-700', !active);
+                b.classList.toggle('text-gray-400', !active);
+            });
+        }
+
+        // Type pill buttons
+        function setType(type) {
+            document.getElementById('selected-type').value = type;
+            const isSchedule = type === 'schedule';
+            reminderFields.classList.toggle('hidden', isSchedule);
+            scheduleFields.classList.toggle('hidden', !isSchedule);
+            document.getElementById('name-field').classList.toggle('hidden', !isSchedule);
+            document.getElementById('mode-toggle').classList.toggle('hidden', isSchedule);
+            if (isSchedule) {
+                setMessageMode('generate');
+                document.getElementById('instructions-label').textContent = 'Instructions';
+                document.getElementById('f-instructions').placeholder = 'e.g. Napíš nejakú dramu o dnešnom dni...';
+            } else {
+                document.getElementById('instructions-label').textContent = 'Message Text';
+                document.getElementById('f-instructions').placeholder = 'What the character will say...';
+            }
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                const isActive = btn.dataset.type === type;
+                const isScheduleBtn = btn.dataset.type === 'schedule';
+                const activeClass = isScheduleBtn ? ['bg-indigo-600','border-indigo-500','text-white'] : ['bg-amber-600','border-amber-500','text-white'];
+                const inactiveClass = ['bg-gray-800','border-gray-700','text-gray-400'];
+                if (isActive) {
+                    btn.classList.remove(...inactiveClass);
+                    btn.classList.add(...activeClass);
+                } else {
+                    btn.classList.remove(...activeClass);
+                    btn.classList.add(...inactiveClass);
+                }
+            });
+        }
+
+        document.querySelectorAll('.type-btn').forEach(btn => {
+            btn.addEventListener('click', () => setType(btn.dataset.type));
+        });
+
+        function setMessageMode(mode) {
+            document.getElementById('f-message-mode').value = mode;
+            const label = document.getElementById('instructions-label');
+            const textarea = document.getElementById('f-instructions');
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                const active = btn.dataset.mode === mode;
+                btn.classList.toggle('bg-indigo-600', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+            if (mode === 'generate') {
+                label.textContent = 'Message prefix (bot will continue from here)';
+                textarea.placeholder = 'e.g. Mal som ti pripomenuť že...';
+            } else {
+                label.textContent = 'Message Text';
+                textarea.placeholder = 'What the character will say...';
+            }
+        }
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => setMessageMode(btn.dataset.mode));
+        });
+
+        // Populate character dropdown
+        async function loadCharacters() {
+            const sel = document.getElementById('f-character');
+            try {
+                const data = await fetch('/api/characters').then(r => r.json());
+                sel.innerHTML = data.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            } catch { sel.innerHTML = '<option value="">Failed to load</option>'; }
+        }
+
+        // --- Target comboboxes ---
+        let _channelOptions = [];  // [{id, label}]
+        let _dmOptions = [];
+
+        async function loadTargetOptions() {
+            try {
+                const servers = await fetch('/api/servers/').then(r => r.json());
+                _channelOptions = [];
+                for (const srv of servers) {
+                    if (srv.server_id === 'DM_VIRTUAL_SERVER') continue;
+                    const channels = await fetch(`/api/servers/${srv.server_id}/channels`).then(r => r.json());
+                    for (const ch of channels) {
+                        _channelOptions.push({ id: ch.channel_id, label: `#${ch.data.name}`, sub: srv.server_name });
+                    }
+                }
+            } catch { _channelOptions = []; }
+            try {
+                const cfg = await fetch('/api/config/').then(r => r.json());
+                _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
+            } catch { _dmOptions = []; }
+        }
+
+        function makeCombobox(inputId, dropdownId, options, initialId = '') {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+
+            // Set display value from id
+            const found = options.find(o => o.id === initialId);
+            input.value = found ? found.label : (initialId || '');
+            input.dataset.value = initialId;
+
+            function showDropdown(filter = '') {
+                const q = filter.toLowerCase();
+                const filtered = q
+                    ? options.filter(o => o.label.toLowerCase().includes(q) || o.sub.toLowerCase().includes(q) || o.id.includes(q))
+                    : options;
+                if (!filtered.length) { dropdown.classList.add('hidden'); return; }
+                dropdown.innerHTML = filtered.map(o => `
+                    <div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-700 text-sm flex justify-between items-center"
+                         data-id="${esc(o.id)}" data-label="${esc(o.label)}">
+                        <span class="text-white">${esc(o.label)}</span>
+                        <span class="text-gray-500 text-xs ml-2">${esc(o.sub)}</span>
+                    </div>`).join('');
+                dropdown.querySelectorAll('.combobox-item').forEach(item => {
+                    item.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        input.value = item.dataset.label;
+                        input.dataset.value = item.dataset.id;
+                        dropdown.classList.add('hidden');
+                    });
+                });
+                dropdown.classList.remove('hidden');
+            }
+
+            input.addEventListener('focus', () => showDropdown(input.value));
+            input.addEventListener('input', () => { input.dataset.value = ''; showDropdown(input.value); });
+            input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+        }
+
+        function initChannelCombobox(currentId = '') {
+            makeCombobox('f-channel-input', 'f-channel-dropdown', _channelOptions, currentId);
+        }
+
+        function initDmCombobox(currentId = '') {
+            makeCombobox('f-dm-input', 'f-dm-dropdown', _dmOptions, currentId);
+        }
+
+        function setTargetType(type) {
+            document.getElementById('f-target-type').value = type;
+            const isChannel = type === 'channel';
+            document.getElementById('target-channel-fields').classList.toggle('hidden', !isChannel);
+            document.getElementById('target-dm-fields').classList.toggle('hidden', isChannel);
+            document.querySelectorAll('.ttype-btn').forEach(btn => {
+                const active = btn.dataset.target === type;
+                btn.classList.toggle('bg-indigo-600', active);
+                btn.classList.toggle('border-indigo-500', active);
+                btn.classList.toggle('text-white', active);
+                btn.classList.toggle('bg-gray-800', !active);
+                btn.classList.toggle('border-gray-700', !active);
+                btn.classList.toggle('text-gray-400', !active);
+            });
+        }
+
+        document.querySelectorAll('.ttype-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setTargetType(btn.dataset.target);
+                if (btn.dataset.target === 'channel') initChannelCombobox();
+                else initDmCombobox();
+            });
+        });
+
+        function getTargetId() {
+            const type = document.getElementById('f-target-type').value;
+            if (type === 'dm') {
+                const inp = document.getElementById('f-dm-input');
+                return inp.dataset.value || inp.value.trim();
+            }
+            const inp = document.getElementById('f-channel-input');
+            return inp.dataset.value || inp.value.trim();
+        }
+
+        // --- Character cache ---
+        let _charCache = {};
+        async function ensureCharCache() {
+            if (Object.keys(_charCache).length) return;
+            try {
+                const chars = await fetch('/api/characters').then(r => r.json());
+                chars.forEach(c => { _charCache[c.name] = c; });
+            } catch {}
+        }
+
+        // --- Fetch and render tasks ---
+        let allTasks = [];
+
+        async function fetchTasks() {
+            await ensureCharCache();
+            const type = document.getElementById('filter-type').value;
+            const status = document.getElementById('filter-status').value;
+            let url = API + '/?';
+            if (type) url += `type=${encodeURIComponent(type)}&`;
+            if (status) url += `status=${encodeURIComponent(status)}&`;
+            try {
+                allTasks = await fetch(url).then(r => r.json());
+                renderTasks(allTasks);
+            } catch { showToast('Failed to load tasks.', 'error'); }
+        }
+
+        function applyDateFilter(tasks) {
+            const from = document.getElementById('filter-from').value;
+            const to = document.getElementById('filter-to').value;
+            return tasks.filter(t => {
+                const dateStr = t.scheduled_time || t.created_at || '';
+                const d = dateStr.substring(0, 10);
+                if (from && d < from) return false;
+                if (to && d > to) return false;
+                return true;
+            });
+        }
+
+        function renderTasks(tasks) {
+            const filtered = applyDateFilter(tasks);
+            if (!filtered.length) {
+                taskList.innerHTML = '<div class="text-gray-500 text-center py-12"><i class="fas fa-calendar-xmark text-3xl mb-3 block"></i>No tasks found.</div>';
+                return;
+            }
+            taskList.innerHTML = filtered.map(t => taskCard(t)).join('');
+            // Attach events
+            taskList.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', () => handleAction(btn.dataset.action, parseInt(btn.dataset.id)));
+            });
+        }
+
+        function typeBadge(type) {
+            return type === 'schedule'
+                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>'
+                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900 text-amber-300"><i class="fas fa-bell mr-1"></i>Reminder</span>';
+        }
+
+        function statusBadge(status) {
+            const map = {
+                active:    'bg-green-900 text-green-300',
+                upcoming:  'bg-blue-900 text-blue-300',
+                done:      'bg-gray-700 text-gray-400',
+                disabled:  'bg-red-900 text-red-300',
+            };
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
+        }
+
+        function taskCard(t) {
+            const when = t.scheduled_time
+                ? new Date(t.scheduled_time).toLocaleString('sk-SK', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+                : repeatSummary(t.repeat_pattern);
+            const isDisabled = t.status === 'disabled';
+            const toggleIcon = isDisabled ? 'fa-play' : 'fa-pause';
+            const toggleColor = isDisabled ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300';
+            const char = _charCache[t.character] || {};
+            const avatar = char.avatar;
+            const avatarHtml = avatar
+                ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}">`
+                : `<div class="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot text-gray-400 text-xs"></i></div>`;
+            return `
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                ${avatarHtml}
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        ${typeBadge(t.type)}
+                        ${statusBadge(t.status)}
+                        <span class="font-semibold text-white text-sm">${esc(t.character)}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-3 mt-0.5">
+                        <span class="font-bold text-white text-sm">${esc(t.name)}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 flex flex-wrap gap-3 mt-1">
+                        <span><i class="fas fa-${t.target_type === 'dm' ? 'user' : 'hashtag'} mr-1"></i>${esc(t.target_id)}</span>
+                        ${when ? `<span><i class="fas fa-clock mr-1"></i>${esc(when)}</span>` : ''}
+                    </div>
+                    ${t.instructions ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(t.instructions)}</p>` : ''}
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
+                        <i class="fas ${toggleIcon}"></i>
+                    </button>
+                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        function repeatSummary(pattern) {
+            if (!pattern) return '';
+            const days = (pattern.days || []).map(d => DAYS[d]).join(', ');
+            return `${days} at ${pattern.time || '?'}`;
+        }
+
+        function esc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // --- Actions ---
+        async function handleAction(action, id) {
+            if (action === 'delete') {
+                if (!confirm('Delete this task?')) return;
+                await fetch(`${API}/${id}`, { method: 'DELETE' });
+                showToast('Task deleted.');
+                fetchTasks();
+            } else if (action === 'toggle') {
+                const task = allTasks.find(t => t.id === id);
+                if (!task) return;
+                const newStatus = task.status === 'disabled'
+                    ? (task.type === 'schedule' ? 'active' : 'upcoming')
+                    : 'disabled';
+                await fetch(`${API}/${id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ status: newStatus })
+                });
+                showToast(`Task ${newStatus}.`);
+                fetchTasks();
+            } else if (action === 'edit') {
+                const task = allTasks.find(t => t.id === id);
+                if (task) openModal(task);
+            }
+        }
+
+        // --- Modal ---
+        async function openModal(task = null) {
+            loadCharacters();
+            await loadTargetOptions();
+            form.reset();
+            statusField.classList.add('hidden');
+            taskIdInput.value = '';
+            setSelectedDays([]);
+
+            if (task) {
+                modalTitle.textContent = 'Edit Task';
+                taskIdInput.value = task.id;
+                setType(task.type || 'reminder');
+                setMessageMode(task.message_mode || 'exact');
+                document.getElementById('f-name').value = task.name || '';
+                setTimeout(() => { document.getElementById('f-character').value = task.character || ''; }, 300);
+                const targetType = task.target_type || 'channel';
+                setTargetType(targetType);
+                if (targetType === 'channel') initChannelCombobox(task.target_id || '');
+                else initDmCombobox(task.target_id || '');
+                document.getElementById('f-instructions').value = task.instructions || '';
+                if (task.scheduled_time) {
+                    // Use stored string directly — it's already in Slovak time, no conversion needed
+                    document.getElementById('f-scheduled-time').value = task.scheduled_time.slice(0, 16);
+                }
+                if (task.repeat_pattern) {
+                    document.getElementById('f-repeat-time').value = task.repeat_pattern.time || '';
+                    setSelectedDays(task.repeat_pattern.days || []);
+                }
+                document.getElementById('f-status').value = task.status || '';
+                // Status only editable for schedules (active/disabled) — reminders are auto-managed
+                if (task.type === 'schedule') statusField.classList.remove('hidden');
+            } else {
+                modalTitle.textContent = 'New Task';
+                setType('reminder');
+                setMessageMode('exact');
+                setTargetType('channel');
+                initChannelCombobox();
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const localDT = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                document.getElementById('f-scheduled-time').value = localDT;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() { modal.classList.add('hidden'); }
+
+        document.getElementById('create-btn').addEventListener('click', () => openModal());
+        document.getElementById('modal-close').addEventListener('click', closeModal);
+        document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+        // --- Form Submit ---
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = taskIdInput.value;
+            const type = document.getElementById('selected-type').value;
+            const character = document.getElementById('f-character').value;
+            const target_type = document.getElementById('f-target-type').value;
+            const target_id = getTargetId();
+            const instructions = document.getElementById('f-instructions').value.trim();
+            const st = document.getElementById('f-scheduled-time').value;
+            const name = type === 'reminder'
+                ? `${character} — ${st ? st.slice(0, 16).replace('T', ' ') : 'reminder'}`
+                : document.getElementById('f-name').value.trim();
+
+            if (!character || !target_id || (type === 'schedule' && !name)) {
+                showToast('Character and target are required.', 'error');
+                return;
+            }
+
+            const message_mode = document.getElementById('f-message-mode').value;
+            const body = { type, name, character, target_type, target_id, instructions: instructions || null, message_mode };
+
+            if (type === 'reminder') {
+                const st = document.getElementById('f-scheduled-time').value;
+                if (!st) { showToast('Please set a scheduled time.', 'error'); return; }
+                body.scheduled_time = st + ':00';
+                // Reset to upcoming if editing a done/disabled reminder with a new time
+                if (id) body.status = 'upcoming';
+            } else {
+                const days = getSelectedDays();
+                const time = document.getElementById('f-repeat-time').value;
+                if (!days.length || !time) { showToast('Select at least one day and a time.', 'error'); return; }
+                body.repeat_pattern = { days, time };
+            }
+
+            if (id && type === 'schedule') {
+                body.status = document.getElementById('f-status').value;
+            }
+
+            try {
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API}/${id}` : `${API}/`;
+                const resp = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                if (!resp.ok) { const err = await resp.json(); throw new Error(err.detail || 'Failed'); }
+                showToast(id ? 'Task updated.' : 'Task created.');
+                closeModal();
+                fetchTasks();
+            } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
+        });
+
+        // --- Filters ---
+        ['filter-type','filter-status','filter-from','filter-to'].forEach(id => {
+            document.getElementById(id).addEventListener('change', fetchTasks);
+        });
+        document.getElementById('clear-filter-btn').addEventListener('click', () => {
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-status').value = '';
+            document.getElementById('filter-from').value = '';
+            document.getElementById('filter-to').value = '';
+            fetchTasks();
+        });
+
+        // --- Toast ---
+        function showToast(msg, type = 'success') {
+            const t = document.createElement('div');
+            t.className = `${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white py-2 px-4 rounded-lg shadow-lg mb-2 text-sm`;
+            t.textContent = msg;
+            toastContainer.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        // --- Bot Status ---
+        (function() {
+            const indicator = document.getElementById('bot-status-indicator');
+            const text = document.getElementById('bot-status-text');
+            const classes = ['status-active','status-inactive','status-starting'];
+            function update(status) {
+                indicator.classList.remove(...classes);
+                if (status === 'active') { indicator.classList.add('status-active'); text.textContent = 'Active'; }
+                else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); text.textContent = status.charAt(0).toUpperCase()+status.slice(1); }
+                else { indicator.classList.add('status-inactive'); text.textContent = 'Inactive'; }
+            }
+            function poll() { fetch('/api/discord/status').then(r=>r.json()).then(d=>update(d.status)).catch(()=>update('inactive')); }
+            poll(); setInterval(poll, 2500);
+        })();
+
+        // --- Auth ---
+        fetch('/api/auth-enabled').then(r=>r.json()).then(d => {
+            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display='none');
+        });
+
+        // Init
+        fetchTasks();
+    })();
+    </script>
+</body>
+</html>

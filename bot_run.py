@@ -4,6 +4,13 @@ import discord
 from discord import app_commands
 import traceback
 from typing import Optional
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+
+SK_TZ = ZoneInfo("Europe/Bratislava")
+
+# --- Scheduler runtime state ---
+_last_schedule_fire: dict = {}  # task_id -> "YYYY-MM-DD" of last fire
 
 # --- Autocap runtime state ---
 _autocap_unlimited: bool = False           # True = no cap, ignores DB value
@@ -57,11 +64,13 @@ class Zahul(discord.Client):
         self.tree.add_command(AutocapGroup())
         self.tree.add_command(tokens_command)
         self.tree.add_command(about_command(self.db))
+        self.tree.add_command(reminder_command)
         
         # Sync commands globally. For development, you might sync to a specific guild.
         await self.tree.sync()
 
         self.think_task = asyncio.create_task(pipeline.think(self, self.db, self.queue, self.plugin_manager))
+        self.scheduler_task = asyncio.create_task(_run_scheduler(self))
 
     async def on_ready(self):
         print(f"Discord Bot is logged in as {self.user} (ID: {self.user.id})")
@@ -354,6 +363,146 @@ class AutocapGroup(app_commands.Group):
         else:
             cap = _autocap_previous if _autocap_previous is not None else get_bot_config(bot.db).auto_cap
             await interaction.response.send_message(f"🔗 Chain limit: **{cap}** bot-to-bot replies per chain.", ephemeral=True)
+
+
+# --- Scheduler ---
+
+async def _send_scheduled_message(bot: 'Zahul', task: dict):
+    """Send a message as a character for a scheduled task."""
+    char = bot.db.get_character(task['character'])
+    if not char:
+        print(f"[Scheduler] Character '{task['character']}' not found for task {task['id']}")
+        return
+
+    char_data = char['data']
+    char_name = char['name']
+    avatar_url = char_data.get('avatar')
+    instructions = (task.get('instructions') or '').strip()
+
+    if task.get('message_mode') == 'generate':
+        from src.utils.llm_new import generate_in_character
+        prefix = f"Reminder: {instructions}\n" if instructions else "Reminder\n"
+        text_suffix = await generate_in_character(
+            character_name=char_name,
+            system_addon='React to the reminder above in character. Be creative and expressive. Write only your reaction, nothing else.',
+            user='[react to the reminder]',
+            assistant=prefix,
+            db=bot.db
+        )
+        text = (prefix + text_suffix).strip()
+    else:
+        text = instructions
+
+    if not text:
+        return
+
+    try:
+        if task['target_type'] == 'channel':
+            channel = bot.get_channel(int(task['target_id']))
+            if not channel:
+                channel = await bot.fetch_channel(int(task['target_id']))
+            if not channel:
+                print(f"[Scheduler] Channel {task['target_id']} not found")
+                return
+
+            parent = channel.parent if isinstance(channel, discord.Thread) else channel
+            webhooks = await parent.webhooks()
+            webhook = next((w for w in webhooks if w.user == bot.user), None)
+            if not webhook:
+                webhook = await parent.create_webhook(name='zahul-ai')
+
+            kwargs: dict = {'content': text, 'username': char_name}
+            if avatar_url:
+                kwargs['avatar_url'] = avatar_url
+            if isinstance(channel, discord.Thread):
+                kwargs['thread'] = channel
+            await webhook.send(**kwargs)
+
+        elif task['target_type'] == 'dm':
+            target = task['target_id']
+            user = None
+            try:
+                user = await bot.fetch_user(int(target))
+            except (ValueError, discord.NotFound):
+                for guild in bot.guilds:
+                    member = discord.utils.get(guild.members, name=target)
+                    if member:
+                        user = member
+                        break
+            if user:
+                await user.send(f"**{char_name}:** {text}")
+            else:
+                print(f"[Scheduler] DM target '{target}' not found")
+    except Exception:
+        print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
+
+
+async def _run_scheduler(bot: 'Zahul'):
+    """Background loop that fires due reminders and recurring schedules every minute."""
+    global _last_schedule_fire
+    await asyncio.sleep(10)  # let the bot fully connect first
+    while True:
+        try:
+            now = datetime.now(SK_TZ)
+            now_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
+
+            # Fire due reminders
+            for task in bot.db.list_due_reminders(now_iso):
+                await _send_scheduled_message(bot, task)
+                bot.db.update_task(task['id'], status='done')
+
+            # Fire active schedules whose time matches now
+            current_day = now.weekday()  # 0=Mon, 6=Sun
+            current_time = now.strftime("%H:%M")
+            today_str = now.strftime("%Y-%m-%d")
+            for task in bot.db.list_active_schedules():
+                pattern = task.get('repeat_pattern') or {}
+                days = pattern.get('days', [])
+                fire_time = pattern.get('time', '')
+                if current_day in days and current_time == fire_time:
+                    if _last_schedule_fire.get(task['id']) != today_str:
+                        await _send_scheduled_message(bot, task)
+                        _last_schedule_fire[task['id']] = today_str
+        except Exception:
+            print(f"[Scheduler] Loop error:\n{traceback.format_exc()}")
+        await asyncio.sleep(60)
+
+
+@app_commands.command(name="reminder", description="Set a one-time reminder for this channel.")
+@app_commands.describe(
+    character="Character who will deliver the message",
+    when="Date and time (YYYY-MM-DD HH:MM) — Slovak time",
+    text="Message text to send"
+)
+async def reminder_command(interaction: discord.Interaction, character: str, when: str, text: str):
+    bot: Zahul = interaction.client
+    if not bot.db.get_character(character):
+        await interaction.response.send_message(f"❌ Character **{character}** not found.", ephemeral=True)
+        return
+    try:
+        dt = datetime.strptime(when, "%Y-%m-%d %H:%M").replace(tzinfo=SK_TZ)
+    except ValueError:
+        await interaction.response.send_message("❌ Invalid format. Use `YYYY-MM-DD HH:MM` (Slovak time).", ephemeral=True)
+        return
+    if dt <= datetime.now(SK_TZ):
+        await interaction.response.send_message("❌ That time is already in the past.", ephemeral=True)
+        return
+
+    channel_id = str(interaction.channel_id)
+    task_id = bot.db.create_task(
+        type='reminder',
+        name=f"Reminder by {interaction.user.name}",
+        character=character,
+        target_type='channel',
+        target_id=channel_id,
+        instructions=text,
+        scheduled_time=dt.isoformat(),
+        status='upcoming',
+    )
+    await interaction.response.send_message(
+        f"✅ Reminder set! **{character}** will post at **{when} UTC** (ID: {task_id}).",
+        ephemeral=True
+    )
 
 
 # --- Slash Command Groups ---

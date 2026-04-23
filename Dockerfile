@@ -26,6 +26,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+
 # Copy the virtual environment from the builder
 COPY --from=builder /app/.venv /app/.venv
 

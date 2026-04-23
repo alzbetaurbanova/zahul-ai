@@ -347,3 +347,102 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM captions WHERE message_id = ?", (message_id,))
             conn.commit()
+
+    # ------------------------------------------------------
+    # Scheduled Tasks
+    # ------------------------------------------------------
+    def _ensure_scheduled_tasks_table(self):
+        with self._get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    character TEXT NOT NULL,
+                    target_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    instructions TEXT,
+                    scheduled_time TEXT,
+                    repeat_pattern JSON,
+                    status TEXT NOT NULL DEFAULT 'upcoming',
+                    message_mode TEXT NOT NULL DEFAULT 'exact',
+                    created_at TEXT NOT NULL
+                );
+            """)
+            # Add column if it doesn't exist yet (existing tables)
+            try:
+                conn.execute("ALTER TABLE scheduled_tasks ADD COLUMN message_mode TEXT NOT NULL DEFAULT 'exact'")
+            except Exception:
+                pass
+            conn.commit()
+
+    def _parse_task_row(self, row) -> Dict[str, Any]:
+        task = dict(row)
+        if task.get('repeat_pattern'):
+            task['repeat_pattern'] = self._parse_json_value(task['repeat_pattern'])
+        if task.get('message_mode') is None:
+            task['message_mode'] = 'exact'
+        return task
+
+    def create_task(self, type: str, name: str, character: str, target_type: str,
+                    target_id: str, instructions: Optional[str] = None,
+                    scheduled_time: Optional[str] = None,
+                    repeat_pattern: Optional[Dict[str, Any]] = None,
+                    status: str = 'upcoming') -> int:
+        self._ensure_scheduled_tasks_table()
+        from datetime import datetime, timezone
+        created_at = datetime.now(timezone.utc).isoformat()
+        rp = json.dumps(repeat_pattern) if repeat_pattern else None
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO scheduled_tasks (type, name, character, target_type, target_id, instructions, scheduled_time, repeat_pattern, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (type, name, character, target_type, target_id, instructions, scheduled_time, rp, status, created_at)
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_task(self, task_id: int) -> Optional[Dict[str, Any]]:
+        self._ensure_scheduled_tasks_table()
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)).fetchone()
+            return self._parse_task_row(row) if row else None
+
+    def list_tasks(self, type: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        self._ensure_scheduled_tasks_table()
+        query = "SELECT * FROM scheduled_tasks WHERE 1=1"
+        params: List[Any] = []
+        if type:
+            query += " AND type = ?"
+            params.append(type)
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        query += " ORDER BY created_at DESC"
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [self._parse_task_row(r) for r in rows]
+
+    def list_due_reminders(self, now_iso: str) -> List[Dict[str, Any]]:
+        """Return upcoming reminders whose scheduled_time is at or before now_iso."""
+        self._ensure_scheduled_tasks_table()
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM scheduled_tasks WHERE type = 'reminder' AND status = 'upcoming' AND scheduled_time <= ?",
+                (now_iso,)
+            ).fetchall()
+            return [self._parse_task_row(r) for r in rows]
+
+    def list_active_schedules(self) -> List[Dict[str, Any]]:
+        """Return all active schedule tasks."""
+        return self.list_tasks(type='schedule', status='active')
+
+    def update_task(self, task_id: int, **kwargs):
+        self._ensure_scheduled_tasks_table()
+        self._update_record("scheduled_tasks", "id", task_id, **kwargs)
+
+    def delete_task(self, task_id: int):
+        self._ensure_scheduled_tasks_table()
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
+            conn.commit()

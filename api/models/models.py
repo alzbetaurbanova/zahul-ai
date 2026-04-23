@@ -113,3 +113,44 @@ class Preset(BaseModel):
     name: str
     description: Optional[str] = None
     prompt_template: Optional[str] = None
+
+
+# ------------------------------------------------------
+# Scheduled Tasks
+# ------------------------------------------------------
+class TaskCreate(BaseModel):
+    type: str  # 'schedule' or 'reminder'
+    name: str
+    character: str
+    target_type: str  # 'channel' or 'dm'
+    target_id: str
+    instructions: Optional[str] = None
+    scheduled_time: Optional[str] = None  # ISO datetime for reminders
+    repeat_pattern: Optional[Dict[str, Any]] = None  # {days:[0..6], time:"HH:MM"} for schedules
+    status: Optional[str] = None  # defaults handled by DB
+    message_mode: str = 'exact'  # 'exact' or 'generate'
+
+class TaskUpdate(BaseModel):
+    name: Optional[str] = None
+    character: Optional[str] = None
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
+    instructions: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    repeat_pattern: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+    message_mode: Optional[str] = None
+
+class Task(BaseModel):
+    id: int
+    type: str
+    name: str
+    character: str
+    target_type: str
+    target_id: str
+    instructions: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    repeat_pattern: Optional[Dict[str, Any]] = None
+    status: str
+    message_mode: Optional[str] = 'exact'
+    created_at: str
