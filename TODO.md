@@ -14,11 +14,14 @@
 
 ## Testing
 - [ ] Test permissions — iná roomka, iný užívateľ, bez whitelistu, DM prístup
-- [ ] Celkový smoke test po nasadení
+- [ ] Test permissions aj s reminders do DM
+- [ ] Test Import Character
+- [ ] Test AutoCap
+- [ ] Test Fallback pri reminder
 
 ## Komplexné opakovanie (návrh)
 
-Problém: momentálne jeden task = jeden repeat pattern. Ale čo ak chceš napr. prvý deň v mesiaci + každý druhý štvrtok + každý prvý piatok?
+Problém: momentálne jeden task = jeden repeat pattern. Ale čo ak chceš napr. prvý deň v mesiaci + každý piatok + každý druhý štvrtok
 
 **Návrh A — Multi-schedule na jednom tasku**
 `repeat_pattern` by bol pole pravidiel namiesto jedného objektu:
@@ -40,6 +43,12 @@ Výhoda: žiadne zmeny v DB ani scheduleri, čisto UI vec.
 
 - [ ] Zvážiť multi-rule repeat pattern pre schedule (Návrh A)
 - [ ] Zvážiť multi-date picker pre reminder (Návrh B) — `+ Add date` v reminder forme
+
+## UI
+- [ ] Light mode?
+
+## Character Import
+- [ ] Umožniť nahranie .jsonc suboru a prekonvertovanie na .json
 
 ## Infraštruktúra
 - [ ] Reverse proxy cez Caddy — HTTPS + vlastná doména pre web panel namiesto priameho portu 5666

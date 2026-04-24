@@ -102,6 +102,7 @@ class PromptEngineer:
         bot_config = get_bot_config(self.db)
         history_limit = self.bot.history_limit if self.bot.history_limit is not None else bot_config.history_limit
         history = await get_history(self.message.channel, self.db, limit=history_limit)
+        self.history_count = history.count('[Reply]') if history else 0
 
         # --- STEP 1: Create a context for the INNER templates ---
         # This context will be used to render strings like the character's persona.

@@ -77,7 +77,8 @@ async def _generate_and_send_for_character(
         bot=character.name,
         user=message.author.display_name,
         stop=prompter.stopping_strings,
-        message=message
+        message=message,
+        history_count=getattr(prompter, 'history_count', 0)
     )
     
     queue_item = await generate_response(queue_item, db)
@@ -107,6 +108,8 @@ async def _generate_and_send_for_character(
         source='chat',
         status='error' if is_error else 'ok',
         error_message=queue_item.result if is_error else None,
+        temperature=queue_item.temperature,
+        history_count=queue_item.history_count,
     )
 
     await messenger.send_message(character, message, queue_item)

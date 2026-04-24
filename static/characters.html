@@ -133,7 +133,7 @@
                 </div>
 
                 <div><label for="persona" class="block mb-2 text-sm font-medium text-gray-300">Persona</label><textarea id="persona" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
-                <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
+                <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
 
                 <!-- Avatar -->
                 <div>
@@ -481,24 +481,47 @@
                 importFileInput.click();
             });
             importTemplateDownload.addEventListener('click', () => {
-                const template = {
-                    name: "CharacterName",
-                    data: {
-                        persona: "[CharacterName's persona: ...]",
-                        about: "",
-                        instructions: "[System Note: ...]",
-                        avatar: null,
-                        info: "A short description of this character.",
-                        temperature: null,
-                        history_limit: null,
-                        max_tokens: null
-                    },
-                    triggers: ["CharacterName"]
-                };
-                const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+                const template = `// Zahul-AI Character Template
+// This is a .jsonc file (JSON with Comments). Remove all // lines before importing.
+{
+  // Unique character name. Used as display name and as a trigger keyword automatically.
+  "name": "CharacterName",
+
+  "data": {
+    // Main character definition — personality, background, speech style, quirks.
+    // Supports {{char}} (character name) and {{user}} (user's display name).
+    // Example:
+    "persona": "{{char}} is a 28-year-old sarcastic librarian with a sharp wit and a love for old mystery novels. She speaks in short, dry sentences and rarely shows emotion openly, but cares deeply about the people she trusts.",
+
+    // Behavioral rules and hard constraints — formatting rules, things the character
+    // must or must not do. Rendered after persona in the system prompt.
+    // Example:
+    "instructions": "Always respond as {{char}} only. Keep responses concise — 1 to 3 sentences unless asked for more. Never break character.",
+
+    // Short internal note for your reference only. Not sent to the AI.
+    "about": "Sarcastic librarian for general chat.",
+
+    // Response creativity: 0.0 = deterministic, 2.0 = very random.
+    // Set to null to use the global value from AI Config.
+    "temperature": null,
+
+    // How many recent messages to include in context.
+    // Set to null to use the global value from AI Config.
+    "history_limit": null,
+
+    // Maximum response length in tokens.
+    // Set to null to use the global value from AI Config.
+    "max_tokens": null
+  },
+
+  // Keywords that trigger this character in a channel (case-insensitive, whole-word).
+  // The character name is always included as a trigger automatically.
+  "triggers": ["CharacterName", "alias1", "alias2"]
+}`;
+                const blob = new Blob([template], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'character_template.json';
+                a.download = 'character_template.jsonc';
                 a.click();
             });
 

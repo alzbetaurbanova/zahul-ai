@@ -229,6 +229,7 @@ async def generate_response(task: QueueItem, db: Database):
             task.input_tokens = completion.usage.prompt_tokens or 0
             task.output_tokens = completion.usage.completion_tokens or 0
         task.model_used = model
+        task.temperature = temperature
         task.result = result
 
     except Exception as e:

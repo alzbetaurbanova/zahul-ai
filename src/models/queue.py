@@ -19,3 +19,5 @@ class QueueItem:
     input_tokens: int = 0
     output_tokens: int = 0
     model_used: str = None
+    temperature: float = None
+    history_count: int = 0

@@ -18,6 +18,8 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .tab-active { border-bottom: 2px solid var(--primary); color: white; }
         pre { white-space: pre-wrap; word-break: break-all; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        input[type="date"] { color-scheme: dark; }
     </style>
 </head>
 <body class="bg-darker text-light min-h-screen">
@@ -40,8 +42,8 @@
 
             <!-- Discord Filters -->
             <div id="discord-filters" class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
-                <div><label class="block text-xs text-gray-400 mb-1">From</label><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
-                <div><label class="block text-xs text-gray-400 mb-1">To</label><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="block text-xs text-gray-400 mb-1">Character</label><input type="text" id="df-character" list="dl-characters" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
                 <div><label class="block text-xs text-gray-400 mb-1">User</label><input type="text" id="df-user" list="dl-users" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
                 <datalist id="dl-characters"></datalist>
@@ -61,8 +63,8 @@
 
             <!-- Admin Filters -->
             <div id="admin-filters" class="hidden bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
-                <div><label class="block text-xs text-gray-400 mb-1">From</label><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
-                <div><label class="block text-xs text-gray-400 mb-1">To</label><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="block text-xs text-gray-400 mb-1">Action</label>
                     <select id="af-action" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
                         <option value="">All</option>
@@ -164,6 +166,10 @@
             document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
         });
 
+        document.getElementById('df-from-clear').addEventListener('click', () => { document.getElementById('df-from').value = ''; currentPage = 1; fetchLogs(); });
+        document.getElementById('df-to-clear').addEventListener('click', () => { document.getElementById('df-to').value = ''; currentPage = 1; fetchLogs(); });
+        document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
+        document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
         document.getElementById('discord-clear-btn').addEventListener('click', () => {
             ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
             ['df-source','df-status'].forEach(id => document.getElementById(id).value = '');
@@ -289,24 +295,52 @@
             if (!res.ok) return;
             const item = await res.json();
             const body = document.getElementById('detail-body');
+            const isDM = !item.channel_id || item.channel_id === 'dm' || item.channel_id.startsWith('dm:');
+            const chResolved = resolveChannel(item.channel_id || '');
+            const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
+            const chServer = isDM ? 'DM' : chParts[0];
+            const chChannel = isDM ? '—' : (chParts.slice(1).join(' / ') || chParts[0]);
+            const statusCls = item.status === 'error' ? 'text-red-400' : 'text-green-400';
+
+            const row = (label, value, cls='text-white') =>
+                `<div class="text-gray-400">${label}</div><div class="${cls}">${value}</div>`;
+
             body.innerHTML = `
-                <div class="grid grid-cols-2 gap-3 text-xs">
-                    <div class="text-gray-400">Timestamp</div><div class="text-white">${fmt(item.timestamp)}</div>
-                    <div class="text-gray-400">Character</div><div class="text-white">${esc(item.character || '')}</div>
-                    <div class="text-gray-400">User</div><div class="text-white">${esc(item.user || '')}</div>
-                    <div class="text-gray-400">Channel</div><div class="text-white">${esc(resolveChannel(item.channel_id || ''))}</div>
-                    <div class="text-gray-400">Model</div><div class="text-white">${esc(item.model || '')}</div>
-                    <div class="text-gray-400">Tokens in / out</div><div class="text-white">${item.input_tokens} / ${item.output_tokens}</div>
-                    <div class="text-gray-400">Source</div><div class="text-white">${esc(item.source || '')}</div>
-                    <div class="text-gray-400">Status</div><div class="${item.status === 'error' ? 'text-red-400' : 'text-green-400'}">${esc(item.status || '')}</div>
+                <div class="space-y-4 text-xs">
+
+                    <!-- Timestamp -->
+                    <div class="text-gray-500">${fmt(item.timestamp)}</div>
+
+                    <!-- Metadata grid -->
+                    <div class="grid gap-x-6 gap-y-2" style="grid-template-columns: max-content 1fr max-content 1fr">
+                        ${row('Character', esc(item.character || ''))}
+                        ${row('User', esc(item.user || ''))}
+                        ${row('Server', esc(chServer))}
+                        ${row('Channel', esc(chChannel))}
+                        ${row('Model', esc(item.model || ''))}
+                        ${row('Tokens in/out', `${item.input_tokens || 0} / ${item.output_tokens || 0}`)}
+                        ${row('History', `${item.history_count ?? '—'} msgs`)}
+                        ${row('Temperature', item.temperature != null ? item.temperature : '—')}
+                        ${row('Source', esc(item.source || ''))}
+                        ${row('Status', esc(item.status || ''), statusCls)}
+                    </div>
+
+                    <!-- Trigger -->
+                    <div class="pt-2 border-t border-gray-800">
+                        <div class="text-gray-400 mb-1">Trigger</div>
+                        <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200 whitespace-pre-wrap break-words">${esc(item.trigger || '')}</pre>
+                    </div>
+
+                    ${item.error_message ? `<div><p class="text-gray-400 mb-1">Error</p><pre class="bg-red-950 border border-red-900 rounded-lg p-3 text-xs text-red-300 whitespace-pre-wrap">${esc(item.error_message)}</pre></div>` : ''}
+
+                    <div><p class="text-gray-400 mb-1">Response</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200 whitespace-pre-wrap break-words">${esc(item.response || '')}</pre></div>
+
+                    ${item.conversation_history ? `<div>
+                        <p class="text-gray-400 mb-1">Request JSON</p>
+                        <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto">${esc(JSON.stringify(item.conversation_history, null, 2))}</pre>
+                    </div>` : ''}
+
                 </div>
-                ${item.error_message ? `<div><p class="text-gray-400 text-xs mb-1">Error</p><pre class="bg-red-950 border border-red-900 rounded-lg p-3 text-xs text-red-300">${esc(item.error_message)}</pre></div>` : ''}
-                <div><p class="text-gray-400 text-xs mb-1">Trigger</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200">${esc(item.trigger || '')}</pre></div>
-                <div><p class="text-gray-400 text-xs mb-1">Response body</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200">${esc(item.response || '')}</pre></div>
-                ${item.conversation_history ? `<div>
-                    <p class="text-gray-400 text-xs mb-1">Request JSON</p>
-                    <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto">${esc(JSON.stringify(item.conversation_history, null, 2))}</pre>
-                </div>` : ''}
             `;
             document.getElementById('detail-modal').classList.remove('hidden');
         }

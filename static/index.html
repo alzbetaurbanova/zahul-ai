@@ -209,7 +209,8 @@
         }
     }
     setupLogStream();
-    statusInterval = setInterval(checkBotStatus, 2500); // Poll every 2.5 seconds
+    checkBotStatus();
+    statusInterval = setInterval(checkBotStatus, 2500);
 
     // --- Event Listeners ---
 
@@ -427,17 +428,6 @@
                     });
             }
             
-            // Periodically check bot status
-            setInterval(() => {
-                fetch('/api/discord/status')
-                    .then(response => response.json())
-                    .then(data => {
-                        updateStatus(data.status);
-                        if (data.status === 'active' && !inviteLink.value) {
-                            fetchInviteLink();
-                        }
-                    });
-            }, 10000);
         });
     </script>
 </body>

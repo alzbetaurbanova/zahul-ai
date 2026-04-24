@@ -118,6 +118,10 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
+            # Migrations for existing DBs
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0")]:
+                try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
+                except: pass
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS admin_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -488,7 +492,8 @@ class Database:
 
     def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
-                    source: str = 'chat', status: str = 'ok', error_message: str = None):
+                    source: str = 'chat', status: str = 'ok', error_message: str = None,
+                    temperature: float = None, history_count: int = 0):
         from datetime import datetime, timezone
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         history_json = json.dumps(conversation_history) if conversation_history is not None else None
@@ -496,10 +501,12 @@ class Database:
             conn.execute("""
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
-                 input_tokens, output_tokens, conversation_history, source, status, error_message)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 input_tokens, output_tokens, conversation_history, source, status, error_message,
+                 temperature, history_count)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
-                  input_tokens, output_tokens, history_json, source, status, error_message))
+                  input_tokens, output_tokens, history_json, source, status, error_message,
+                  temperature, history_count))
             conn.commit()
 
     def log_admin(self, action: str, target: str = None, detail: str = None):
