@@ -1,15 +1,9 @@
 name: Build and Push to GHCR
 
 # Run this when you push to the main branch
+# Disabled — build runs manually on Oracle instead
 on:
-  push:
-    branches: [ "master" ]
-    
-    paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.dockerignore'
+  workflow_dispatch:
 
 # Automatic permissions for the GITHUB_TOKEN
 env:
