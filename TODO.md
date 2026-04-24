@@ -1,4 +1,4 @@
-# TODO
+# TO DO / IDEAS
 
 ## Scheduler
 - [ ] `next_run` column — vypočítaný dátum najbližšieho spustenia, zobrazený na karte tasku
@@ -12,14 +12,18 @@
 - [ ] Conversation history pre scheduler logy (momentálne `null`)
 - [ ] UI changes /logs — drobné vylepšenia
 
+## Character Import
+- [ ] Umožniť nahranie .jsonc suboru a prekonvertovanie na .json
+
 ## Testing
 - [ ] Test permissions — iná roomka, iný užívateľ, bez whitelistu, DM prístup
 - [ ] Test permissions aj s reminders do DM
 - [ ] Test Import Character
 - [ ] Test AutoCap
 - [ ] Test Fallback pri reminder
+- [ ] Test tokenov
 
-## Komplexné opakovanie (návrh)
+## Komplexnejší scheduler
 
 Problém: momentálne jeden task = jeden repeat pattern. Ale čo ak chceš napr. prvý deň v mesiaci + každý piatok + každý druhý štvrtok
 
@@ -39,16 +43,19 @@ Výhoda: jeden task, jedna postava, jedna správa — len viac triggerov.
 V reminder forme pridať `+ Add another date` — uloží sa viac samostatných reminder taskov naraz (jeden per dátum), len s jedným klikaním. DB sa nemení, len UI hromadne vytvorí záznamy.
 Výhoda: žiadne zmeny v DB ani scheduleri, čisto UI vec.
 
-**Odporúčanie:** Návrh B pre one-off dátumy (reminder), Návrh A pre komplexné opakovania (schedule). Implementovať až keď bude konkrétna potreba.
-
 - [ ] Zvážiť multi-rule repeat pattern pre schedule (Návrh A)
 - [ ] Zvážiť multi-date picker pre reminder (Návrh B) — `+ Add date` v reminder forme
 
-## UI
+## Design
 - [ ] Light mode?
 
-## Character Import
-- [ ] Umožniť nahranie .jsonc suboru a prekonvertovanie na .json
+## Servers
+- [ ] Pokročilejšie nastavenia, napr custom config per server (model, fallback atd)
+
+## Permissions - view
+- [ ] Rôzne práva pre rôznych užívateľov
+- [ ] Login cez DC?
+- [ ] Iný view pre iných užívateľov (per server, mod, admin...)
 
 ## Infraštruktúra
 - [ ] Reverse proxy cez Caddy — HTTPS + vlastná doména pre web panel namiesto priameho portu 5666
