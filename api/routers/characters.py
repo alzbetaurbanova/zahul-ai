@@ -19,6 +19,27 @@ from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, F
 from fastapi.responses import Response
 from typing import List, Annotated
 
+_AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
+
+async def _mirror_avatar(name: str, url: str) -> str:
+    """Downloads an external avatar URL and saves it locally. Returns local path or original URL on failure."""
+    if not url or not url.startswith("http"):
+        return url
+    try:
+        safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
+        os.makedirs(_AVATARS_DIR, exist_ok=True)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+        file_path = os.path.join(_AVATARS_DIR, f"{safe_name}.png")
+        with open(file_path, "wb") as f:
+            f.write(resp.content)
+        return f"/static/avatars/{safe_name}.png"
+    except Exception as e:
+        print(f"[avatar mirror] Failed for '{name}': {e}")
+        return url
+
 # --- Model and Database Imports ---
 # These Pydantic models define the structure of data for requests and responses.
 from api.models.models import (
@@ -175,9 +196,12 @@ async def create_character(
             detail=f"Character '{character.name}' already exists."
         )
     try:
+        char_data = character.data.model_dump()
+        if char_data.get("avatar"):
+            char_data["avatar"] = await _mirror_avatar(character.name, char_data["avatar"])
         db.create_character(
             name=character.name,
-            data=character.data.model_dump(),
+            data=char_data,
             triggers=character.triggers
         )
     except Exception as e:
@@ -214,7 +238,10 @@ async def update_character(
 
     try:
         # Step 1: Update the main character data (persona, examples, etc.)
-        db.update_character(name=character_name, data=character_update.data.model_dump())
+        char_data = character_update.data.model_dump()
+        if char_data.get("avatar"):
+            char_data["avatar"] = await _mirror_avatar(character_name, char_data["avatar"])
+        db.update_character(name=character_name, data=char_data)
         
         # Step 2: Update the triggers by replacing them completely
         # This requires the character's database ID.

@@ -86,6 +86,40 @@
         </div>
     </main>
 
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-md">
+            <div class="flex items-center justify-between p-5 border-b border-gray-800">
+                <div class="flex items-center gap-3">
+                    <div id="detail-avatar"></div>
+                    <div>
+                        <div class="flex items-center gap-2 mb-0.5" id="detail-badges"></div>
+                        <h2 id="detail-name" class="text-white font-bold text-lg leading-tight"></h2>
+                    </div>
+                </div>
+                <button id="detail-close" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-5 space-y-3 text-sm">
+                <div class="flex justify-between text-gray-400"><span>Character</span><span id="detail-character" class="text-white"></span></div>
+                <div class="flex justify-between text-gray-400"><span>Target</span><span id="detail-target" class="text-white"></span></div>
+                <div class="flex justify-between text-gray-400"><span>Status</span><span id="detail-status"></span></div>
+                <div id="detail-time-row" class="flex justify-between text-gray-400"><span>Time</span><span id="detail-time" class="text-white"></span></div>
+                <div id="detail-repeat-row" class="flex justify-between text-gray-400"><span>Repeat</span><span id="detail-repeat" class="text-white"></span></div>
+                <div id="detail-instructions-row" class="pt-1">
+                    <p class="text-gray-400 mb-1">Instructions</p>
+                    <p id="detail-instructions" class="text-gray-300 whitespace-pre-wrap break-words bg-gray-800 rounded-lg p-3 text-xs"></p>
+                </div>
+            </div>
+            <div class="flex items-center justify-between p-5 border-t border-gray-800">
+                <button id="detail-delete" class="text-red-400 hover:text-red-300 text-sm flex items-center gap-1"><i class="fas fa-trash"></i> Delete</button>
+                <div class="flex gap-2">
+                    <button id="detail-toggle" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg"></button>
+                    <button id="detail-edit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fas fa-pen mr-1"></i>Edit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Create / Edit Modal -->
     <div id="modal" class="hidden fixed inset-0 modal-backdrop flex items-start justify-center z-50 p-4 pt-16">
         <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -531,7 +565,10 @@
             taskList.innerHTML = filtered.map(t => taskCard(t)).join('');
             // Attach events
             taskList.querySelectorAll('[data-action]').forEach(btn => {
-                btn.addEventListener('click', () => handleAction(btn.dataset.action, parseInt(btn.dataset.id)));
+                btn.addEventListener('click', (e) => {
+                    if (btn.dataset.action !== 'detail') e.stopPropagation();
+                    handleAction(btn.dataset.action, parseInt(btn.dataset.id));
+                });
             });
         }
 
@@ -591,7 +628,7 @@
                 ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
                 : '';
             return `
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-gray-600 transition-colors" data-action="detail" data-id="${t.id}">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-3 mb-2">
@@ -615,6 +652,9 @@
                     <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
                         <i class="fas ${toggleIcon}"></i>
                     </button>
+                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
+                        <i class="fas fa-copy"></i>
+                    </button>
                     <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
                         <i class="fas fa-pen"></i>
                     </button>
@@ -633,6 +673,51 @@
 
         function esc(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // --- Detail Modal ---
+        const detailModal = document.getElementById('detail-modal');
+        document.getElementById('detail-close').addEventListener('click', () => detailModal.classList.add('hidden'));
+        detailModal.addEventListener('click', (e) => { if (e.target === detailModal) detailModal.classList.add('hidden'); });
+
+        function openDetail(task) {
+            const char = _charCache[task.character] || {};
+            const avatar = char.avatar;
+            document.getElementById('detail-avatar').innerHTML = avatar
+                ? `<img src="${esc(avatar)}" class="w-11 h-11 rounded-full object-cover">`
+                : `<div class="w-11 h-11 rounded-full bg-gray-700 flex items-center justify-center"><i class="fas fa-robot text-gray-400"></i></div>`;
+            document.getElementById('detail-badges').innerHTML = typeBadge(task.type) + ' ' + modeBadge(task.message_mode || 'exact');
+            document.getElementById('detail-name').textContent = task.type === 'reminder' ? task.character : normalizeTaskName(task.name);
+            document.getElementById('detail-character').textContent = task.character;
+            document.getElementById('detail-target').textContent = getTargetLabel(task.target_type, task.target_id);
+            document.getElementById('detail-status').innerHTML = statusBadge(task.status);
+
+            const timeRow = document.getElementById('detail-time-row');
+            const repeatRow = document.getElementById('detail-repeat-row');
+            if (task.scheduled_time) {
+                document.getElementById('detail-time').textContent = new Date(task.scheduled_time).toLocaleString('sk-SK', { hour12: false });
+                timeRow.classList.remove('hidden'); repeatRow.classList.add('hidden');
+            } else if (task.repeat_pattern) {
+                document.getElementById('detail-repeat').textContent = repeatSummary(task.repeat_pattern);
+                repeatRow.classList.remove('hidden'); timeRow.classList.add('hidden');
+            } else {
+                timeRow.classList.add('hidden'); repeatRow.classList.add('hidden');
+            }
+
+            const instrRow = document.getElementById('detail-instructions-row');
+            if (task.instructions) {
+                document.getElementById('detail-instructions').textContent = task.instructions;
+                instrRow.classList.remove('hidden');
+            } else { instrRow.classList.add('hidden'); }
+
+            const toggleBtn = document.getElementById('detail-toggle');
+            const isDisabled = task.status === 'disabled';
+            toggleBtn.textContent = isDisabled ? 'Enable' : 'Disable';
+            toggleBtn.onclick = () => { detailModal.classList.add('hidden'); handleAction('toggle', task.id); };
+            document.getElementById('detail-edit').onclick = () => { detailModal.classList.add('hidden'); openModal(task); };
+            document.getElementById('detail-delete').onclick = () => { detailModal.classList.add('hidden'); handleAction('delete', task.id); };
+
+            detailModal.classList.remove('hidden');
         }
 
         // --- Actions ---
@@ -655,6 +740,26 @@
                 });
                 showToast(`Task ${newStatus}.`);
                 fetchTasks();
+            } else if (action === 'duplicate') {
+                const task = allTasks.find(t => t.id === id);
+                if (!task) return;
+                const body = {
+                    type: task.type,
+                    name: task.name + ' (copy)',
+                    character: task.character,
+                    target_type: task.target_type,
+                    target_id: task.target_id,
+                    instructions: task.instructions || null,
+                    scheduled_time: task.scheduled_time || null,
+                    repeat_pattern: task.repeat_pattern || null,
+                    message_mode: task.message_mode || 'exact',
+                };
+                const resp = await fetch(`${API}/`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                if (resp.ok) { showToast('Task duplicated.'); fetchTasks(); }
+                else showToast('Failed to duplicate.', 'error');
+            } else if (action === 'detail') {
+                const task = allTasks.find(t => t.id === id);
+                if (task) openDetail(task);
             } else if (action === 'edit') {
                 const task = allTasks.find(t => t.id === id);
                 if (task) openModal(task);
