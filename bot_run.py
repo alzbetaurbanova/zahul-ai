@@ -405,6 +405,9 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             assistant=prefix,
             db=bot.db
         )
+        if text_suffix.startswith('//[OOC:'):
+            print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")
+            return
         text_suffix = text_suffix.strip()
         text_suffix = re.sub(r'^(response|Response):\s*', '', text_suffix)
         if task.get('type') == 'reminder':
