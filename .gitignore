@@ -23,6 +23,7 @@ static/uploads/
 
 # Data directory (contains database and secrets)
 data/
+data/token_usage.txt
 
 # Webhook (server-side only)
 webhook/
