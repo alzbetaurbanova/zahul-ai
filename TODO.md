@@ -40,3 +40,7 @@ Výhoda: žiadne zmeny v DB ani scheduleri, čisto UI vec.
 
 - [ ] Zvážiť multi-rule repeat pattern pre schedule (Návrh A)
 - [ ] Zvážiť multi-date picker pre reminder (Návrh B) — `+ Add date` v reminder forme
+
+## Infraštruktúra
+- [ ] Reverse proxy cez Caddy — HTTPS + vlastná doména pre web panel namiesto priameho portu 5666
+- [ ] Automatický webhook build na Oracle — po `git push` automaticky pullnúť a rebuildnúť kontajner (napr. cez GitHub webhook + skript na serveri)
