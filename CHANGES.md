@@ -19,6 +19,12 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - `/tokens` — shows token usage per minute and per day
 - `/fallback status` — shows whether fallback is active and when primary returns
 - `/fallback on` / `/fallback off` — manually toggle fallback mode
+- `/autocap set <value>` — sets the bot-to-bot chain limit
+- `/autocap off [hours]` — disables the chain limit temporarily (auto-reverts after given hours)
+- `/autocap on` — re-enables the chain limit with the last set value
+- `/autocap reset` — resets chain limit to the value in AI Config
+- `/autocap status` — shows the current chain limit state
+- `/reminder <character> <when> <text> [mode]` — schedules a one-time reminder; auto-targets the current channel or DM; mode is `exact` (default) or `generate`
 - All commands except `/about` are ephemeral (only visible to the user who ran them)
 
 ### Configurable base model with automatic fallback
@@ -48,6 +54,15 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Dropdown on the Characters page to filter characters by server
 - Shows only characters whitelisted in at least one channel of the selected server
 - Direct Messages excluded from the filter list
+
+### Scheduler & reminders
+- One-time reminders and recurring schedules managed from the web panel at `/scheduler`
+- Two delivery modes: **Exact** (sends the message as-is) or **Generate** (character reacts to the topic in their own voice)
+- Targets: channel or DM — auto-detected when using the `/reminder` slash command
+- Recurring schedules support day-of-week selection and a fixed time (Slovak timezone)
+- Scheduler runs as a background loop inside the bot, checks every 60 seconds
+- All tasks visible and editable in the Scheduler panel; status tracked (upcoming → done)
+- Errors from LLM generation are silently dropped — no raw error messages leak to Discord
 
 ### Panel authentication
 - Optional password protection for the web panel
