@@ -42,36 +42,9 @@
 <body class="bg-darker text-light">
     <div id="toast-container" class="toast z-50"></div>
 
-    <!-- Navbar (Unchanged) -->
-    <nav class="bg-darker border-b border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <a href="/" class="flex items-center space-x-3 text-white">
-                            <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
-                            <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
-                        </a>
-                    </div>
-                    <div class="hidden md:block">
-                        <div class="ml-10 flex items-baseline space-x-4">
-                            <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i> Dashboard</a>
-                            
-                            <a href="/characters" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-robot mr-2"></i> Characters</a>
-                            <a href="/scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-clock mr-2"></i> Scheduler</a>
-                            <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-cog mr-2"></i> AI Config</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="hidden md:flex items-center space-x-4">
-                    <span class="text-sm text-gray-400 mr-2">Status:</span>
-                    <span id="bot-status-indicator" class="status-indicator"></span>
-                    <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
-                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <div id="navbar-container"></div>
+    <script>window.activePage = 'characters';</script>
+    <script src="/static/navbar.js"></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6 sm:p-8">
@@ -650,26 +623,6 @@
             // --- Initial Load ---
             loadServerFilter();
             fetchAndDisplayCharacters();
-        });
-    // --- Bot Status Indicator ---
-    (function() {
-        const indicator = document.getElementById('bot-status-indicator');
-        const text = document.getElementById('bot-status-text');
-        const classes = ['status-active', 'status-inactive', 'status-starting'];
-        function update(status) {
-            indicator.classList.remove(...classes);
-            if (status === 'active') { indicator.classList.add('status-active'); text.textContent = 'Active'; }
-            else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); text.textContent = status.charAt(0).toUpperCase() + status.slice(1); }
-            else { indicator.classList.add('status-inactive'); text.textContent = 'Inactive'; }
-        }
-        function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => update(d.status)).catch(() => update('inactive')); }
-        poll();
-        setInterval(poll, 2500);
-    })();
-    </script>
-    <script>
-        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
-            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
         });
     </script>
 </body>

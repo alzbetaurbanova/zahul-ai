@@ -382,13 +382,18 @@ class Database:
             task['repeat_pattern'] = self._parse_json_value(task['repeat_pattern'])
         if task.get('message_mode') is None:
             task['message_mode'] = 'exact'
+        # Ensure created_at exists
+        if not task.get('created_at'):
+            from datetime import datetime, timezone
+            task['created_at'] = datetime.now(timezone.utc).isoformat()
         return task
 
     def create_task(self, type: str, name: str, character: str, target_type: str,
                     target_id: str, instructions: Optional[str] = None,
                     scheduled_time: Optional[str] = None,
                     repeat_pattern: Optional[Dict[str, Any]] = None,
-                    status: str = 'upcoming') -> int:
+                    status: str = 'upcoming',
+                    message_mode: str = 'exact') -> int:
         self._ensure_scheduled_tasks_table()
         from datetime import datetime, timezone
         created_at = datetime.now(timezone.utc).isoformat()
@@ -396,8 +401,8 @@ class Database:
         with self._get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO scheduled_tasks (type, name, character, target_type, target_id, instructions, scheduled_time, repeat_pattern, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (type, name, character, target_type, target_id, instructions, scheduled_time, rp, status, created_at)
+                "INSERT INTO scheduled_tasks (type, name, character, target_type, target_id, instructions, scheduled_time, repeat_pattern, status, message_mode, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (type, name, character, target_type, target_id, instructions, scheduled_time, rp, status, message_mode, created_at)
             )
             conn.commit()
             return cur.lastrowid

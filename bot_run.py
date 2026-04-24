@@ -1,5 +1,6 @@
 import asyncio
 import time
+import re
 import discord
 from discord import app_commands
 import traceback
@@ -378,20 +379,43 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
     char_name = char['name']
     avatar_url = char_data.get('avatar')
     instructions = (task.get('instructions') or '').strip()
+    print(f"[Scheduler] sending task {task['id']} type={task.get('type')} mode={task.get('message_mode')} char={char_name} target={task.get('target_type')} id={task.get('target_id')}")
 
     if task.get('message_mode') == 'generate':
         from src.utils.llm_new import generate_in_character
-        prefix = f"Reminder: {instructions}\n" if instructions else "Reminder\n"
+        if task.get('type') == 'reminder':
+            prefix = f"Reminder: {instructions}\nResponse:" if instructions else "Reminder\nResponse:"
+            system_addon = (
+                'The assistant should speak about the reminder content in character, not merely react to it. '
+                'If the reminder text describes a task or topic, mention that subject and expand on it with friendly, helpful commentary. '
+                'Use the word Response: only once, and output only the response text after it.'
+            )
+            user = '[talk about the reminder text]'
+        else:
+            prefix = f"{instructions}\nResponse:" if instructions else 'Response:'
+            system_addon = (
+                'The assistant should follow the instruction above in character and output only the response text. '
+                'Do not repeat the original input or instruction in the final message.'
+            )
+            user = '[follow the instruction]'
         text_suffix = await generate_in_character(
             character_name=char_name,
-            system_addon='React to the reminder above in character. Be creative and expressive. Write only your reaction, nothing else.',
-            user='[react to the reminder]',
+            system_addon=system_addon,
+            user=user,
             assistant=prefix,
             db=bot.db
         )
-        text = (prefix + text_suffix).strip()
+        text_suffix = text_suffix.strip()
+        text_suffix = re.sub(r'^(response|Response):\s*', '', text_suffix)
+        if task.get('type') == 'reminder':
+            text = (prefix + ' ' + text_suffix).strip()
+        else:
+            text = text_suffix
     else:
-        text = instructions
+        if task.get('type') == 'reminder':
+            text = f"Reminder: {instructions}" if instructions else 'Reminder'
+        else:
+            text = f"Schedule: {instructions}" if instructions else 'Schedule'
 
     if not text:
         return
@@ -455,12 +479,16 @@ async def _run_scheduler(bot: 'Zahul'):
             current_day = now.weekday()  # 0=Mon, 6=Sun
             current_time = now.strftime("%H:%M")
             today_str = now.strftime("%Y-%m-%d")
-            for task in bot.db.list_active_schedules():
+            active_schedules = bot.db.list_active_schedules()
+            print(f"[Scheduler] Checking schedules: {len(active_schedules)} active tasks, time={current_time}, day={current_day}")
+            for task in active_schedules:
                 pattern = task.get('repeat_pattern') or {}
                 days = pattern.get('days', [])
                 fire_time = pattern.get('time', '')
+                print(f"[Scheduler] task={task['id']} days={days} fire_time={fire_time} status={task.get('status')} last_fired={_last_schedule_fire.get(task['id'])}")
                 if current_day in days and current_time == fire_time:
                     if _last_schedule_fire.get(task['id']) != today_str:
+                        print(f"[Scheduler] firing schedule task {task['id']} for {task['character']} at {current_time}")
                         await _send_scheduled_message(bot, task)
                         _last_schedule_fire[task['id']] = today_str
         except Exception:
@@ -468,13 +496,24 @@ async def _run_scheduler(bot: 'Zahul'):
         await asyncio.sleep(60)
 
 
-@app_commands.command(name="reminder", description="Set a one-time reminder for this channel.")
+@app_commands.command(name="reminder", description="Set a one-time reminder in this channel or DM.")
 @app_commands.describe(
     character="Character who will deliver the message",
     when="Date and time (YYYY-MM-DD HH:MM) — Slovak time",
-    text="Message text to send"
+    text="Message text (exact) or topic hint (generate)",
+    mode="How the message is sent: exact text or generated in character",
 )
-async def reminder_command(interaction: discord.Interaction, character: str, when: str, text: str):
+@app_commands.choices(mode=[
+    app_commands.Choice(name="Exact", value="exact"),
+    app_commands.Choice(name="Generate", value="generate"),
+])
+async def reminder_command(
+    interaction: discord.Interaction,
+    character: str,
+    when: str,
+    text: str,
+    mode: app_commands.Choice[str] = None,
+):
     bot: Zahul = interaction.client
     if not bot.db.get_character(character):
         await interaction.response.send_message(f"❌ Character **{character}** not found.", ephemeral=True)
@@ -488,19 +527,29 @@ async def reminder_command(interaction: discord.Interaction, character: str, whe
         await interaction.response.send_message("❌ That time is already in the past.", ephemeral=True)
         return
 
-    channel_id = str(interaction.channel_id)
+    message_mode = mode.value if mode else 'exact'
+
+    if isinstance(interaction.channel, discord.DMChannel):
+        target_type = 'dm'
+        target_id = str(interaction.user.name)
+    else:
+        target_type = 'channel'
+        target_id = str(interaction.channel_id)
+
     task_id = bot.db.create_task(
         type='reminder',
-        name=f"Reminder by {interaction.user.name}",
+        name=f"{character} — {dt.strftime('%Y-%m-%d %H:%M')}",
         character=character,
-        target_type='channel',
-        target_id=channel_id,
+        target_type=target_type,
+        target_id=target_id,
         instructions=text,
-        scheduled_time=dt.isoformat(),
+        scheduled_time=dt.strftime("%Y-%m-%dT%H:%M:%S"),
         status='upcoming',
+        message_mode=message_mode,
     )
+    target_desc = f"DM" if target_type == 'dm' else f"<#{interaction.channel_id}>"
     await interaction.response.send_message(
-        f"✅ Reminder set! **{character}** will post at **{when} UTC** (ID: {task_id}).",
+        f"✅ Reminder set! **{character}** → {target_desc} at **{when}** (ID: {task_id}, mode: {message_mode}).",
         ephemeral=True
     )
 

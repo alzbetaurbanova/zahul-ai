@@ -24,37 +24,13 @@
 <body class="bg-darker text-light min-h-screen">
     <div id="toast-container" class="toast"></div>
 
-    <!-- Navbar -->
-    <nav class="bg-darker border-b border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <a href="/" class="flex items-center space-x-3 text-white flex-shrink-0">
-                        <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
-                        <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
-                    </a>
-                    <div class="hidden md:block ml-10">
-                        <div class="flex items-baseline space-x-4">
-                            <a href="/" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                            <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i>Characters</a>
-                            <a href="/scheduler" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white"><i class="fas fa-clock mr-2"></i>Scheduler</a>
-                            <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-cog mr-2"></i>AI Config</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="hidden md:flex items-center space-x-4">
-                    <span class="text-sm text-gray-400 mr-2">Status:</span>
-                    <span id="bot-status-indicator" class="status-indicator"></span>
-                    <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
-                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <div id="navbar-container"></div>
+    <script>window.activePage = 'scheduler';</script>
+    <script src="/static/navbar.js"></script>
 
     <!-- Main Content -->
     <main class="p-6">
-        <div class="max-w-7xl mx-auto">
+        <div class="max-w-4xl mx-auto">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <h1 class="text-3xl font-bold text-white">Scheduler</h1>
                 <button id="create-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
@@ -84,11 +60,21 @@
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">From</label>
-                    <input type="date" id="filter-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                    <div class="relative">
+                        <input type="date" id="filter-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8 w-full">
+                        <button id="clear-from-btn" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" title="Clear From date" style="height: 24px; display: flex; align-items: center;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">To</label>
-                    <input type="date" id="filter-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                    <div class="relative">
+                        <input type="date" id="filter-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8 w-full">
+                        <button id="clear-to-btn" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" title="Clear To date" style="height: 24px; display: flex; align-items: center;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
                 <button id="clear-filter-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
             </div>
@@ -286,22 +272,50 @@
             });
         }
 
+        function setStatusOptions(type, selectedValue = '') {
+            const statusSelect = document.getElementById('f-status');
+            let options = [];
+            if (type === 'schedule') {
+                options = [
+                    { value: 'active', label: 'Active' },
+                    { value: 'disabled', label: 'Disabled' }
+                ];
+            } else {
+                options = [
+                    { value: 'upcoming', label: 'Upcoming' },
+                    { value: 'done', label: 'Done' },
+                    { value: 'disabled', label: 'Disabled' }
+                ];
+            }
+            statusSelect.innerHTML = options.map(opt =>
+                `<option value="${opt.value}">${opt.label}</option>`
+            ).join('');
+            if (selectedValue && options.some(opt => opt.value === selectedValue)) {
+                statusSelect.value = selectedValue;
+            }
+        }
+
         // Type pill buttons
+        function updateModeButtonLabels(type) {
+            const generateBtn = document.getElementById('mode-generate');
+            generateBtn.textContent = type === 'schedule' ? 'Instructions' : 'Generate';
+        }
+
         function setType(type) {
             document.getElementById('selected-type').value = type;
             const isSchedule = type === 'schedule';
             reminderFields.classList.toggle('hidden', isSchedule);
             scheduleFields.classList.toggle('hidden', !isSchedule);
             document.getElementById('name-field').classList.toggle('hidden', !isSchedule);
-            document.getElementById('mode-toggle').classList.toggle('hidden', isSchedule);
             if (isSchedule) {
-                setMessageMode('generate');
-                document.getElementById('instructions-label').textContent = 'Instructions';
-                document.getElementById('f-instructions').placeholder = 'e.g. Napíš nejakú dramu o dnešnom dni...';
+                setMessageMode('exact');
+                document.getElementById('f-instructions').placeholder = "e.g. Write a dramatic scene about today's events.";
+                const repeatTimeEl = document.getElementById('f-repeat-time');
+                if (!repeatTimeEl.value) repeatTimeEl.value = '09:00';
             } else {
-                document.getElementById('instructions-label').textContent = 'Message Text';
                 document.getElementById('f-instructions').placeholder = 'What the character will say...';
             }
+            updateModeButtonLabels(type);
             document.querySelectorAll('.type-btn').forEach(btn => {
                 const isActive = btn.dataset.type === type;
                 const isScheduleBtn = btn.dataset.type === 'schedule';
@@ -325,6 +339,7 @@
             document.getElementById('f-message-mode').value = mode;
             const label = document.getElementById('instructions-label');
             const textarea = document.getElementById('f-instructions');
+            const type = document.getElementById('selected-type').value;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 const active = btn.dataset.mode === mode;
                 btn.classList.toggle('bg-indigo-600', active);
@@ -332,8 +347,13 @@
                 btn.classList.toggle('text-gray-400', !active);
             });
             if (mode === 'generate') {
-                label.textContent = 'Message prefix (bot will continue from here)';
-                textarea.placeholder = 'e.g. Mal som ti pripomenuť že...';
+                if (type === 'schedule') {
+                    label.textContent = 'Instructions';
+                    textarea.placeholder = 'e.g. Ask the character to describe a dramatic scene from today.';
+                } else {
+                    label.textContent = 'Message prefix (bot will continue from here)';
+                    textarea.placeholder = 'e.g. I wanted to remind you that...';
+                }
             } else {
                 label.textContent = 'Message Text';
                 textarea.placeholder = 'What the character will say...';
@@ -475,9 +495,19 @@
             if (type) url += `type=${encodeURIComponent(type)}&`;
             if (status) url += `status=${encodeURIComponent(status)}&`;
             try {
-                allTasks = await fetch(url).then(r => r.json());
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    console.error(`Failed to load tasks. Status: ${response.status}`, errorData);
+                    showToast(`Failed to load tasks (${response.status}).`, 'error');
+                    return;
+                }
+                allTasks = await response.json();
                 renderTasks(allTasks);
-            } catch { showToast('Failed to load tasks.', 'error'); }
+            } catch (err) { 
+                console.error('Error loading tasks:', err);
+                showToast(`Failed to load tasks: ${err.message}`, 'error'); 
+            }
         }
 
         function applyDateFilter(tasks) {
@@ -521,32 +551,62 @@
             return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
         }
 
+        function modeBadge(mode) {
+            const map = {
+                exact:        'bg-gray-800 text-gray-300',
+                instructions: 'bg-gray-800 text-gray-300',
+                generate:     'bg-purple-900 text-purple-300',
+            };
+            const label = mode === 'instructions' ? 'Instructions' : mode === 'generate' ? 'Generate' : 'Exact';
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[mode] || 'bg-gray-800 text-gray-300'}">${label}</span>`;
+        }
+
+        function normalizeTaskName(name) {
+            return String(name || '').replace(/—/g, '-');
+        }
+
+        function getTargetLabel(targetType, targetId) {
+            if (targetType === 'channel') {
+                const opt = _channelOptions.find(o => o.id === targetId);
+                return opt ? opt.label : targetId;
+            }
+            return targetId;
+        }
+
         function taskCard(t) {
             const when = t.scheduled_time
                 ? new Date(t.scheduled_time).toLocaleString('sk-SK', { hour12: false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
                 : repeatSummary(t.repeat_pattern);
+            const targetLabel = getTargetLabel(t.target_type, t.target_id);
             const isDisabled = t.status === 'disabled';
             const toggleIcon = isDisabled ? 'fa-play' : 'fa-pause';
+            const toggleLabel = isDisabled ? 'Enable' : 'Pause';
             const toggleColor = isDisabled ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300';
             const char = _charCache[t.character] || {};
             const avatar = char.avatar;
             const avatarHtml = avatar
                 ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}">`
                 : `<div class="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot text-gray-400 text-xs"></i></div>`;
+            const titleHtml = t.type === 'schedule'
+                ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
+                : '';
             return `
             <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
-                    <div class="flex flex-wrap items-center gap-2 mb-1">
-                        ${typeBadge(t.type)}
-                        ${statusBadge(t.status)}
-                        <span class="font-semibold text-white text-sm">${esc(t.character)}</span>
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            ${typeBadge(t.type)}
+                            ${modeBadge(t.message_mode || 'exact')}
+                            <span class="font-semibold text-white text-sm">${esc(t.character)}</span>
+                        </div>
+                        <div class="flex-shrink-0">
+                            ${statusBadge(t.status)}
+                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-3 mt-0.5">
-                        <span class="font-bold text-white text-sm">${esc(t.name)}</span>
-                    </div>
+                    ${titleHtml}
                     <div class="text-xs text-gray-400 flex flex-wrap gap-3 mt-1">
-                        <span><i class="fas fa-${t.target_type === 'dm' ? 'user' : 'hashtag'} mr-1"></i>${esc(t.target_id)}</span>
+                        <span><i class="fas fa-${t.target_type === 'dm' ? 'user' : 'hashtag'} mr-1"></i>${esc(targetLabel)}</span>
                         ${when ? `<span><i class="fas fa-clock mr-1"></i>${esc(when)}</span>` : ''}
                     </div>
                     ${t.instructions ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(t.instructions)}</p>` : ''}
@@ -630,9 +690,14 @@
                     document.getElementById('f-repeat-time').value = task.repeat_pattern.time || '';
                     setSelectedDays(task.repeat_pattern.days || []);
                 }
-                document.getElementById('f-status').value = task.status || '';
+                setStatusOptions(task.type, task.status || 'active');
+                document.getElementById('f-status').value = task.status || 'active';
                 // Status only editable for schedules (active/disabled) — reminders are auto-managed
-                if (task.type === 'schedule') statusField.classList.remove('hidden');
+                if (task.type === 'schedule') {
+                    statusField.classList.remove('hidden');
+                } else {
+                    statusField.classList.add('hidden');
+                }
             } else {
                 modalTitle.textContent = 'New Task';
                 setType('reminder');
@@ -664,7 +729,7 @@
             const instructions = document.getElementById('f-instructions').value.trim();
             const st = document.getElementById('f-scheduled-time').value;
             const name = type === 'reminder'
-                ? `${character} — ${st ? st.slice(0, 16).replace('T', ' ') : 'reminder'}`
+                ? `${character} - ${st ? st.slice(0, 16).replace('T', ' ') : 'reminder'}`
                 : document.getElementById('f-name').value.trim();
 
             if (!character || !target_id || (type === 'schedule' && !name)) {
@@ -703,14 +768,56 @@
             } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
         });
 
+        // --- Dynamic Status Filter ---
+        function updateStatusOptions() {
+            const typeSelect = document.getElementById('filter-type');
+            const statusSelect = document.getElementById('filter-status');
+            const selectedType = typeSelect.value;
+            const currentStatus = statusSelect.value;
+            
+            // Build options based on type
+            let options = [{ value: '', label: 'All' }];
+            if (selectedType === 'schedule') {
+                options.push({ value: 'active', label: 'Active' });
+                options.push({ value: 'disabled', label: 'Disabled' });
+            } else if (selectedType === 'reminder') {
+                options.push({ value: 'upcoming', label: 'Upcoming' });
+                options.push({ value: 'done', label: 'Done' });
+                options.push({ value: 'disabled', label: 'Disabled' });
+            } else {
+                // Show all options
+                options.push({ value: 'active', label: 'Active' });
+                options.push({ value: 'upcoming', label: 'Upcoming' });
+                options.push({ value: 'done', label: 'Done' });
+                options.push({ value: 'disabled', label: 'Disabled' });
+            }
+            
+            // Rebuild dropdown
+            statusSelect.innerHTML = options.map(opt => 
+                `<option value="${opt.value}"${opt.value === currentStatus ? ' selected' : ''}>${opt.label}</option>`
+            ).join('');
+        }
+
         // --- Filters ---
-        ['filter-type','filter-status','filter-from','filter-to'].forEach(id => {
+        document.getElementById('filter-type').addEventListener('change', () => {
+            updateStatusOptions();
+            fetchTasks();
+        });
+        ['filter-status','filter-from','filter-to'].forEach(id => {
             document.getElementById(id).addEventListener('change', fetchTasks);
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';
             document.getElementById('filter-status').value = '';
             document.getElementById('filter-from').value = '';
+            document.getElementById('filter-to').value = '';
+            fetchTasks();
+        });
+        document.getElementById('clear-from-btn').addEventListener('click', () => {
+            document.getElementById('filter-from').value = '';
+            fetchTasks();
+        });
+        document.getElementById('clear-to-btn').addEventListener('click', () => {
             document.getElementById('filter-to').value = '';
             fetchTasks();
         });
@@ -723,26 +830,6 @@
             toastContainer.appendChild(t);
             setTimeout(() => t.remove(), 3000);
         }
-
-        // --- Bot Status ---
-        (function() {
-            const indicator = document.getElementById('bot-status-indicator');
-            const text = document.getElementById('bot-status-text');
-            const classes = ['status-active','status-inactive','status-starting'];
-            function update(status) {
-                indicator.classList.remove(...classes);
-                if (status === 'active') { indicator.classList.add('status-active'); text.textContent = 'Active'; }
-                else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); text.textContent = status.charAt(0).toUpperCase()+status.slice(1); }
-                else { indicator.classList.add('status-inactive'); text.textContent = 'Inactive'; }
-            }
-            function poll() { fetch('/api/discord/status').then(r=>r.json()).then(d=>update(d.status)).catch(()=>update('inactive')); }
-            poll(); setInterval(poll, 2500);
-        })();
-
-        // --- Auth ---
-        fetch('/api/auth-enabled').then(r=>r.json()).then(d => {
-            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display='none');
-        });
 
         // Init
         fetchTasks();

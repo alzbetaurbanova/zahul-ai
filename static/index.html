@@ -88,43 +88,9 @@
 </head>
 <body class="bg-darker text-light">
     <div class="flex flex-col min-h-screen">
-        <!-- Navbar -->
-        <nav class="bg-darker border-b border-gray-800">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <a href="/" class="flex items-center space-x-3 text-white">
-                                <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
-                                <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
-                            </a>
-                        </div>
-                        <div class="hidden md:block">
-                            <div class="ml-10 flex items-baseline space-x-4">
-                                <a href="/" class="nav-link active px-3 py-2 rounded-md text-sm font-medium text-white">
-                                    <i class="fas fa-home mr-2"></i> Dashboard
-                                </a>
-                                <a href="/characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white">
-                                    <i class="fas fa-robot mr-2"></i> Characters
-                                </a>
-                                <a href="/scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-clock mr-2"></i> Scheduler</a>
-                                <a href="/ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white">
-                                    <i class="fas fa-cog mr-2"></i> AI Config
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="hidden md:block">
-                        <div class="ml-4 flex items-center md:ml-6 space-x-4">
-                            <span class="text-sm text-gray-400 mr-2">Status:</span>
-                            <span id="bot-status-indicator" class="status-indicator"></span>
-                            <span id="bot-status-text" class="ml-1 text-sm" style="min-width:48px;display:inline-block"></span>
-                            <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <div id="navbar-container"></div>
+        <script>window.activePage = 'dashboard';</script>
+        <script src="/static/navbar.js"></script>
 
         <!-- Main Content -->
         <main class="flex-grow p-6">
@@ -201,8 +167,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const powerBtn = document.getElementById('power-btn');
-            const botStatusIndicator = document.getElementById('bot-status-indicator');
-            const botStatusText = document.getElementById('bot-status-text');
             const controlStatusIndicator = document.getElementById('control-status-indicator');
             const controlStatusText = document.getElementById('control-status-text');
             const logContainer = document.getElementById('log-container');
@@ -343,7 +307,6 @@
 
         // Reset all classes
         const allStatusClasses = ['status-active', 'status-inactive', 'status-starting', 'status-stopping', 'status-crashed'];
-        botStatusIndicator.classList.remove(...allStatusClasses);
         controlStatusIndicator.classList.remove(...allStatusClasses);
         powerBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-gray-800', 'hover:bg-gray-700', 'bg-yellow-600');
 
@@ -351,41 +314,31 @@
 
         switch (status) {
             case 'active':
-                botStatusIndicator.classList.add('status-active');
                 controlStatusIndicator.classList.add('status-active');
-                botStatusText.textContent = 'Active';
                 controlStatusText.textContent = 'Active';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Deactivate';
                 powerBtn.classList.add('bg-red-600', 'hover:bg-red-700');
                 break;
             case 'starting':
-                botStatusIndicator.classList.add('status-starting');
                 controlStatusIndicator.classList.add('status-starting');
-                botStatusText.textContent = 'Starting';
                 controlStatusText.textContent = 'Starting';
                 powerBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Starting...';
                 powerBtn.disabled = true;
                 break;
             case 'stopping':
-                botStatusIndicator.classList.add('status-stopping'); // You can style this class
                 controlStatusIndicator.classList.add('status-stopping');
-                botStatusText.textContent = 'Stopping';
                 controlStatusText.textContent = 'Stopping';
                 powerBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Stopping...';
                 powerBtn.disabled = true;
                 break;
             case 'crashed':
-                botStatusIndicator.classList.add('status-crashed'); // Style this too
                 controlStatusIndicator.classList.add('status-crashed');
-                botStatusText.textContent = 'Crashed';
                 controlStatusText.textContent = 'Crashed';
                 powerBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Restart';
                 powerBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
                 break;
             default: // 'inactive'
-                botStatusIndicator.classList.add('status-inactive');
                 controlStatusIndicator.classList.add('status-inactive');
-                botStatusText.textContent = 'Inactive';
                 controlStatusText.textContent = 'Inactive';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Activate';
                 powerBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
@@ -482,11 +435,6 @@
                         }
                     });
             }, 10000);
-        });
-    </script>
-    <script>
-        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
-            if (!d.enabled) document.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
         });
     </script>
 </body>

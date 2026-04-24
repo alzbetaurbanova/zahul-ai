@@ -1,0 +1,28 @@
+<nav class="bg-darker border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <a href="/" class="flex items-center space-x-3 text-white">
+                        <img class="h-8 w-auto" src="/zahul" alt="zahul-ai">
+                        <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
+                    </a>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/" data-page="dashboard" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                        <a href="/characters" data-page="characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-robot mr-2"></i>Characters</a>
+                        <a href="/scheduler" data-page="scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-clock mr-2"></i>Scheduler</a>
+                        <a href="/ai-config" data-page="ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-cog mr-2"></i>AI Config</a>
+                    </div>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center space-x-4">
+                <span class="text-sm text-gray-400 mr-2">Status:</span>
+                <span id="bot-status-indicator" class="status-indicator"></span>
+                <span id="bot-status-text" class="ml-1 text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
+                <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors"><i class="fas fa-sign-out-alt mr-1"></i>Logout</a>
+            </div>
+        </div>
+    </div>
+</nav>
