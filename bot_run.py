@@ -398,7 +398,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 'Do not repeat the original input or instruction in the final message.'
             )
             user = '[follow the instruction]'
-        text_suffix = await generate_in_character(
+        text_suffix, input_tokens, output_tokens, model_used = await generate_in_character(
             character_name=char_name,
             system_addon=system_addon,
             user=user,
@@ -407,6 +407,12 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         )
         if text_suffix.startswith('//[OOC:'):
             print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")
+            bot.db.log_discord(
+                character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
+                user='system', trigger=instructions or '', response='',
+                model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
+                conversation_history=None, source='scheduler', status='error', error_message=text_suffix
+            )
             return
         text_suffix = text_suffix.strip()
         text_suffix = re.sub(r'^(response|Response):\s*', '', text_suffix)
@@ -415,6 +421,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         else:
             text = text_suffix
     else:
+        input_tokens, output_tokens, model_used = 0, 0, 'exact'
         if task.get('type') == 'reminder':
             text = f"Reminder: {instructions}" if instructions else 'Reminder'
         else:
@@ -460,6 +467,20 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 await user.send(f"**{char_name}:** {text}")
             else:
                 print(f"[Scheduler] DM target '{target}' not found")
+                bot.db.log_discord(
+                    character=char_name, channel_id=f"dm:{task['target_id']}",
+                    user='system', trigger=instructions or '', response=text,
+                    model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
+                    conversation_history=None, source='scheduler', status='error', error_message='DM target not found'
+                )
+                return
+
+        bot.db.log_discord(
+            character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
+            user='system', trigger=instructions or '', response=text,
+            model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
+            conversation_history=None, source='scheduler', status='ok', error_message=None
+        )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
 
@@ -486,14 +507,23 @@ async def _run_scheduler(bot: 'Zahul'):
             print(f"[Scheduler] Checking schedules: {len(active_schedules)} active tasks, time={current_time}, day={current_day}")
             for task in active_schedules:
                 pattern = task.get('repeat_pattern') or {}
-                days = pattern.get('days', [])
+                ptype = pattern.get('type', 'weekly')
                 fire_time = pattern.get('time', '')
-                print(f"[Scheduler] task={task['id']} days={days} fire_time={fire_time} status={task.get('status')} last_fired={_last_schedule_fire.get(task['id'])}")
-                if current_day in days and current_time == fire_time:
-                    if _last_schedule_fire.get(task['id']) != today_str:
-                        print(f"[Scheduler] firing schedule task {task['id']} for {task['character']} at {current_time}")
-                        await _send_scheduled_message(bot, task)
-                        _last_schedule_fire[task['id']] = today_str
+                should_fire = False
+                if current_time == fire_time:
+                    if ptype == 'daily':
+                        should_fire = True
+                    elif ptype == 'weekly':
+                        should_fire = current_day in pattern.get('days', [])
+                    elif ptype == 'monthly':
+                        should_fire = now.day == pattern.get('day', 1)
+                    elif ptype == 'yearly':
+                        should_fire = now.month == pattern.get('month', 1) and now.day == pattern.get('day', 1)
+                print(f"[Scheduler] task={task['id']} type={ptype} fire_time={fire_time} should_fire={should_fire} last_fired={_last_schedule_fire.get(task['id'])}")
+                if should_fire and _last_schedule_fire.get(task['id']) != today_str:
+                    print(f"[Scheduler] firing schedule task {task['id']} for {task['character']} at {current_time}")
+                    await _send_scheduled_message(bot, task)
+                    _last_schedule_fire[task['id']] = today_str
         except Exception:
             print(f"[Scheduler] Loop error:\n{traceback.format_exc()}")
         await asyncio.sleep(60)

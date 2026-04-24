@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #6366f1; --primary-dark: #4f46e5; --darker: #0f172a; --light: #f8fafc; }
+        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
+        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
+        .nav-link.active { border-bottom: 2px solid var(--primary); }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-inactive { background-color: #ef4444; }
+        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .tab-active { border-bottom: 2px solid var(--primary); color: white; }
+        pre { white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body class="bg-darker text-light min-h-screen">
+    <div id="navbar-container"></div>
+    <script>window.activePage = '';</script>
+    <script src="/static/navbar.js"></script>
+
+    <main class="p-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-3xl font-bold text-white">Logs</h1>
+                <button id="export-btn" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded-lg"><i class="fas fa-download mr-2"></i>Export JSON</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-6 border-b border-gray-800 mb-6">
+                <button data-tab="discord" class="tab-btn tab-active pb-3 text-sm font-medium text-white transition-colors">Discord</button>
+                <button data-tab="admin" class="tab-btn pb-3 text-sm font-medium text-gray-400 hover:text-white transition-colors">Admin</button>
+            </div>
+
+            <!-- Discord Filters -->
+            <div id="discord-filters" class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">Character</label><input type="text" id="df-character" list="dl-characters" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">User</label><input type="text" id="df-user" list="dl-users" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
+                <datalist id="dl-characters"></datalist>
+                <datalist id="dl-users"></datalist>
+                <div><label class="block text-xs text-gray-400 mb-1">Source</label>
+                    <select id="df-source" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                        <option value="">All</option><option value="chat">Chat</option><option value="scheduler">Scheduler</option>
+                    </select>
+                </div>
+                <div><label class="block text-xs text-gray-400 mb-1">Status</label>
+                    <select id="df-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                        <option value="">All</option><option value="ok">OK</option><option value="error">Error</option>
+                    </select>
+                </div>
+                <button id="discord-clear-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
+            </div>
+
+            <!-- Admin Filters -->
+            <div id="admin-filters" class="hidden bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2"></div>
+                <div><label class="block text-xs text-gray-400 mb-1">Action</label>
+                    <select id="af-action" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                        <option value="">All</option>
+                        <option value="character.create">character.create</option>
+                        <option value="character.update">character.update</option>
+                        <option value="character.delete">character.delete</option>
+                        <option value="task.create">task.create</option>
+                        <option value="task.update">task.update</option>
+                        <option value="task.delete">task.delete</option>
+                        <option value="config.update">config.update</option>
+                    </select>
+                </div>
+                <button id="admin-clear-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
+            </div>
+
+            <!-- Log List -->
+            <div id="log-list" class="space-y-2"></div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="flex items-center justify-between mt-6 text-sm text-gray-400">
+                <div class="flex items-center gap-2">
+                    <span id="pagination-info"></span>
+                    <select id="limit-select" class="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 ml-3">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span class="text-xs text-gray-500">/ page</span>
+                </div>
+                <div class="flex gap-2">
+                    <button id="prev-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-40" disabled>← Prev</button>
+                    <button id="next-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-40" disabled>Next →</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-5 border-b border-gray-800">
+                <h2 class="text-white font-bold text-lg">Log Detail</h2>
+                <button id="detail-close" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="detail-body" class="p-5 space-y-4 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        let LIMIT = 25;
+        let currentTab = 'discord';
+        let currentPage = 1;
+        let totalItems = 0;
+        let channelMap = {};  // channel_id -> {server_name, channel_name}
+
+        async function loadMeta() {
+            try {
+                const data = await fetch('/api/logs/meta').then(r => r.json());
+                const dlChars = document.getElementById('dl-characters');
+                const dlUsers = document.getElementById('dl-users');
+                dlChars.innerHTML = data.characters.map(c => `<option value="${esc(c)}">`).join('');
+                dlUsers.innerHTML = data.users.map(u => `<option value="${esc(u)}">`).join('');
+                channelMap = data.channels || {};
+            } catch (e) {}
+        }
+
+        function resolveChannel(channel_id) {
+            if (!channel_id) return '';
+            if (channel_id === 'dm') return 'Direct Message';
+            if (channel_id.startsWith('dm:')) return `DM: ${channel_id.slice(3)}`;
+            const rawId = channel_id.startsWith('channel:') ? channel_id.slice(8) : channel_id;
+            const info = channelMap[rawId];
+            if (info) return `${info.server_name} / #${info.channel_name}`;
+            return channel_id;
+        }
+
+        // --- Tab switching ---
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active', 'text-white'));
+                btn.classList.add('tab-active', 'text-white');
+                currentTab = btn.dataset.tab;
+                currentPage = 1;
+                document.getElementById('discord-filters').classList.toggle('hidden', currentTab !== 'discord');
+                document.getElementById('admin-filters').classList.toggle('hidden', currentTab !== 'admin');
+                fetchLogs();
+            });
+        });
+
+        // --- Filter auto-fire ---
+        ['df-from','df-to','df-character','df-user','df-source','df-status'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+            if (el.tagName === 'INPUT' && el.type === 'text') el.addEventListener('input', () => { currentPage = 1; fetchLogs(); });
+        });
+        ['af-from','af-to','af-action'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+        });
+
+        document.getElementById('discord-clear-btn').addEventListener('click', () => {
+            ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
+            ['df-source','df-status'].forEach(id => document.getElementById(id).value = '');
+            currentPage = 1; fetchLogs();
+        });
+        document.getElementById('admin-clear-btn').addEventListener('click', () => {
+            ['af-from','af-to','af-action'].forEach(id => document.getElementById(id).value = '');
+            currentPage = 1; fetchLogs();
+        });
+
+        // --- Pagination ---
+        document.getElementById('prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchLogs(); } });
+        document.getElementById('next-btn').addEventListener('click', () => { if (currentPage * LIMIT < totalItems) { currentPage++; fetchLogs(); } });
+        document.getElementById('limit-select').addEventListener('change', function() { LIMIT = parseInt(this.value); currentPage = 1; fetchLogs(); });
+
+        // --- Export ---
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const params = buildParams();
+            window.location.href = `/api/logs/${currentTab}/export?${params}`;
+        });
+
+        function buildParams() {
+            const p = new URLSearchParams({ page: currentPage, limit: LIMIT });
+            if (currentTab === 'discord') {
+                const v = id => document.getElementById(id).value;
+                if (v('df-from')) p.set('from_date', v('df-from'));
+                if (v('df-to')) p.set('to_date', v('df-to'));
+                if (v('df-character')) p.set('character', v('df-character'));
+                if (v('df-user')) p.set('user', v('df-user'));
+                if (v('df-source')) p.set('source', v('df-source'));
+                if (v('df-status')) p.set('status', v('df-status'));
+            } else {
+                const v = id => document.getElementById(id).value;
+                if (v('af-from')) p.set('from_date', v('af-from'));
+                if (v('af-to')) p.set('to_date', v('af-to'));
+                if (v('af-action')) p.set('action', v('af-action'));
+            }
+            return p.toString();
+        }
+
+        async function fetchLogs() {
+            const list = document.getElementById('log-list');
+            list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
+            try {
+                const res = await fetch(`/api/logs/${currentTab}?${buildParams()}`);
+                const data = await res.json();
+                totalItems = data.total;
+                renderLogs(data.items);
+                updatePagination();
+            } catch (e) {
+                list.innerHTML = '<div class="text-red-400 text-center py-12">Failed to load logs.</div>';
+            }
+        }
+
+        function renderLogs(items) {
+            const list = document.getElementById('log-list');
+            if (!items.length) { list.innerHTML = '<div class="text-gray-500 text-center py-12">No logs found.</div>'; return; }
+            list.innerHTML = items.map(item => currentTab === 'discord' ? discordRow(item) : adminRow(item)).join('');
+            list.querySelectorAll('[data-log-id]').forEach(row => {
+                row.addEventListener('click', () => openDetail(parseInt(row.dataset.logId)));
+            });
+        }
+
+        function fmt(ts) {
+            return ts ? new Date(ts).toLocaleString('sk-SK', { hour12: false }) : '';
+        }
+
+        function discordRow(item) {
+            const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
+            const sourceColor = item.source === 'scheduler' ? 'bg-indigo-900 text-indigo-300' : 'bg-gray-800 text-gray-300';
+            return `<div data-log-id="${item.id}" class="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-lg p-4 cursor-pointer transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs px-2 py-0.5 rounded ${sourceColor}">${item.source || 'chat'}</span>
+                        <span class="font-semibold text-white text-sm">${esc(item.character || '')}</span>
+                        ${item.user && item.user !== 'system' ? `<span class="text-xs text-gray-500">← ${esc(item.user)}</span>` : ''}
+                        ${item.channel_id ? `<span class="text-xs text-gray-600">${esc(resolveChannel(item.channel_id))}</span>` : ''}
+                        <span class="${statusColor} text-xs"><i class="fas fa-circle text-[8px]"></i> ${item.status}</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+                        <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
+                        <span>${fmt(item.timestamp)}</span>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 truncate">${esc(item.trigger || '')}</p>
+                ${item.response ? `<p class="text-xs text-gray-500 truncate mt-0.5">${esc(item.response)}</p>` : ''}
+            </div>`;
+        }
+
+        function adminRow(item) {
+            const colors = {
+                'character.create':'bg-green-900 text-green-300','character.update':'bg-blue-900 text-blue-300',
+                'character.delete':'bg-red-900 text-red-300','task.create':'bg-green-900 text-green-300',
+                'task.update':'bg-blue-900 text-blue-300','task.delete':'bg-red-900 text-red-300',
+                'config.update':'bg-yellow-900 text-yellow-300',
+            };
+            const color = colors[item.action] || 'bg-gray-800 text-gray-300';
+            const [type, action] = (item.action || '').split('.');
+            return `<div class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${color}">${esc(item.action)}</span>
+                    <span class="text-xs text-gray-400 flex-shrink-0">${esc(type || '')}</span>
+                    ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}
+                </div>
+                <span class="text-xs text-gray-500 flex-shrink-0">${fmt(item.timestamp)}</span>
+            </div>`;
+        }
+
+        function updatePagination() {
+            const start = (currentPage - 1) * LIMIT + 1;
+            const end = Math.min(currentPage * LIMIT, totalItems);
+            document.getElementById('pagination-info').textContent = totalItems ? `${start}–${end} of ${totalItems}` : '';
+            document.getElementById('prev-btn').disabled = currentPage <= 1;
+            document.getElementById('next-btn').disabled = currentPage * LIMIT >= totalItems;
+        }
+
+        // --- Detail modal ---
+        document.getElementById('detail-close').addEventListener('click', () => document.getElementById('detail-modal').classList.add('hidden'));
+        document.getElementById('detail-modal').addEventListener('click', e => { if (e.target === document.getElementById('detail-modal')) document.getElementById('detail-modal').classList.add('hidden'); });
+
+        async function openDetail(id) {
+            const res = await fetch(`/api/logs/discord/${id}`);
+            if (!res.ok) return;
+            const item = await res.json();
+            const body = document.getElementById('detail-body');
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="text-gray-400">Timestamp</div><div class="text-white">${fmt(item.timestamp)}</div>
+                    <div class="text-gray-400">Character</div><div class="text-white">${esc(item.character || '')}</div>
+                    <div class="text-gray-400">User</div><div class="text-white">${esc(item.user || '')}</div>
+                    <div class="text-gray-400">Channel</div><div class="text-white">${esc(resolveChannel(item.channel_id || ''))}</div>
+                    <div class="text-gray-400">Model</div><div class="text-white">${esc(item.model || '')}</div>
+                    <div class="text-gray-400">Tokens in / out</div><div class="text-white">${item.input_tokens} / ${item.output_tokens}</div>
+                    <div class="text-gray-400">Source</div><div class="text-white">${esc(item.source || '')}</div>
+                    <div class="text-gray-400">Status</div><div class="${item.status === 'error' ? 'text-red-400' : 'text-green-400'}">${esc(item.status || '')}</div>
+                </div>
+                ${item.error_message ? `<div><p class="text-gray-400 text-xs mb-1">Error</p><pre class="bg-red-950 border border-red-900 rounded-lg p-3 text-xs text-red-300">${esc(item.error_message)}</pre></div>` : ''}
+                <div><p class="text-gray-400 text-xs mb-1">Trigger</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200">${esc(item.trigger || '')}</pre></div>
+                <div><p class="text-gray-400 text-xs mb-1">Response body</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200">${esc(item.response || '')}</pre></div>
+                ${item.conversation_history ? `<div>
+                    <p class="text-gray-400 text-xs mb-1">Request JSON</p>
+                    <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto">${esc(JSON.stringify(item.conversation_history, null, 2))}</pre>
+                </div>` : ''}
+            `;
+            document.getElementById('detail-modal').classList.remove('hidden');
+        }
+
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        loadMeta();
+        fetchLogs();
+    })();
+    </script>
+</body>
+</html>

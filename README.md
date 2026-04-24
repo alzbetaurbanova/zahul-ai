@@ -42,10 +42,17 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 - Shared navbar across all pages — no page reload on navigation
 
 ### Scheduler & reminders
-- Schedule recurring messages (select days of week + time) or one-time reminders
+- Schedule recurring messages or one-time reminders from the `/scheduler` panel
+- Four repeat types: **Daily**, **Weekly** (pick days), **Monthly** (day of month), **Yearly** (month + day)
 - Two delivery modes: **Exact** (sends your text verbatim) or **Generate** (character reacts in their own voice)
-- Manage everything from the `/scheduler` panel — create, edit, disable, delete
+- Manage everything from the `/scheduler` panel — create, edit, duplicate, disable, delete
 - `/reminder <character> <when> <text> [mode]` — set a reminder directly from Discord; auto-targets the current channel or DM
+
+### Activity logs
+- Every Discord interaction logged: character, user, channel, model, tokens in/out, trigger, response
+- Admin log: tracks all panel actions (character create/update/delete, config changes, task changes)
+- Browse logs at `/logs` — filter by character, user, date, source, status; paginate and export as JSON
+- Request JSON (messages sent to LLM) visible in log detail
 
 ### Any AI backend you want
 - Works with any OpenAI-compatible endpoint

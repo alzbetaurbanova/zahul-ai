@@ -59,10 +59,12 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
                 new_config[field] = existing_config[field]
 
         # Write each key-value pair from the final, merged config to the database
+        changed = [k for k, v in new_config.items() if str(existing_config.get(k)) != str(v) and k not in ('ai_key', 'discord_key', 'panel_password')]
         for key, value in new_config.items():
-            # Ensure value is not None before storing, as some fields are Optional
             if value is not None:
                 db.set_config(key, value)
+        if changed:
+            db.log_admin('config.update', detail=', '.join(changed))
 
         return new_config
     except HTTPException:

@@ -47,6 +47,7 @@ def create_task(body: TaskCreate):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=500, detail="Failed to create task")
+    db.log_admin('task.create', target=body.name, detail=f"type={body.type} character={body.character}")
     return task
 
 
@@ -67,14 +68,20 @@ def get_task(task_id: int):
 def update_task(task_id: int, body: TaskUpdate):
     if not db.get_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
+    existing = db.get_task(task_id)
     updates = body.model_dump(exclude_none=True)
     if updates:
         db.update_task(task_id, **updates)
+        changed = {k: v for k, v in updates.items() if str(existing.get(k)) != str(v)}
+        if changed:
+            db.log_admin('task.update', detail=', '.join(f"{k}={v}" for k, v in changed.items()))
     return db.get_task(task_id)
 
 
 @router.delete("/{task_id}", status_code=204)
 def delete_task(task_id: int):
-    if not db.get_task(task_id):
+    task = db.get_task(task_id)
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete_task(task_id)
+    db.log_admin('task.delete', target=task.get('name', str(task_id)))

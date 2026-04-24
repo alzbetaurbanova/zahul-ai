@@ -204,6 +204,7 @@ async def create_character(
             data=char_data,
             triggers=character.triggers
         )
+        db.log_admin('character.create', target=character.name)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -246,8 +247,13 @@ async def update_character(
         # Step 2: Update the triggers by replacing them completely
         # This requires the character's database ID.
         db.update_character_triggers(character_id=existing_char['id'], triggers=character_update.triggers)
-        
-        # Step 3: Fetch and return the fully updated character object
+        old_data = existing_char.get('data', {})
+        changed = [k for k, v in char_data.items() if str(old_data.get(k)) != str(v)]
+        old_triggers = sorted(existing_char.get('triggers') or [])
+        new_triggers = sorted(character_update.triggers or [])
+        if old_triggers != new_triggers:
+            changed.append('triggers')
+        db.log_admin('character.update', target=character_name, detail=', '.join(changed) if changed else None)
         updated_character = db.get_character(name=character_name)
         return updated_character
     except Exception as e:
@@ -262,6 +268,7 @@ async def delete_character(character_name: str = Path(..., description="Name of 
     
     try:
         db.delete_character(name=character_name)
+        db.log_admin('character.delete', target=character_name)
         return {"message": f"Character '{character_name}' deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete character: {e}")

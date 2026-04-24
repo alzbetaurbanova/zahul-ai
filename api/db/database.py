@@ -98,6 +98,36 @@ class Database:
                     prompt_template TEXT
                 );
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS discord_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    character TEXT,
+                    channel_id TEXT,
+                    user TEXT,
+                    trigger TEXT,
+                    response TEXT,
+                    model TEXT,
+                    input_tokens INTEGER DEFAULT 0,
+                    output_tokens INTEGER DEFAULT 0,
+                    conversation_history TEXT,
+                    source TEXT DEFAULT 'chat',
+                    status TEXT DEFAULT 'ok',
+                    error_message TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS admin_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    target TEXT,
+                    detail TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(timestamp)")
             conn.commit()
 
     # ------------------------------------------------------
@@ -451,3 +481,100 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
             conn.commit()
+
+    # ------------------------------------------------------
+    # Logs
+    # ------------------------------------------------------
+
+    def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
+                    model: str, input_tokens: int, output_tokens: int, conversation_history,
+                    source: str = 'chat', status: str = 'ok', error_message: str = None):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        history_json = json.dumps(conversation_history) if conversation_history is not None else None
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT INTO discord_logs
+                (timestamp, character, channel_id, user, trigger, response, model,
+                 input_tokens, output_tokens, conversation_history, source, status, error_message)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (ts, character, channel_id, user, trigger, response, model,
+                  input_tokens, output_tokens, history_json, source, status, error_message))
+            conn.commit()
+
+    def log_admin(self, action: str, target: str = None, detail: str = None):
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT INTO admin_logs (timestamp, action, target, detail) VALUES (?,?,?,?)",
+                (ts, action, target, detail)
+            )
+            conn.commit()
+
+    def list_discord_logs(self, page: int = 1, limit: int = 50, **filters) -> Dict:
+        conditions, params = [], []
+        if filters.get('from_date'): conditions.append("timestamp >= ?"); params.append(filters['from_date'])
+        if filters.get('to_date'): conditions.append("timestamp <= ?"); params.append(filters['to_date'] + 'T23:59:59')
+        if filters.get('character'): conditions.append("character = ?"); params.append(filters['character'])
+        if filters.get('channel_id'): conditions.append("channel_id = ?"); params.append(filters['channel_id'])
+        if filters.get('user'): conditions.append("user = ?"); params.append(filters['user'])
+        if filters.get('model'): conditions.append("model = ?"); params.append(filters['model'])
+        if filters.get('source'): conditions.append("source = ?"); params.append(filters['source'])
+        if filters.get('status'): conditions.append("status = ?"); params.append(filters['status'])
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        offset = (page - 1) * limit
+        with self._get_connection() as conn:
+            total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
+            rows = conn.execute(
+                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                params + [limit, offset]
+            ).fetchall()
+        return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
+
+    def get_discord_log(self, log_id: int) -> Optional[Dict]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM discord_logs WHERE id = ?", (log_id,)).fetchone()
+        if not row: return None
+        d = dict(row)
+        if d.get('conversation_history'):
+            try: d['conversation_history'] = json.loads(d['conversation_history'])
+            except: pass
+        return d
+
+    def list_admin_logs(self, page: int = 1, limit: int = 50, **filters) -> Dict:
+        conditions, params = [], []
+        if filters.get('from_date'): conditions.append("timestamp >= ?"); params.append(filters['from_date'])
+        if filters.get('to_date'): conditions.append("timestamp <= ?"); params.append(filters['to_date'] + 'T23:59:59')
+        if filters.get('action'): conditions.append("action = ?"); params.append(filters['action'])
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        offset = (page - 1) * limit
+        with self._get_connection() as conn:
+            total = conn.execute(f"SELECT COUNT(*) FROM admin_logs {where}", params).fetchone()[0]
+            rows = conn.execute(
+                f"SELECT * FROM admin_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                params + [limit, offset]
+            ).fetchall()
+        return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
+
+    def list_logs_meta(self) -> Dict:
+        with self._get_connection() as conn:
+            characters = [r[0] for r in conn.execute(
+                "SELECT DISTINCT character FROM discord_logs WHERE character IS NOT NULL ORDER BY character"
+            ).fetchall()]
+            users = [r[0] for r in conn.execute(
+                "SELECT DISTINCT user FROM discord_logs WHERE user IS NOT NULL AND user != 'system' ORDER BY user"
+            ).fetchall()]
+            channel_rows = conn.execute(
+                "SELECT channel_id, server_name, data FROM channels"
+            ).fetchall()
+        channels = {}
+        for row in channel_rows:
+            d = dict(row)
+            data = self._parse_json_value(d['data']) if isinstance(d['data'], str) else d['data']
+            if isinstance(data, dict):
+                channels[d['channel_id']] = {
+                    'server_name': d['server_name'],
+                    'channel_name': data.get('name', d['channel_id'])
+                }
+        return {"characters": characters, "users": users, "channels": channels}

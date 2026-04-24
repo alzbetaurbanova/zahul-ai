@@ -226,6 +226,9 @@ async def generate_response(task: QueueItem, db: Database):
             result = f"⚠️ FALLBACK (primary späť o {back_at}): {result}"
         if completion.usage:
             track_tokens(completion.usage.total_tokens, is_fallback=(_fallback_active and not just_switched) or just_switched)
+            task.input_tokens = completion.usage.prompt_tokens or 0
+            task.output_tokens = completion.usage.completion_tokens or 0
+        task.model_used = model
         task.result = result
 
     except Exception as e:
@@ -273,28 +276,25 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
         return f"//[OOC: Error in generate_blank: {e}]"
 
 
-async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database) -> str:
-    """Generates a response 'in character' by dynamically loading the character from the DB."""
+async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database) -> tuple:
+    """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model)."""
     bot_config = get_bot_config(db)
     try:
-        # Fetch the character data from the database
         char_data = db.get_character(character_name)
         if not char_data:
-            return f"//[OOC: Error: Character '{character_name}' not found in database.]"
+            return f"//[OOC: Error: Character '{character_name}' not found in database.]", 0, 0, None
 
-        # Use the ActiveCharacter class to generate the character prompt part
         active_char = ActiveCharacter(char_data, db)
         character_prompt = active_char.get_character_prompt()
-
-        # Combine the character prompt with any additional system instructions
         final_system_prompt = f"{character_prompt}\n{system_addon}"
-        
+
         client = AsyncOpenAI(
             base_url=bot_config.ai_endpoint,
             api_key=bot_config.ai_key,
         )
+        model = bot_config.base_llm
         completion = await client.chat.completions.create(
-            model=bot_config.base_llm,
+            model=model,
             temperature=bot_config.temperature,
             max_tokens=8192,
             messages=[
@@ -304,9 +304,13 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             ]
         )
         result = completion.choices[0].message.content if completion.choices else "//[Error: No response]"
-        return clean_thonk(result)
+        input_tokens = completion.usage.prompt_tokens if completion.usage else 0
+        output_tokens = completion.usage.completion_tokens if completion.usage else 0
+        if completion.usage:
+            track_tokens(completion.usage.total_tokens)
+        return clean_thonk(result), input_tokens, output_tokens, model
     except Exception as e:
-        return f"//[OOC: Error in generate_in_character: {e}]"
+        return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None
 
 # --- Utility Functions (Unchanged) ---
 

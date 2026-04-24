@@ -86,6 +86,29 @@ async def _generate_and_send_for_character(
         queue_item.result = "//[OOC: The AI failed to generate a response.]"
 
     clean_up(queue_item)
+
+    is_error = queue_item.result.startswith('//[OOC:')
+    channel_id = 'dm' if isinstance(message.channel, discord.DMChannel) else str(message.channel.id)
+    trigger_text = re.sub(r'^\[Replying To [^\]]+\]\n?', '', message.content).strip()
+    request_messages = [
+        {"role": "system", "content": queue_item.prompt},
+        {"role": "user", "content": message.content},
+    ]
+    db.log_discord(
+        character=character.name,
+        channel_id=channel_id,
+        user=message.author.name,
+        trigger=trigger_text,
+        response=queue_item.result,
+        model=queue_item.model_used or '',
+        input_tokens=queue_item.input_tokens,
+        output_tokens=queue_item.output_tokens,
+        conversation_history=request_messages,
+        source='chat',
+        status='error' if is_error else 'ok',
+        error_message=queue_item.result if is_error else None,
+    )
+
     await messenger.send_message(character, message, queue_item)
 
 

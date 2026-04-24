@@ -224,15 +224,56 @@
 
                 <!-- Schedule fields -->
                 <div id="schedule-fields" class="hidden space-y-4">
+                    <!-- Repeat Type (narrow) -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Repeat Days</label>
-                        <div class="flex flex-wrap gap-2" id="day-checkboxes">
-                            <!-- JS populated -->
-                        </div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Repeat Type</label>
+                        <select id="f-repeat-type" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-44">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
-                        <input type="time" id="f-repeat-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5">
+                    <!-- Pattern + Time side by side -->
+                    <div class="flex gap-4 items-start mb-4">
+                        <!-- Left: dynamic pattern fields -->
+                        <div class="flex-1">
+                            <!-- Weekly -->
+                            <div id="rp-weekly">
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Repeat Days</label>
+                                <div class="flex flex-wrap gap-2" id="day-checkboxes"></div>
+                            </div>
+                            <!-- Monthly -->
+                            <div id="rp-monthly" class="hidden">
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Day of Month</label>
+                                <input type="number" id="f-repeat-month-day" min="1" max="31" value="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-24">
+                            </div>
+                            <!-- Yearly -->
+                            <div id="rp-yearly" class="hidden flex gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">Month</label>
+                                    <select id="f-repeat-year-month" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5">
+                                        <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                                        <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                                        <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                                        <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">Day</label>
+                                    <input type="number" id="f-repeat-year-day" min="1" max="31" value="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-20">
+                                </div>
+                            </div>
+                            <!-- Daily: no extra fields -->
+                            <div id="rp-daily" class="hidden">
+                                <p class="text-sm text-gray-500">Fires every day at the selected time.</p>
+                            </div>
+                        </div>
+                        <!-- Right: Time -->
+                        <div class="flex-shrink-0">
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Time <span class="text-xs text-gray-400 font-normal">(SK)</span></label>
+                            <input type="time" id="f-repeat-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-36">
+                        </div>
                     </div>
                 </div>
 
@@ -289,6 +330,18 @@
             });
             dayCheckboxes.appendChild(btn);
         });
+
+        // Repeat type switching
+        document.getElementById('f-repeat-type').addEventListener('change', function() {
+            updateRepeatFields(this.value);
+        });
+
+        function updateRepeatFields(type) {
+            document.getElementById('rp-daily').classList.toggle('hidden', type !== 'daily');
+            document.getElementById('rp-weekly').classList.toggle('hidden', type !== 'weekly');
+            document.getElementById('rp-monthly').classList.toggle('hidden', type !== 'monthly');
+            document.getElementById('rp-yearly').classList.toggle('hidden', type !== 'yearly');
+        }
 
         function getSelectedDays() {
             return [...document.querySelectorAll('.day-pill')].filter(b => b.classList.contains('bg-indigo-600')).map(b => parseInt(b.dataset.day));
@@ -667,8 +720,17 @@
 
         function repeatSummary(pattern) {
             if (!pattern) return '';
-            const days = (pattern.days || []).map(d => DAYS[d]).join(', ');
-            return `${days} at ${pattern.time || '?'}`;
+            const ptype = pattern.type || 'weekly';
+            const time = pattern.time || '?';
+            const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            if (ptype === 'daily') return `Every day at ${time}`;
+            if (ptype === 'weekly') {
+                const days = (pattern.days || []).map(d => DAYS[d]).join(', ');
+                return `${days} at ${time}`;
+            }
+            if (ptype === 'monthly') return `Day ${pattern.day} of every month at ${time}`;
+            if (ptype === 'yearly') return `${MONTHS[(pattern.month||1)-1]} ${pattern.day} every year at ${time}`;
+            return '';
         }
 
         function esc(s) {
@@ -753,6 +815,7 @@
                     scheduled_time: task.scheduled_time || null,
                     repeat_pattern: task.repeat_pattern || null,
                     message_mode: task.message_mode || 'exact',
+                    status: 'disabled',
                 };
                 const resp = await fetch(`${API}/`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
                 if (resp.ok) { showToast('Task duplicated.'); fetchTasks(); }
@@ -792,8 +855,17 @@
                     document.getElementById('f-scheduled-time').value = task.scheduled_time.slice(0, 16);
                 }
                 if (task.repeat_pattern) {
-                    document.getElementById('f-repeat-time').value = task.repeat_pattern.time || '';
-                    setSelectedDays(task.repeat_pattern.days || []);
+                    const rp = task.repeat_pattern;
+                    const rtype = rp.type || 'weekly';
+                    document.getElementById('f-repeat-type').value = rtype;
+                    document.getElementById('f-repeat-time').value = rp.time || '';
+                    updateRepeatFields(rtype);
+                    if (rtype === 'weekly') setSelectedDays(rp.days || []);
+                    if (rtype === 'monthly') document.getElementById('f-repeat-month-day').value = rp.day || 1;
+                    if (rtype === 'yearly') {
+                        document.getElementById('f-repeat-year-month').value = rp.month || 1;
+                        document.getElementById('f-repeat-year-day').value = rp.day || 1;
+                    }
                 }
                 setStatusOptions(task.type, task.status || 'active');
                 document.getElementById('f-status').value = task.status || 'active';
@@ -852,10 +924,23 @@
                 // Reset to upcoming if editing a done/disabled reminder with a new time
                 if (id) body.status = 'upcoming';
             } else {
-                const days = getSelectedDays();
+                const rtype = document.getElementById('f-repeat-type').value;
                 const time = document.getElementById('f-repeat-time').value;
-                if (!days.length || !time) { showToast('Select at least one day and a time.', 'error'); return; }
-                body.repeat_pattern = { days, time };
+                if (!time) { showToast('Time is required.', 'error'); return; }
+                if (rtype === 'daily') {
+                    body.repeat_pattern = { type: 'daily', time };
+                } else if (rtype === 'weekly') {
+                    const days = getSelectedDays();
+                    if (!days.length) { showToast('Select at least one day.', 'error'); return; }
+                    body.repeat_pattern = { type: 'weekly', days, time };
+                } else if (rtype === 'monthly') {
+                    const day = parseInt(document.getElementById('f-repeat-month-day').value);
+                    body.repeat_pattern = { type: 'monthly', day, time };
+                } else if (rtype === 'yearly') {
+                    const month = parseInt(document.getElementById('f-repeat-year-month').value);
+                    const day = parseInt(document.getElementById('f-repeat-year-day').value);
+                    body.repeat_pattern = { type: 'yearly', month, day, time };
+                }
             }
 
             if (id && type === 'schedule') {

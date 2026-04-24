@@ -59,10 +59,18 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - One-time reminders and recurring schedules managed from the web panel at `/scheduler`
 - Two delivery modes: **Exact** (sends the message as-is) or **Generate** (character reacts to the topic in their own voice)
 - Targets: channel or DM — auto-detected when using the `/reminder` slash command
-- Recurring schedules support day-of-week selection and a fixed time (Slovak timezone)
+- Four repeat types: **Daily**, **Weekly** (pick days of week), **Monthly** (day of month), **Yearly** (month + day)
 - Scheduler runs as a background loop inside the bot, checks every 60 seconds
 - All tasks visible and editable in the Scheduler panel; status tracked (upcoming → done)
+- Task cards support duplicate, disable, and detail view with edit/delete
 - Errors from LLM generation are silently dropped — no raw error messages leak to Discord
+
+### Activity logs
+- Every Discord interaction is logged: character, user, channel, model, tokens in/out, trigger, response, source (chat/scheduler), status (ok/error)
+- Admin log tracks all panel actions: character create/update/delete, task create/update/delete, config changes — with changed fields only
+- Logs browsable at `/logs` — two tabs (Discord / Admin), filters (character, user, date, source, status), pagination with configurable page size, JSON export
+- Log detail shows full request JSON (messages sent to LLM), response body, and error if present
+- Token usage (input/output) stored per interaction and visible in both list and detail view
 
 ### Panel authentication
 - Optional password protection for the web panel

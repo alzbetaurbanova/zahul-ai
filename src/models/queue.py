@@ -16,3 +16,6 @@ class QueueItem:
     message:discord.Message = None
     plugin:str = None
     default:bool = False
+    input_tokens: int = 0
+    output_tokens: int = 0
+    model_used: str = None
