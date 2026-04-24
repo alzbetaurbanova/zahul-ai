@@ -7,6 +7,7 @@ import os
 import secrets
 import uvicorn
 from fastapi import FastAPI, Form, Request
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -135,7 +136,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(
     title="zahul-ai Configuration API",
-    description="API for managing character, channel, and bot configurations"
+    description="API for managing character, channel, and bot configurations",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(AuthMiddleware)
@@ -178,6 +182,49 @@ app.add_middleware(
 # --- Static File Serving ---
 # This is the modern way to serve your static frontend files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/api/doc", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Swagger UI",
+        swagger_js_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.2/swagger-ui-bundle.min.js",
+        swagger_css_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.2/swagger-ui.css",
+        swagger_favicon_url="/favicon.ico",
+        swagger_ui_parameters={
+            "docExpansion": "none",
+            "defaultModelsExpandDepth": -1,
+            "syntaxHighlight": {"theme": "monokai"},
+            "customCssUrl": "/static/swagger-dark.css",
+        },
+    )
+
+@app.get("/api/redoc", include_in_schema=False)
+async def custom_redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
+        redoc_favicon_url="/favicon.ico",
+        theme={
+            "colors": {
+                "primary.main": "#6366f1",
+                "text.primary": "#f8fafc",
+                "text.secondary": "#cbd5e1",
+                "http.badger": "#ef4444",
+                "http.success": "#10b981",
+                "info.main": "#818cf8"
+            },
+            "sidebar": {
+                "backgroundColor": "#0f172a",
+                "textColor": "#cbd5e1",
+                "activeTextColor": "#f8fafc"
+            },
+            "rightPanel": {
+                "backgroundColor": "#111827"
+            }
+        }
+    )
 
 @app.get("/", response_class=FileResponse)
 async def get_root():

@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from bot_run import Zahul
 import discord
 from api.bot_state import bot_state
+from api.db.database import Database
 
 router = APIRouter(
     prefix="/api/discord",
@@ -64,12 +65,13 @@ def _run_bot_in_thread():
 
 @router.post("/activate")
 async def activate_bot():
-    # --- CHANGE THIS ---
     # Check the shared state object
     if (bot_state.bot_instance and bot_state.bot_instance.is_ready()) or (bot_state.bot_thread and bot_state.bot_thread.is_alive()):
         raise HTTPException(status_code=400, detail="Bot is already active or starting.")
     
     logging.info("Bot activation requested via API.")
+    db = Database()
+    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via API.")
     bot_state.bot_thread = threading.Thread(target=_run_bot_in_thread, daemon=True)
     bot_state.bot_thread.start()
     return {"success": True, "message": "Bot activation initiated."}
@@ -77,15 +79,15 @@ async def activate_bot():
 
 @router.post("/deactivate")
 async def deactivate_bot():
-    # --- CHANGE THIS ---
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
     try:
         logging.info("--- Sending shutdown signal to bot via API... ---")
-        # --- CHANGE THIS ---
         future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), bot_state.bot_instance.loop)
         future.result(timeout=10)
+        db = Database()
+        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via API.")
         return {"success": True, "message": "Bot deactivation initiated."}
     except Exception as e:
         logging.error(f"Error during bot deactivation: {e}", exc_info=True)

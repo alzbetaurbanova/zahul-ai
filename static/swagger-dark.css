@@ -1,0 +1,50 @@
+html, body, .swagger-ui, .swagger-ui .wrapper, .swagger-ui .topbar, .swagger-ui .topbar-wrapper, .swagger-ui .info, .swagger-ui .info .description, .swagger-ui .opblock, .swagger-ui .opblock-section, .swagger-ui .opblock-summary, .swagger-ui .opblock-summary-method, .swagger-ui .opblock-body, .swagger-ui .responses-wrapper, .swagger-ui .parameters, .swagger-ui .model-box, .swagger-ui .response-col_description__inner, .swagger-ui .parameter__name, .swagger-ui .parameter__type, .swagger-ui .tab li, .swagger-ui .btn, .swagger-ui .btn.execute, .swagger-ui .scheme-container {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+.swagger-ui .topbar, .swagger-ui .topbar-wrapper {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+.swagger-ui .opblock, .swagger-ui .opblock-summary, .swagger-ui .opblock-body, .swagger-ui .opblock-section {
+    background-color: #111827 !important;
+    border-color: #1f2937 !important;
+}
+
+.swagger-ui .opblock-summary-method {
+    background-color: #1f2937 !important;
+    color: #f8fafc !important;
+}
+
+.swagger-ui .scheme-container, .swagger-ui .info, .swagger-ui .responses-wrapper, .swagger-ui .parameters, .swagger-ui .model-box {
+    background-color: #111827 !important;
+}
+
+.swagger-ui .btn, .swagger-ui .btn.execute {
+    background-color: #1f2937 !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+.swagger-ui .parameter__name, .swagger-ui .parameter__type, .swagger-ui .response-col_description__inner, .swagger-ui .opblock-summary-description, .swagger-ui .opblock-summary-path {
+    color: #cbd5e1 !important;
+}
+
+.swagger-ui .opblock-tag {
+    background-color: #0f172a !important;
+    color: #a5b4fc !important;
+}
+
+.swagger-ui .response-col_status {
+    color: #f8fafc !important;
+}
+
+.swagger-ui .markdown, .swagger-ui .markdown p, .swagger-ui .markdown code, .swagger-ui .json-schema-type, .swagger-ui .json-schema-info {
+    color: #e2e8f0 !important;
+}
+
+body {
+    background-color: #0f172a !important;
+}

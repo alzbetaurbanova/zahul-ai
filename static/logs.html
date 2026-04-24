@@ -75,6 +75,8 @@
                         <option value="task.update">task.update</option>
                         <option value="task.delete">task.delete</option>
                         <option value="config.update">config.update</option>
+                        <option value="server.activate">server.activate</option>
+                        <option value="server.deactivate">server.deactivate</option>
                     </select>
                 </div>
                 <button id="admin-clear-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
@@ -264,7 +266,8 @@
                 'character.create':'bg-green-900 text-green-300','character.update':'bg-blue-900 text-blue-300',
                 'character.delete':'bg-red-900 text-red-300','task.create':'bg-green-900 text-green-300',
                 'task.update':'bg-blue-900 text-blue-300','task.delete':'bg-red-900 text-red-300',
-                'config.update':'bg-yellow-900 text-yellow-300',
+                'config.update':'bg-amber-900 text-amber-300',
+                'server.activate':'bg-yellow-900 text-yellow-300','server.deactivate':'bg-yellow-900 text-yellow-300',
             };
             const color = colors[item.action] || 'bg-gray-800 text-gray-300';
             const [type, action] = (item.action || '').split('.');
