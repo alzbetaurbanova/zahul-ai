@@ -188,8 +188,8 @@ async def custom_swagger_ui_html():
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
         title=f"{app.title} - Swagger UI",
-        swagger_js_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.2/swagger-ui-bundle.min.js",
-        swagger_css_url="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.2/swagger-ui.css",
+        swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
         swagger_favicon_url="/favicon.ico",
         swagger_ui_parameters={
             "docExpansion": "none",
@@ -204,26 +204,8 @@ async def custom_redoc_html():
     return get_redoc_html(
         openapi_url=app.openapi_url,
         title=f"{app.title} - ReDoc",
-        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.2.0/bundles/redoc.standalone.js",
         redoc_favicon_url="/favicon.ico",
-        theme={
-            "colors": {
-                "primary.main": "#6366f1",
-                "text.primary": "#f8fafc",
-                "text.secondary": "#cbd5e1",
-                "http.badger": "#ef4444",
-                "http.success": "#10b981",
-                "info.main": "#818cf8"
-            },
-            "sidebar": {
-                "backgroundColor": "#0f172a",
-                "textColor": "#cbd5e1",
-                "activeTextColor": "#f8fafc"
-            },
-            "rightPanel": {
-                "backgroundColor": "#111827"
-            }
-        }
     )
 
 @app.get("/", response_class=FileResponse)
