@@ -136,7 +136,7 @@ class _HistoryFormatter:
         
     @staticmethod
     def _sanitize_name(name: str) -> str:
-        return re.sub(r'[^a-zA-Z0-9_-]', '', str(name))
+        return re.sub(r'[^\w\s-]', '', str(name)).strip()
 
     @staticmethod
     def _clean_content(content: str) -> str:

@@ -374,7 +374,8 @@
             const chResolved = resolveChannel(item.channel_id || '');
             const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
             const chServer = isDM ? 'DM' : chParts[0];
-            const chChannel = isDM ? '—' : (chParts.slice(1).join(' / ') || chParts[0]);
+            const dmRecipient = item.channel_id && item.channel_id.startsWith('dm:') ? item.channel_id.slice(3) : null;
+            const chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
             const statusCls = item.status === 'error' ? 'text-red-400' : 'text-green-400';
 
             const row = (label, value, cls='text-white') =>
@@ -411,13 +412,35 @@
                     <div><p class="text-gray-400 mb-1">Response</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200 whitespace-pre-wrap break-words">${esc(item.response || '')}</pre></div>
 
                     ${item.conversation_history ? `<div>
-                        <p class="text-gray-400 mb-1">Request JSON</p>
-                        <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto">${esc(JSON.stringify(item.conversation_history, null, 2))}</pre>
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-gray-400">Request JSON</p>
+                            <label class="flex items-center gap-2 text-gray-500 cursor-pointer select-none">
+                                <input type="checkbox" id="req-prettier" class="accent-indigo-500">
+                                <span class="text-xs">Prettier</span>
+                            </label>
+                        </div>
+                        <div id="req-json" class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto whitespace-pre-wrap"></div>
                     </div>` : ''}
 
                 </div>
             `;
             document.getElementById('detail-modal').classList.remove('hidden');
+
+            if (item.conversation_history) {
+                const raw = JSON.stringify(item.conversation_history, null, 2);
+                const prettier = () => {
+                    const text = item.conversation_history.map(m => {
+                        const content = (m.content || '').replace(/\\n/g, '\n').replace(/\[Reply\]/g, '').replace(/\[End\]/g, '').replace(/\[History\]/g, '\n\n[History]').replace(/\]\n(?!\n)/g, ']\n\n').replace(/\n(?!\n)\[/g, '\n\n[').replace(/\n{3,}/g, '\n\n').trim();
+                        return `--------------# ${m.role.toUpperCase()} #--------------\n\n${content}`;
+                    }).join('\n\n');
+                    return `<pre class="whitespace-pre-wrap break-words">${esc(text)}</pre>`;
+                };
+                const el = document.getElementById('req-json');
+                const cb = document.getElementById('req-prettier');
+                const render = () => { el.innerHTML = cb.checked ? prettier() : `<pre class="whitespace-pre-wrap break-words">${esc(raw)}</pre>`; };
+                render();
+                cb.addEventListener('change', render);
+            }
         }
 
         function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
