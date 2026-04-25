@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 from api.db.database import Database
 from api.models.models import Task, TaskCreate, TaskUpdate
@@ -8,7 +8,7 @@ db = Database()
 
 
 @router.get("/")
-def list_tasks(type: Optional[str] = None, status: Optional[str] = None):
+def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])):
     try:
         tasks = db.list_tasks(type=type, status=status)
         # Validate each task against the Task model to ensure data integrity

@@ -447,7 +447,7 @@ class Database:
             row = conn.execute("SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)).fetchone()
             return self._parse_task_row(row) if row else None
 
-    def list_tasks(self, type: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_tasks(self, type: Optional[str] = None, status=None) -> List[Dict[str, Any]]:
         self._ensure_scheduled_tasks_table()
         query = "SELECT * FROM scheduled_tasks WHERE 1=1"
         params: List[Any] = []
@@ -455,8 +455,10 @@ class Database:
             query += " AND type = ?"
             params.append(type)
         if status:
-            query += " AND status = ?"
-            params.append(status)
+            vals = status if isinstance(status, list) else [status]
+            if vals:
+                query += f" AND status IN ({','.join('?'*len(vals))})"
+                params.extend(vals)
         query += " ORDER BY created_at DESC"
         with self._get_connection() as conn:
             rows = conn.execute(query, params).fetchall()
@@ -527,8 +529,12 @@ class Database:
         if filters.get('channel_id'): conditions.append("channel_id = ?"); params.append(filters['channel_id'])
         if filters.get('user'): conditions.append("user = ?"); params.append(filters['user'])
         if filters.get('model'): conditions.append("model = ?"); params.append(filters['model'])
-        if filters.get('source'): conditions.append("source = ?"); params.append(filters['source'])
-        if filters.get('status'): conditions.append("status = ?"); params.append(filters['status'])
+        if filters.get('source'):
+            vals = filters['source'] if isinstance(filters['source'], list) else [filters['source']]
+            conditions.append(f"source IN ({','.join('?'*len(vals))})"); params.extend(vals)
+        if filters.get('status'):
+            vals = filters['status'] if isinstance(filters['status'], list) else [filters['status']]
+            conditions.append(f"status IN ({','.join('?'*len(vals))})"); params.extend(vals)
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:
@@ -553,7 +559,9 @@ class Database:
         conditions, params = [], []
         if filters.get('from_date'): conditions.append("timestamp >= ?"); params.append(filters['from_date'])
         if filters.get('to_date'): conditions.append("timestamp <= ?"); params.append(filters['to_date'] + 'T23:59:59')
-        if filters.get('action'): conditions.append("action = ?"); params.append(filters['action'])
+        if filters.get('action'):
+            vals = filters['action'] if isinstance(filters['action'], list) else [filters['action']]
+            conditions.append(f"action IN ({','.join('?'*len(vals))})"); params.extend(vals)
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:

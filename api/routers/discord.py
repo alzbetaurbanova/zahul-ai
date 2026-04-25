@@ -71,7 +71,7 @@ async def activate_bot():
     
     logging.info("Bot activation requested via API.")
     db = Database()
-    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via API.")
+    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.")
     bot_state.bot_thread = threading.Thread(target=_run_bot_in_thread, daemon=True)
     bot_state.bot_thread.start()
     return {"success": True, "message": "Bot activation initiated."}
@@ -87,7 +87,7 @@ async def deactivate_bot():
         future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), bot_state.bot_instance.loop)
         future.result(timeout=10)
         db = Database()
-        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via API.")
+        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.")
         return {"success": True, "message": "Bot deactivation initiated."}
     except Exception as e:
         logging.error(f"Error during bot deactivation: {e}", exc_info=True)

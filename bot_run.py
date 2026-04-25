@@ -378,9 +378,14 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
     char_data = char['data']
     char_name = char['name']
     avatar_url = char_data.get('avatar')
+    if avatar_url and avatar_url.startswith('/'):
+        bot_config = BotConfig(**bot.db.list_configs())
+        if bot_config.public_url:
+            avatar_url = bot_config.public_url.rstrip('/') + avatar_url
     instructions = (task.get('instructions') or '').strip()
     print(f"[Scheduler] sending task {task['id']} type={task.get('type')} mode={task.get('message_mode')} char={char_name} target={task.get('target_type')} id={task.get('target_id')}")
 
+    request_messages = None
     if task.get('message_mode') == 'generate':
         from src.utils.llm_new import generate_in_character
         if task.get('type') == 'reminder':
@@ -398,7 +403,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 'Do not repeat the original input or instruction in the final message.'
             )
             user = '[follow the instruction]'
-        text_suffix, input_tokens, output_tokens, model_used = await generate_in_character(
+        text_suffix, input_tokens, output_tokens, model_used, request_messages, temperature = await generate_in_character(
             character_name=char_name,
             system_addon=system_addon,
             user=user,
@@ -411,7 +416,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
                 user='system', trigger=instructions or '', response='',
                 model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
-                conversation_history=None, source='scheduler', status='error', error_message=text_suffix
+                conversation_history=request_messages, temperature=temperature,
+                source='scheduler', status='error', error_message=text_suffix
             )
             return
         text_suffix = text_suffix.strip()
@@ -421,7 +427,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         else:
             text = text_suffix
     else:
-        input_tokens, output_tokens, model_used = 0, 0, 'exact'
+        input_tokens, output_tokens, model_used, temperature = 0, 0, 'exact', None
         if task.get('type') == 'reminder':
             text = f"Reminder: {instructions}" if instructions else 'Reminder'
         else:
@@ -471,7 +477,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                     character=char_name, channel_id=f"dm:{task['target_id']}",
                     user='system', trigger=instructions or '', response=text,
                     model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
-                    conversation_history=None, source='scheduler', status='error', error_message='DM target not found'
+                    conversation_history=request_messages, temperature=temperature,
+                    source='scheduler', status='error', error_message='DM target not found'
                 )
                 return
 
@@ -479,7 +486,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
             user='system', trigger=instructions or '', response=text,
             model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
-            conversation_history=None, source='scheduler', status='ok', error_message=None
+            conversation_history=request_messages, temperature=temperature,
+            source='scheduler', status='ok', error_message=None
         )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")

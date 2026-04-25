@@ -13,10 +13,11 @@
 - [ ] UI changes /logs — drobné vylepšenia
 
 ## Character Import
-- [ ] Umožniť nahranie .jsonc suboru a prekonvertovanie na .json
+- [DONE] Umožniť nahranie .jsonc suboru a prekonvertovanie na .json
 
 ## Testing
-- [ ] Test permissions — iná roomka, iný užívateľ, bez whitelistu, DM prístup
+- [ ] Test permissions — iná roomka, bez whitelistu
+- [OK] Test permissions — iný užívateľ, DM prístup
 - [ ] Test permissions aj s reminders do DM
 - [ ] Test Import Character
 - [ ] Test AutoCap

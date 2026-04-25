@@ -44,19 +44,33 @@
             <div id="discord-filters" class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
                 <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="block text-xs text-gray-400 mb-1">Character</label><input type="text" id="df-character" list="dl-characters" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
-                <div><label class="block text-xs text-gray-400 mb-1">User</label><input type="text" id="df-user" list="dl-users" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32"></div>
-                <datalist id="dl-characters"></datalist>
-                <datalist id="dl-users"></datalist>
-                <div><label class="block text-xs text-gray-400 mb-1">Source</label>
-                    <select id="df-source" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
-                        <option value="">All</option><option value="chat">Chat</option><option value="scheduler">Scheduler</option>
-                    </select>
+                <div class="relative"><label class="block text-xs text-gray-400 mb-1">Character</label>
+                    <input type="text" id="df-character" autocomplete="off" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32">
+                    <div id="df-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
                 </div>
-                <div><label class="block text-xs text-gray-400 mb-1">Status</label>
-                    <select id="df-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
-                        <option value="">All</option><option value="ok">OK</option><option value="error">Error</option>
-                    </select>
+                <div class="relative"><label class="block text-xs text-gray-400 mb-1">User</label>
+                    <input type="text" id="df-user" autocomplete="off" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32">
+                    <div id="df-user-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
+                </div>
+                <div class="relative">
+                    <label class="block text-xs text-gray-400 mb-1">Source</label>
+                    <button class="cb-dd-btn bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[8rem]" data-dd="dd-source">
+                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+                    </button>
+                    <div id="dd-source" class="cb-dd hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[10rem]">
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="chat" class="df-source-cb accent-indigo-500"> Chat</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="scheduler" class="df-source-cb accent-indigo-500"> Scheduler</label>
+                    </div>
+                </div>
+                <div class="relative">
+                    <label class="block text-xs text-gray-400 mb-1">Status</label>
+                    <button class="cb-dd-btn bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[8rem]" data-dd="dd-status">
+                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+                    </button>
+                    <div id="dd-status" class="cb-dd hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[8rem]">
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="ok" class="df-status-cb accent-indigo-500"> OK</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="error" class="df-status-cb accent-indigo-500"> Error</label>
+                    </div>
                 </div>
                 <button id="discord-clear-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
             </div>
@@ -65,19 +79,22 @@
             <div id="admin-filters" class="hidden bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
                 <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="block text-xs text-gray-400 mb-1">Action</label>
-                    <select id="af-action" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
-                        <option value="">All</option>
-                        <option value="character.create">character.create</option>
-                        <option value="character.update">character.update</option>
-                        <option value="character.delete">character.delete</option>
-                        <option value="task.create">task.create</option>
-                        <option value="task.update">task.update</option>
-                        <option value="task.delete">task.delete</option>
-                        <option value="config.update">config.update</option>
-                        <option value="server.activate">server.activate</option>
-                        <option value="server.deactivate">server.deactivate</option>
-                    </select>
+                <div class="relative">
+                    <label class="block text-xs text-gray-400 mb-1">Action</label>
+                    <button class="cb-dd-btn bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[10rem]" data-dd="dd-action">
+                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+                    </button>
+                    <div id="dd-action" class="cb-dd hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[11rem]">
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="character.create" class="af-action-cb accent-indigo-500"> character.create</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="character.update" class="af-action-cb accent-indigo-500"> character.update</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="character.delete" class="af-action-cb accent-indigo-500"> character.delete</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="task.create" class="af-action-cb accent-indigo-500"> task.create</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="task.update" class="af-action-cb accent-indigo-500"> task.update</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="task.delete" class="af-action-cb accent-indigo-500"> task.delete</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="config.update" class="af-action-cb accent-indigo-500"> config.update</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="server.activate" class="af-action-cb accent-indigo-500"> server.activate</label>
+                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="server.deactivate" class="af-action-cb accent-indigo-500"> server.deactivate</label>
+                    </div>
                 </div>
                 <button id="admin-clear-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
             </div>
@@ -124,14 +141,37 @@
         let totalItems = 0;
         let channelMap = {};  // channel_id -> {server_name, channel_name}
 
+        function makeFilterCombobox(inputId, dropdownId, options) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            function showDropdown() {
+                const q = input.value.toLowerCase();
+                const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
+                if (!filtered.length) { dropdown.classList.add('hidden'); return; }
+                dropdown.innerHTML = filtered.map(o =>
+                    `<div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-800 text-sm text-white" data-val="${esc(o)}">${esc(o)}</div>`
+                ).join('');
+                dropdown.querySelectorAll('.combobox-item').forEach(item => {
+                    item.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        input.value = item.dataset.val;
+                        dropdown.classList.add('hidden');
+                        currentPage = 1; fetchLogs();
+                    });
+                });
+                dropdown.classList.remove('hidden');
+            }
+            input.addEventListener('focus', showDropdown);
+            input.addEventListener('input', () => { currentPage = 1; fetchLogs(); showDropdown(); });
+            input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+        }
+
         async function loadMeta() {
             try {
                 const data = await fetch('/api/logs/meta').then(r => r.json());
-                const dlChars = document.getElementById('dl-characters');
-                const dlUsers = document.getElementById('dl-users');
-                dlChars.innerHTML = data.characters.map(c => `<option value="${esc(c)}">`).join('');
-                dlUsers.innerHTML = data.users.map(u => `<option value="${esc(u)}">`).join('');
                 channelMap = data.channels || {};
+                makeFilterCombobox('df-character', 'df-character-dd', data.characters || []);
+                makeFilterCombobox('df-user', 'df-user-dd', data.users || []);
             } catch (e) {}
         }
 
@@ -158,13 +198,41 @@
             });
         });
 
-        // --- Filter auto-fire ---
-        ['df-from','df-to','df-character','df-user','df-source','df-status'].forEach(id => {
-            const el = document.getElementById(id);
-            el.addEventListener('change', () => { currentPage = 1; fetchLogs(); });
-            if (el.tagName === 'INPUT' && el.type === 'text') el.addEventListener('input', () => { currentPage = 1; fetchLogs(); });
+        // --- Checkbox dropdown logic ---
+        function updateDdLabel(btn) {
+            const ddId = btn.dataset.dd;
+            const checked = [...document.querySelectorAll(`#${ddId} input:checked`)].map(el => el.value);
+            btn.querySelector('.cb-dd-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
+        }
+        function clearDd(cls) {
+            document.querySelectorAll('.' + cls + '-cb').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
+        }
+        document.querySelectorAll('.cb-dd-btn').forEach(btn => {
+            const dd = document.getElementById(btn.dataset.dd);
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.cb-dd').forEach(d => { if (d !== dd) d.classList.add('hidden'); });
+                dd.classList.toggle('hidden');
+            });
         });
-        ['af-from','af-to','af-action'].forEach(id => {
+        document.addEventListener('click', e => {
+            document.querySelectorAll('.cb-dd-btn').forEach(btn => {
+                const dd = document.getElementById(btn.dataset.dd);
+                if (!btn.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hidden');
+            });
+        });
+        document.querySelectorAll('.df-source-cb, .df-status-cb, .af-action-cb').forEach(cb => {
+            cb.addEventListener('change', () => {
+                updateDdLabel(cb.closest('.cb-dd').previousElementSibling);
+                currentPage = 1; fetchLogs();
+            });
+        });
+
+        // --- Filter auto-fire ---
+        ['df-from','df-to'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+        });
+        ['af-from','af-to'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
         });
 
@@ -174,11 +242,12 @@
         document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
         document.getElementById('discord-clear-btn').addEventListener('click', () => {
             ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
-            ['df-source','df-status'].forEach(id => document.getElementById(id).value = '');
+            clearDd('df-source'); clearDd('df-status');
             currentPage = 1; fetchLogs();
         });
         document.getElementById('admin-clear-btn').addEventListener('click', () => {
-            ['af-from','af-to','af-action'].forEach(id => document.getElementById(id).value = '');
+            ['af-from','af-to'].forEach(id => document.getElementById(id).value = '');
+            clearDd('af-action');
             currentPage = 1; fetchLogs();
         });
 
@@ -193,6 +262,9 @@
             window.location.href = `/api/logs/${currentTab}/export?${params}`;
         });
 
+        function getChecked(cls) {
+            return [...document.querySelectorAll('.' + cls + ':checked')].map(el => el.value);
+        }
         function buildParams() {
             const p = new URLSearchParams({ page: currentPage, limit: LIMIT });
             if (currentTab === 'discord') {
@@ -201,13 +273,13 @@
                 if (v('df-to')) p.set('to_date', v('df-to'));
                 if (v('df-character')) p.set('character', v('df-character'));
                 if (v('df-user')) p.set('user', v('df-user'));
-                if (v('df-source')) p.set('source', v('df-source'));
-                if (v('df-status')) p.set('status', v('df-status'));
+                getChecked('df-source-cb').forEach(s => p.append('source', s));
+                getChecked('df-status-cb').forEach(s => p.append('status', s));
             } else {
                 const v = id => document.getElementById(id).value;
                 if (v('af-from')) p.set('from_date', v('af-from'));
                 if (v('af-to')) p.set('to_date', v('af-to'));
-                if (v('af-action')) p.set('action', v('af-action'));
+                getChecked('af-action-cb').forEach(s => p.append('action', s));
             }
             return p.toString();
         }

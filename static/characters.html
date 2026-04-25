@@ -71,7 +71,7 @@
     </main>
 
     <!-- Hidden file input for import -->
-    <input type="file" id="import-file-input" class="hidden" accept=".json,.png">
+    <input type="file" id="import-file-input" class="hidden" accept=".json,.jsonc,.png">
 
     <!-- Import Info Modal -->
     <div id="import-info-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
@@ -86,6 +86,7 @@
                     <div class="space-y-1">
                         <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.png</span><span class="text-gray-300">SillyTavern / TavernAI character card (metadata embedded in PNG)</span></div>
                         <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.json</span><span class="text-gray-300">Native format (below) or Pygmalion / TavernAI JSON export</span></div>
+                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.jsonc</span><span class="text-gray-300">JSON with comments — same as .json but supports <code class="text-gray-400">//</code> annotations</span></div>
                     </div>
                 </div>
                 <div>
@@ -481,42 +482,43 @@
                 importFileInput.click();
             });
             importTemplateDownload.addEventListener('click', () => {
-                const template = `// Zahul-AI Character Template
-// This is a .jsonc file (JSON with Comments). Remove all // lines before importing.
+                const template = `// This is a character template. Lines starting with // are comments — notes for you.
+// The AI never sees them, and they are automatically ignored when you import this file.
 {
-  // Unique character name. Used as display name and as a trigger keyword automatically.
+  // The character's name. Also used as a trigger — when someone types it in a channel,
+  // this character will respond.
   "name": "CharacterName",
 
   "data": {
-    // Main character definition — personality, background, speech style, quirks.
-    // Supports {{char}} (character name) and {{user}} (user's display name).
-    // Example:
-    "persona": "{{char}} is a 28-year-old sarcastic librarian with a sharp wit and a love for old mystery novels. She speaks in short, dry sentences and rarely shows emotion openly, but cares deeply about the people she trusts.",
+    // The main character description — who they are, how they speak, their personality,
+    // background, habits. You can use {{char}} as a shorthand for the character's name
+    // and {{user}} for the name of the person they're talking to.
+    "persona": "{{char}} is a 28-year-old sarcastic librarian with a sharp wit and a love for mystery novels. She speaks in short sentences, rarely shows emotion, but would do anything for the people she trusts.",
 
-    // Behavioral rules and hard constraints — formatting rules, things the character
-    // must or must not do. Rendered after persona in the system prompt.
-    // Example:
+    // Behavioral rules — what the character must or must not do, how to format responses.
+    // This is added after the persona in the system prompt sent to the AI.
     "instructions": "Always respond as {{char}} only. Keep responses concise — 1 to 3 sentences unless asked for more. Never break character.",
 
-    // Short internal note for your reference only. Not sent to the AI.
+    // A short note for yourself — the AI never sees this. Useful for identifying
+    // the character in a list.
     "about": "Sarcastic librarian for general chat.",
 
-    // Response creativity: 0.0 = deterministic, 2.0 = very random.
-    // Set to null to use the global value from AI Config.
+    // Response creativity: 0.0 = predictable and consistent, 2.0 = very random.
+    // Leave as null to use the global value from AI Config.
     "temperature": null,
 
-    // How many recent messages to include in context.
-    // Set to null to use the global value from AI Config.
+    // How many recent messages the character can see as conversation context.
+    // Leave as null to use the global value from AI Config.
     "history_limit": null,
 
-    // Maximum response length in tokens.
-    // Set to null to use the global value from AI Config.
+    // Maximum response length in tokens (roughly 1 token = 0.75 words).
+    // Leave as null to use the global value from AI Config.
     "max_tokens": null
   },
 
-  // Keywords that trigger this character in a channel (case-insensitive, whole-word).
-  // The character name is always included as a trigger automatically.
-  "triggers": ["CharacterName", "alias1", "alias2"]
+  // Additional words that trigger this character (besides its name, which is always automatic).
+  // Case-insensitive, matches whole words only.
+  "triggers": ["CharacterName", "nickname", "alias"]
 }`;
                 const blob = new Blob([template], { type: 'application/json' });
                 const a = document.createElement('a');
@@ -530,16 +532,19 @@
             function handleFileImport(event) {
                 const file = event.target.files[0];
                 if (!file) return;
-                if (file.name.endsWith('.json')) { processJsonFile(file); } 
-                else if (file.name.endsWith('.png')) { processPngFile(file); } 
-                else { showToast('Unsupported file type. Please select a .json or .png card.', 'error'); }
+                if (file.name.endsWith('.json') || file.name.endsWith('.jsonc')) { processJsonFile(file); }
+                else if (file.name.endsWith('.png')) { processPngFile(file); }
+                else { showToast('Unsupported file type. Please select a .json, .jsonc or .png card.', 'error'); }
                 event.target.value = '';
+            }
+            function stripJsonComments(str) {
+                return str.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
             }
             function processJsonFile(file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
-                        const data = JSON.parse(e.target.result);
+                        const data = JSON.parse(stripJsonComments(e.target.result));
                         resetForm();
                         populateFormWithCardData(data);
                         openModal();

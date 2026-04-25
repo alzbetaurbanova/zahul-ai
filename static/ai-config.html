@@ -129,6 +129,10 @@
                                     </button>
                                 </div>
                             </div>
+                            <div>
+                                <label for="public_url" class="block mb-2 text-sm font-medium text-gray-300">Public URL <span class="text-gray-500 font-normal">(needed for avatars in Discord webhooks)</span></label>
+                                <input type="text" id="public_url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. https://yourdomain.com">
+                            </div>
                         </div>
                     </fieldset>
                     
@@ -300,7 +304,8 @@
                 'history_limit', 'max_tokens',
                 'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
                 'ai_key', 'discord_key', 'use_prefill', 'dm_list',
-                'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api'
+                'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api',
+                'public_url'
             ];
             const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
 

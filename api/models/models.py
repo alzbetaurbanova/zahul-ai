@@ -29,6 +29,7 @@ class BotConfig(BaseModel):
     token_limit_tpd: int = 100000
     panel_password: str = ""
     panel_password_hint: str = ""
+    public_url: str = ""
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)

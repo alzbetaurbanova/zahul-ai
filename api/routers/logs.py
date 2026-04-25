@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
-from typing import Optional
+from typing import Optional, List
 from api.db.database import Database
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
@@ -22,8 +22,8 @@ def list_discord_logs(
     channel_id: Optional[str] = None,
     user: Optional[str] = None,
     model: Optional[str] = None,
-    source: Optional[str] = None,
-    status: Optional[str] = None,
+    source: List[str] = Query(default=[]),
+    status: List[str] = Query(default=[]),
 ):
     return db.list_discord_logs(
         page=page, limit=limit,
@@ -41,8 +41,8 @@ def export_discord_logs(
     channel_id: Optional[str] = None,
     user: Optional[str] = None,
     model: Optional[str] = None,
-    source: Optional[str] = None,
-    status: Optional[str] = None,
+    source: List[str] = Query(default=[]),
+    status: List[str] = Query(default=[]),
 ):
     result = db.list_discord_logs(
         page=1, limit=100000,
@@ -70,7 +70,7 @@ def list_admin_logs(
     limit: int = Query(50, ge=1, le=200),
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    action: Optional[str] = None,
+    action: List[str] = Query(default=[]),
 ):
     return db.list_admin_logs(page=page, limit=limit, from_date=from_date, to_date=to_date, action=action)
 
@@ -79,7 +79,7 @@ def list_admin_logs(
 def export_admin_logs(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    action: Optional[str] = None,
+    action: List[str] = Query(default=[]),
 ):
     result = db.list_admin_logs(page=1, limit=100000, from_date=from_date, to_date=to_date, action=action)
     return JSONResponse(

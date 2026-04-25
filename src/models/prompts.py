@@ -12,37 +12,15 @@ from api.db.database import Database
 # --- A sensible default template ---
 # This template will be saved to the database if it doesn't exist.
 DEFAULT_PROMPT_TEMPLATE = """\
-<character_definition>
-You are {{ character.name }}, you embody their character, persona, goals, personality, and bias which is described in detail below:
-Your persona: {{ character.persona }}
-</character_definition>
-
-<lore>
-{{- channel.global_note if channel.global_note -}}
-</lore>
-
-<conversation_history>
-{{ history }}
-</conversation_history>
-
-<instruction>
-{{- character.instructions if character.instructions -}}
-{{- channel.instruction if channel.instruction -}}
-
-{# --- Dynamic Plugin Outputs --- #}
-{% if plugins %}
-{% for plugin_name, output_data in plugins.items() %}
-    {# Loop through specific keys returned by the plugin (e.g. 'result', 'roll', 'reading') #}
-    {% for key, value in output_data.items() %}
-{{ value }}
-    {% endfor %}
-{% endfor %}
-{% endif %}
-
-[System Note: You are {{character.name}}. Answer only and only as {{character.name}}, don't reply as anyone else.]
-
-</instruction>
-"""
+[{{character.name}}]
+{{character.persona}}
+{% if character.instructions %}{{character.instructions}}{% endif %}
+{% if channel.global_note %}{{channel.global_note}}{% endif %}
+{% if plugins %}{% for plugin_name, output_data in plugins.items() %}{% for key, value in output_data.items() %}{{value}}
+{% endfor %}{% endfor %}{% endif %}
+[History]
+{{history}}
+[Reply only as {{character.name}}.]"""
 # Note: The '{{- ... -}}' syntax in Jinja2 removes leading whitespace for cleaner output.
 
 

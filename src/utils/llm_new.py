@@ -278,16 +278,26 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
 
 
 async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database) -> tuple:
-    """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model)."""
+    """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model, messages, temperature)."""
     bot_config = get_bot_config(db)
     try:
         char_data = db.get_character(character_name)
         if not char_data:
-            return f"//[OOC: Error: Character '{character_name}' not found in database.]", 0, 0, None
+            return f"//[OOC: Error: Character '{character_name}' not found in database.]", 0, 0, None, None, None
+
+        temperature = bot_config.temperature
+        if char_data.get('data') and char_data['data'].get('temperature') is not None:
+            temperature = char_data['data']['temperature']
 
         active_char = ActiveCharacter(char_data, db)
         character_prompt = active_char.get_character_prompt()
         final_system_prompt = f"{character_prompt}\n{system_addon}"
+
+        messages = [
+            {"role": "system", "content": final_system_prompt},
+            {"role": "user", "content": user},
+            {"role": "assistant", "content": assistant}
+        ]
 
         client = AsyncOpenAI(
             base_url=bot_config.ai_endpoint,
@@ -296,22 +306,18 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         model = bot_config.base_llm
         completion = await client.chat.completions.create(
             model=model,
-            temperature=bot_config.temperature,
+            temperature=temperature,
             max_tokens=8192,
-            messages=[
-                {"role": "system", "content": final_system_prompt},
-                {"role": "user", "content": user},
-                {"role": "assistant", "content": assistant}
-            ]
+            messages=messages
         )
         result = completion.choices[0].message.content if completion.choices else "//[Error: No response]"
         input_tokens = completion.usage.prompt_tokens if completion.usage else 0
         output_tokens = completion.usage.completion_tokens if completion.usage else 0
         if completion.usage:
             track_tokens(completion.usage.total_tokens)
-        return clean_thonk(result), input_tokens, output_tokens, model
+        return clean_thonk(result), input_tokens, output_tokens, model, messages, temperature
     except Exception as e:
-        return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None
+        return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None, None, None
 
 # --- Utility Functions (Unchanged) ---
 

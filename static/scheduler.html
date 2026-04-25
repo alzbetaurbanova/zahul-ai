@@ -50,15 +50,17 @@
                         <option value="reminder">Reminder</option>
                     </select>
                 </div>
-                <div>
+                <div class="relative">
                     <label class="block text-xs text-gray-400 mb-1">Status</label>
-                    <select id="filter-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
-                        <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="upcoming">Upcoming</option>
-                        <option value="done">Done</option>
-                        <option value="disabled">Disabled</option>
-                    </select>
+                    <button id="filter-status-btn" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[8rem]">
+                        <span id="filter-status-label">All</span><i class="fas fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+                    </button>
+                    <div id="filter-status-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[9rem]">
+                        <label id="fs-active-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="active" class="filter-status-cb accent-indigo-500"> Active</label>
+                        <label id="fs-upcoming-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="upcoming" class="filter-status-cb accent-indigo-500"> Upcoming</label>
+                        <label id="fs-done-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="done" class="filter-status-cb accent-indigo-500"> Done</label>
+                        <label id="fs-disabled-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="disabled" class="filter-status-cb accent-indigo-500"> Disabled</label>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">From</label>
@@ -579,10 +581,10 @@
         async function fetchTasks() {
             await ensureCharCache();
             const type = document.getElementById('filter-type').value;
-            const status = document.getElementById('filter-status').value;
+            const statuses = [...document.querySelectorAll('.filter-status-cb:checked')].map(el => el.value);
             let url = API + '/?';
             if (type) url += `type=${encodeURIComponent(type)}&`;
-            if (status) url += `status=${encodeURIComponent(status)}&`;
+            statuses.forEach(s => url += `status=${encodeURIComponent(s)}&`);
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -960,34 +962,36 @@
             } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
         });
 
-        // --- Dynamic Status Filter ---
+        // --- Status checkbox dropdown ---
+        function updateStatusDdLabel() {
+            const checked = [...document.querySelectorAll('.filter-status-cb:checked')].map(el => el.value);
+            document.getElementById('filter-status-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
+        }
+        const statusBtn = document.getElementById('filter-status-btn');
+        const statusDd = document.getElementById('filter-status-dd');
+        statusBtn.addEventListener('click', () => statusDd.classList.toggle('hidden'));
+        document.addEventListener('click', e => {
+            if (!statusBtn.contains(e.target) && !statusDd.contains(e.target))
+                statusDd.classList.add('hidden');
+        });
+        document.querySelectorAll('.filter-status-cb').forEach(cb => {
+            cb.addEventListener('change', () => { updateStatusDdLabel(); fetchTasks(); });
+        });
+
         function updateStatusOptions() {
-            const typeSelect = document.getElementById('filter-type');
-            const statusSelect = document.getElementById('filter-status');
-            const selectedType = typeSelect.value;
-            const currentStatus = statusSelect.value;
-            
-            // Build options based on type
-            let options = [{ value: '', label: 'All' }];
-            if (selectedType === 'schedule') {
-                options.push({ value: 'active', label: 'Active' });
-                options.push({ value: 'disabled', label: 'Disabled' });
-            } else if (selectedType === 'reminder') {
-                options.push({ value: 'upcoming', label: 'Upcoming' });
-                options.push({ value: 'done', label: 'Done' });
-                options.push({ value: 'disabled', label: 'Disabled' });
-            } else {
-                // Show all options
-                options.push({ value: 'active', label: 'Active' });
-                options.push({ value: 'upcoming', label: 'Upcoming' });
-                options.push({ value: 'done', label: 'Done' });
-                options.push({ value: 'disabled', label: 'Disabled' });
-            }
-            
-            // Rebuild dropdown
-            statusSelect.innerHTML = options.map(opt => 
-                `<option value="${opt.value}"${opt.value === currentStatus ? ' selected' : ''}>${opt.label}</option>`
-            ).join('');
+            const selectedType = document.getElementById('filter-type').value;
+            const show = {
+                active:   !selectedType || selectedType === 'schedule',
+                upcoming: !selectedType || selectedType === 'reminder',
+                done:     !selectedType || selectedType === 'reminder',
+                disabled: true,
+            };
+            ['active','upcoming','done','disabled'].forEach(v => {
+                const row = document.getElementById(`fs-${v}-row`);
+                row.classList.toggle('hidden', !show[v]);
+                if (!show[v]) row.querySelector('input').checked = false;
+            });
+            updateStatusDdLabel();
         }
 
         // --- Filters ---
@@ -995,7 +999,7 @@
             updateStatusOptions();
             fetchTasks();
         });
-        ['filter-status','filter-from','filter-to'].forEach(id => {
+        ['filter-from','filter-to'].forEach(id => {
             document.getElementById(id).addEventListener('change', fetchTasks);
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
