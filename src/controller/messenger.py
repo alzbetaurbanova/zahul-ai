@@ -5,6 +5,7 @@ import discord
 import os
 from typing import List, Optional
 
+
 # Adjust import paths as needed
 from src.models.queue import QueueItem
 from src.models.aicharacter import ActiveCharacter
@@ -91,7 +92,16 @@ class DiscordMessenger:
             if default_char:
                 avatar_url = default_char.get('data', {}).get('avatar')
 
-        # Discord requires a full http/https URL — ignore local/relative paths
+        # Build absolute URL for relative paths using public_url config (read fresh each time)
+        if avatar_url and str(avatar_url).startswith('/'):
+            fresh_config = BotConfig(**self.db.list_configs())
+            public_url = fresh_config.public_url or ''
+            if public_url:
+                avatar_url = public_url.rstrip('/') + str(avatar_url)
+            else:
+                avatar_url = None
+
+        # Discord requires a full http/https URL — ignore anything else
         if avatar_url and not str(avatar_url).startswith(('http://', 'https://')):
             avatar_url = None
 
