@@ -21,3 +21,4 @@ class QueueItem:
     model_used: str = None
     temperature: float = None
     history_count: int = 0
+    server_id: str = None

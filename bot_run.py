@@ -386,6 +386,13 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
     instructions = (task.get('instructions') or '').strip()
     print(f"[Scheduler] sending task {task['id']} type={task.get('type')} mode={task.get('message_mode')} char={char_name} target={task.get('target_type')} id={task.get('target_id')}")
 
+    # Resolve server_id for per-server config overrides
+    _server_id = None
+    if task.get('target_type') == 'channel':
+        _ch = bot.db.get_channel(task['target_id'])
+        if _ch:
+            _server_id = _ch.get('server_id')
+
     request_messages = None
     if task.get('message_mode') == 'generate':
         from src.utils.llm_new import generate_in_character
@@ -409,7 +416,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             system_addon=system_addon,
             user=user,
             assistant=prefix,
-            db=bot.db
+            db=bot.db,
+            server_id=_server_id,
         )
         if text_suffix.startswith('//[OOC:'):
             print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")

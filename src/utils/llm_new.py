@@ -126,15 +126,27 @@ _fallback_active, _fallback_end = _load_fallback_state()
 def get_bot_config(db: Database) -> BotConfig:
     """Fetches all config key-values from the DB and returns a BotConfig object."""
     all_db_configs = db.list_configs()
-    # Pydantic validates and provides default values for any missing keys
     return BotConfig(**all_db_configs)
+
+def get_effective_config(db: Database, server_id: str = None) -> BotConfig:
+    """Returns BotConfig with per-server overrides applied over global defaults."""
+    base = get_bot_config(db)
+    if not server_id:
+        return base
+    server = db.get_server(server_id)
+    if not server:
+        return base
+    overrides = server.get('config') or {}
+    if not overrides:
+        return base
+    return base.model_copy(update={k: v for k, v in overrides.items() if v is not None})
 
 async def generate_response(task: QueueItem, db: Database):
     """
     Generates an AI response for a given task using configuration from the database.
     Conditionally adds an assistant prefill message if enabled in the config.
     """
-    bot_config = get_bot_config(db)
+    bot_config = get_effective_config(db, getattr(task, 'server_id', None))
     # Použi temperature z postavy ak je nastavená, inak globálna
     char_data = db.get_character(task.bot)
     temperature = bot_config.temperature
@@ -277,9 +289,9 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
         return f"//[OOC: Error in generate_blank: {e}]"
 
 
-async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database) -> tuple:
+async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database, server_id: str = None) -> tuple:
     """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model, messages, temperature)."""
-    bot_config = get_bot_config(db)
+    bot_config = get_effective_config(db, server_id)
     try:
         char_data = db.get_character(character_name)
         if not char_data:

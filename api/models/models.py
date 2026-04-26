@@ -34,12 +34,26 @@ class BotConfig(BaseModel):
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)
 # ------------------------------------------------------
+class ServerConfig(BaseModel):
+    """Per-server overrides for global AI config. None = use global default."""
+    ai_endpoint: Optional[str] = None
+    base_llm: Optional[str] = None
+    fallback_llm: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    history_limit: Optional[int] = None
+    auto_cap: Optional[int] = None
+    use_prefill: Optional[bool] = None
+    token_limit_tpm: Optional[int] = None
+    token_limit_tpd: Optional[int] = None
+
 class Server(BaseModel):
     """Represents a single row in the 'servers' table."""
     server_id: str
     server_name: str
     description: Optional[str] = None
     instruction: Optional[str] = None
+    config: Optional[ServerConfig] = None
 
 
 # ------------------------------------------------------

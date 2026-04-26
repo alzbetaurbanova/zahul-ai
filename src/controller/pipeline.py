@@ -53,12 +53,13 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
 
 
 async def _generate_and_send_for_character(
-    character: ActiveCharacter, # Now we pass the full object
-    zahul, db: Database, 
-    message: discord.Message, 
+    character: ActiveCharacter,
+    zahul, db: Database,
+    message: discord.Message,
     channel: ActiveChannel,
     messenger: DiscordMessenger,
-    plugin_manager: PluginManager
+    plugin_manager: PluginManager,
+    server_id: str = None,
 ):
     """
     Contains the core logic for generating and sending a message for ONE character.
@@ -78,7 +79,8 @@ async def _generate_and_send_for_character(
         user=message.author.display_name,
         stop=prompter.stopping_strings,
         message=message,
-        history_count=getattr(prompter, 'history_count', 0)
+        history_count=getattr(prompter, 'history_count', 0),
+        server_id=server_id,
     )
     
     queue_item = await generate_response(queue_item, db)
@@ -122,6 +124,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
 
         # --- 1. Load Channel ---
         is_dm = isinstance(message.channel, discord.DMChannel)
+        server_id = 'DM_VIRTUAL_SERVER' if is_dm else str(message.guild.id)
         if is_dm:
             if message.author.name not in (bot_config.dm_list or []):
                 await message.channel.send("🚫 You do not have permission to talk to this bot in DM.")
@@ -160,7 +163,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         generation_tasks = []
         for character in responding_characters:
             task = _generate_and_send_for_character(
-                character, zahul, db, message, channel, messenger, plugin_manager
+                character, zahul, db, message, channel, messenger, plugin_manager, server_id
             )
             generation_tasks.append(task)
         

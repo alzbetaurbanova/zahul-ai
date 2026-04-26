@@ -122,6 +122,8 @@ class Database:
             for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
+            try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
+            except: pass
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS admin_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -199,7 +201,11 @@ class Database:
         """Read a server's data by its ID."""
         with self._get_connection() as conn:
             row = conn.execute("SELECT * FROM servers WHERE server_id = ?", (server_id,)).fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            result = dict(row)
+            result['config'] = self._parse_json_value(result.get('config')) or {}
+            return result
             
     def update_server(self, server_id: str, **kwargs):
         """Update a server's data (e.g., server_name, description)."""
@@ -215,7 +221,32 @@ class Database:
         """List all servers."""
         with self._get_connection() as conn:
             rows = conn.execute("SELECT * FROM servers").fetchall()
-            return [dict(row) for row in rows]
+            results = []
+            for row in rows:
+                r = dict(row)
+                r['config'] = self._parse_json_value(r.get('config')) or {}
+                results.append(r)
+            return results
+
+    def get_server_config(self, server_id: str) -> Dict[str, Any]:
+        """Return per-server config overrides (empty dict if none set)."""
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT config FROM servers WHERE server_id = ?", (server_id,)).fetchone()
+            if row and row["config"]:
+                return self._parse_json_value(row["config"]) or {}
+            return {}
+
+    def set_server_config(self, server_id: str, config: Dict[str, Any]):
+        """Persist per-server config overrides."""
+        with self._get_connection() as conn:
+            conn.execute("UPDATE servers SET config = ? WHERE server_id = ?", (json.dumps(config), server_id))
+            conn.commit()
+
+    def clear_server_config(self, server_id: str):
+        """Remove all per-server config overrides (reset to global defaults)."""
+        with self._get_connection() as conn:
+            conn.execute("UPDATE servers SET config = NULL WHERE server_id = ?", (server_id,))
+            conn.commit()
 
     # ------------------------------------------------------
     # Channels

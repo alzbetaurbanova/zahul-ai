@@ -72,7 +72,6 @@
                     <div id="config-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
                         <h2 id="form-title" class="text-xl font-semibold text-white mb-6">Channel Configuration</h2>
                         <form id="channel-form" class="space-y-4">
-                            <!-- Fields will be here -->
                             <div>
                                 <label for="name" class="block mb-2 text-sm font-medium text-gray-300">Channel Name</label>
                                 <input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
@@ -102,15 +101,82 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Server Config Panel — full width below grid, hidden for DM -->
+            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">Server Overrides</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Override global AI Config for this server only.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input id="sc-toggle" type="checkbox" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+                <form id="server-config-form">
+                    <div id="sc-fields" class="hidden">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                            <div class="sm:col-span-2 lg:col-span-3">
+                                <label class="block text-xs font-medium text-gray-400 mb-1">API Endpoint</label>
+                                <input type="text" id="sc-ai-endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Primary Model</label>
+                                <input type="text" id="sc-base-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Fallback Model</label>
+                                <input type="text" id="sc-fallback-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Temperature</label>
+                                <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Max Tokens</label>
+                                <input type="number" id="sc-max-tokens" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Message History</label>
+                                <input type="number" id="sc-history-limit" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Auto Cap</label>
+                                <input type="number" id="sc-auto-cap" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / min</label>
+                                <input type="number" id="sc-token-limit-tpm" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / day</label>
+                                <input type="number" id="sc-token-limit-tpd" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5">
+                                <span class="text-sm text-gray-300">Use Prefill</span>
+                                <select id="sc-use-prefill" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-2 py-1">
+                                    <option value="">— default —</option>
+                                    <option value="true">Enabled</option>
+                                    <option value="false">Disabled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-lg">Save Overrides</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </main>
 
     <!-- "Add Channel" Modal -->
     <div id="add-channel-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
-            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel / Server</h3>
+            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
             <p class="text-gray-400 mb-6">
-                To add a new server / channel for the bot to use, please go to your Discord server and use the following slash command in the desired channel:
+                To add a new channel for the bot to use, go to your Discord server and use the following slash command in the desired channel:
             </p>
             <div class="bg-gray-800 text-white p-3 rounded-lg font-mono text-left">
                 /zahul register_channel
@@ -120,6 +186,20 @@
             </p>
             <button id="close-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
                 Got it!
+            </button>
+        </div>
+    </div>
+
+    <!-- "Invite Bot" Modal -->
+    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
+            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
+            <p class="text-gray-400 mb-6">Use this link to invite the bot to a new Discord server.</p>
+            <div id="invite-link-container">
+                <p class="text-gray-500 text-sm">Loading invite link...</p>
+            </div>
+            <button id="close-invite-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
+                Close
             </button>
         </div>
     </div>
@@ -150,6 +230,128 @@
             const instructionInput = document.getElementById('instruction');
             const whitelistInput = document.getElementById('whitelist');
             const isSystemChannelInput = document.getElementById('is_system_channel');
+            const serverConfigPanel = document.getElementById('server-config-panel');
+
+            // --- Server Config ---
+            const scToggle = document.getElementById('sc-toggle');
+            const scFields = document.getElementById('sc-fields');
+
+            function setScEnabled(enabled) {
+                scToggle.checked = enabled;
+                scFields.classList.toggle('hidden', !enabled);
+            }
+
+            function fillScFields(cfg) {
+                document.getElementById('sc-ai-endpoint').value = cfg.ai_endpoint ?? '';
+                document.getElementById('sc-base-llm').value = cfg.base_llm ?? '';
+                document.getElementById('sc-fallback-llm').value = cfg.fallback_llm ?? '';
+                document.getElementById('sc-temperature').value = cfg.temperature ?? '';
+                document.getElementById('sc-max-tokens').value = cfg.max_tokens ?? '';
+                document.getElementById('sc-history-limit').value = cfg.history_limit ?? '';
+                document.getElementById('sc-auto-cap').value = cfg.auto_cap ?? '';
+                document.getElementById('sc-token-limit-tpm').value = cfg.token_limit_tpm ?? '';
+                document.getElementById('sc-token-limit-tpd').value = cfg.token_limit_tpd ?? '';
+                document.getElementById('sc-use-prefill').value = cfg.use_prefill != null ? String(cfg.use_prefill) : '';
+            }
+
+            function clearScFields() {
+                ['sc-ai-endpoint','sc-base-llm','sc-fallback-llm','sc-temperature',
+                 'sc-max-tokens','sc-history-limit','sc-auto-cap',
+                 'sc-token-limit-tpm','sc-token-limit-tpd'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('sc-use-prefill').value = '';
+            }
+
+            function hasAnyOverride(cfg) {
+                return Object.values(cfg).some(v => v !== null && v !== undefined);
+            }
+
+            async function loadServerConfig(serverId) {
+                serverConfigPanel.classList.remove('hidden');
+                try {
+                    const cfg = await fetch(`${API_BASE}/${serverId}/config`).then(r => r.json());
+                    if (hasAnyOverride(cfg)) {
+                        fillScFields(cfg);
+                        setScEnabled(true);
+                    } else {
+                        clearScFields();
+                        setScEnabled(false);
+                    }
+                } catch { showToast('Failed to load server config.', 'error'); }
+            }
+
+            scToggle.addEventListener('change', async () => {
+                if (!currentServer) { scToggle.checked = false; return; }
+                if (scToggle.checked) {
+                    try {
+                        const globalCfg = await fetch('/api/config/').then(r => r.json());
+                        fillScFields({
+                            ai_endpoint: globalCfg.ai_endpoint,
+                            base_llm: globalCfg.base_llm,
+                            fallback_llm: globalCfg.fallback_llm,
+                            temperature: globalCfg.temperature,
+                            max_tokens: globalCfg.max_tokens,
+                            history_limit: globalCfg.history_limit,
+                            auto_cap: globalCfg.auto_cap,
+                            token_limit_tpm: globalCfg.token_limit_tpm,
+                            token_limit_tpd: globalCfg.token_limit_tpd,
+                            use_prefill: globalCfg.use_prefill,
+                        });
+                        setScEnabled(true);
+                    } catch {
+                        showToast('Failed to load global config.', 'error');
+                        scToggle.checked = false;
+                    }
+                } else {
+                    if (!confirm('Remove all overrides for this server?')) {
+                        scToggle.checked = true;
+                        return;
+                    }
+                    try {
+                        const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        clearScFields();
+                        setScEnabled(false);
+                        showToast('Server overrides removed.');
+                    } catch (e) {
+                        showToast(`Failed to remove overrides: ${e.message}`, 'error');
+                        scToggle.checked = true;
+                    }
+                }
+            });
+
+            document.getElementById('server-config-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!currentServer || !scToggle.checked) return;
+                const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
+                const str = (id) => document.getElementById(id).value.trim() || null;
+                const payload = Object.fromEntries(Object.entries({
+                    ai_endpoint: str('sc-ai-endpoint'),
+                    base_llm: str('sc-base-llm'),
+                    fallback_llm: str('sc-fallback-llm'),
+                    temperature: num('sc-temperature'),
+                    max_tokens: num('sc-max-tokens'),
+                    history_limit: num('sc-history-limit'),
+                    auto_cap: num('sc-auto-cap'),
+                    token_limit_tpm: num('sc-token-limit-tpm'),
+                    token_limit_tpd: num('sc-token-limit-tpd'),
+                    use_prefill: (() => { const v = document.getElementById('sc-use-prefill').value; return v !== '' ? v === 'true' : null; })(),
+                }).filter(([, v]) => v !== null));
+                try {
+                    const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
+                    if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
+                    if (Object.keys(payload).length) {
+                        const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!patchResp.ok) throw new Error(`PATCH HTTP ${patchResp.status}`);
+                    }
+                    showToast('Server overrides saved.');
+                } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
+            });
 
             async function fetchServers() {
                 try {
@@ -173,9 +375,10 @@
 
             async function fetchChannels(serverId, serverName) {
                 currentServer = { id: serverId, name: serverName };
-                configPanel.classList.add('hidden'); // Hide form when switching servers
+                configPanel.classList.add('hidden');
                 channelListTitle.textContent = serverName;
                 channelPanel.classList.remove('hidden');
+                loadServerConfig(serverId);
                 
                 try {
                     const response = await fetch(`${API_BASE}/${serverId}/channels`);
@@ -251,10 +454,33 @@
                 setTimeout(() => { toast.remove(); }, 3000);
             }
 
-            // Modal listeners
+            // Channel modal
             addChannelBtn.addEventListener('click', () => addChannelModal.classList.remove('hidden'));
-            addServerBtn.addEventListener('click', () => addChannelModal.classList.remove('hidden'));
             closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));
+
+            // Invite modal
+            const inviteModal = document.getElementById('invite-modal');
+            const inviteLinkContainer = document.getElementById('invite-link-container');
+            addServerBtn.addEventListener('click', async () => {
+                inviteLinkContainer.innerHTML = '<p class="text-gray-500 text-sm">Loading invite link...</p>';
+                inviteModal.classList.remove('hidden');
+                try {
+                    const data = await fetch('/api/discord/invite').then(r => r.json());
+                    if (data.invite) {
+                        inviteLinkContainer.innerHTML = `
+                            <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg">
+                                <i class="fas fa-external-link-alt"></i> Open Invite Link
+                            </a>
+                            <p class="text-gray-600 text-xs mt-3 break-all">${data.invite}</p>`;
+                    } else {
+                        inviteLinkContainer.innerHTML = `<p class="text-red-400 text-sm">${data.message || 'Bot is not running yet.'}</p>`;
+                    }
+                } catch {
+                    inviteLinkContainer.innerHTML = '<p class="text-red-400 text-sm">Failed to fetch invite link.</p>';
+                }
+            });
+            document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
 
             // Form listener
             form.addEventListener('submit', handleFormSubmit);

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Path, HTTPException, status
 from typing import List
 
 # --- Model and Database Imports ---
-from api.models.models import Server, Channel, ChannelData
+from api.models.models import Server, ServerConfig, Channel, ChannelData
 from api.db.database import Database
 from pydantic import BaseModel
 
@@ -53,6 +53,34 @@ async def get_server(server_id: str = Path(..., description="The unique ID of th
     if not server:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
     return server
+
+@router.get("/{server_id}/config", response_model=ServerConfig)
+async def get_server_config(server_id: str = Path(...)):
+    """Get per-server config overrides."""
+    if not db.get_server(server_id):
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+    return db.get_server_config(server_id)
+
+@router.patch("/{server_id}/config", response_model=ServerConfig)
+async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...)):
+    """Set per-server config overrides. Only provided (non-null) fields are saved."""
+    if not db.get_server(server_id):
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+    current = db.get_server_config(server_id)
+    updates = body.model_dump(exclude_none=True)
+    current.update(updates)
+    db.set_server_config(server_id, current)
+    db.log_admin('server.config.update', target=server_id, detail=str(updates))
+    return current
+
+@router.delete("/{server_id}/config", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_server_config(server_id: str = Path(...)):
+    """Reset all per-server config overrides back to global defaults."""
+    if not db.get_server(server_id):
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+    db.clear_server_config(server_id)
+    db.log_admin('server.config.reset', target=server_id)
+    return None
 
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_server(server_id: str = Path(..., description="The unique ID of the server")):
