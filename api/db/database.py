@@ -496,8 +496,9 @@ class Database:
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
                     temperature: float = None, history_count: int = 0):
-        from datetime import datetime, timezone
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
         history_json = json.dumps(conversation_history) if conversation_history is not None else None
         with self._get_connection() as conn:
             conn.execute("""
@@ -512,8 +513,9 @@ class Database:
             conn.commit()
 
     def log_admin(self, action: str, target: str = None, detail: str = None):
-        from datetime import datetime, timezone
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
         with self._get_connection() as conn:
             conn.execute(
                 "INSERT INTO admin_logs (timestamp, action, target, detail) VALUES (?,?,?,?)",

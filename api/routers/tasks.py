@@ -1,10 +1,78 @@
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from api.db.database import Database
 from api.models.models import Task, TaskCreate, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 db = Database()
+
+_SK_TZ = ZoneInfo("Europe/Bratislava")
+
+
+def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
+    """Return the next scheduled run time (SK time, no tz suffix) for a task."""
+    now = datetime.now(_SK_TZ)
+
+    if task.get('type') == 'reminder':
+        if task.get('status') == 'upcoming' and task.get('scheduled_time'):
+            return task['scheduled_time']
+        return None
+
+    if task.get('type') != 'schedule' or task.get('status') != 'active':
+        return None
+
+    pattern = task.get('repeat_pattern') or {}
+    ptype = pattern.get('type', 'weekly')
+    time_str = pattern.get('time', '')
+    if not time_str:
+        return None
+    try:
+        h, m = map(int, time_str.split(':'))
+    except Exception:
+        return None
+
+    if ptype == 'daily':
+        candidate = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        if candidate <= now:
+            candidate += timedelta(days=1)
+        return candidate.strftime("%Y-%m-%dT%H:%M:%S")
+
+    if ptype == 'weekly':
+        days = pattern.get('days', [])
+        if not days:
+            return None
+        for offset in range(8):
+            candidate = (now + timedelta(days=offset)).replace(hour=h, minute=m, second=0, microsecond=0)
+            if candidate > now and candidate.weekday() in days:
+                return candidate.strftime("%Y-%m-%dT%H:%M:%S")
+        return None
+
+    if ptype == 'monthly':
+        day = pattern.get('day', 1)
+        try:
+            candidate = now.replace(day=day, hour=h, minute=m, second=0, microsecond=0)
+            if candidate <= now:
+                month = now.month % 12 + 1
+                year = now.year + (1 if now.month == 12 else 0)
+                candidate = candidate.replace(year=year, month=month)
+            return candidate.strftime("%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            return None
+
+    if ptype == 'yearly':
+        month = pattern.get('month', 1)
+        day = pattern.get('day', 1)
+        try:
+            candidate = now.replace(month=month, day=day, hour=h, minute=m, second=0, microsecond=0)
+            if candidate <= now:
+                candidate = candidate.replace(year=now.year + 1)
+            return candidate.strftime("%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            return None
+
+    return None
 
 
 @router.get("/")
@@ -15,6 +83,7 @@ def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])
         validated_tasks = []
         for task in tasks:
             try:
+                task['next_run'] = compute_next_run(task)
                 validated_tasks.append(Task(**task))
             except Exception as e:
                 # Log the problematic task instead of crashing
@@ -57,6 +126,7 @@ def get_task(task_id: int):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     try:
+        task['next_run'] = compute_next_run(task)
         return Task(**task)
     except Exception as e:
         import sys

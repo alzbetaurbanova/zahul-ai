@@ -155,3 +155,4 @@ class Task(BaseModel):
     status: str
     message_mode: Optional[str] = 'exact'
     created_at: str
+    next_run: Optional[str] = None

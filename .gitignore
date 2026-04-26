@@ -28,3 +28,5 @@ data/token_usage.txt
 # Webhook (server-side only)
 webhook/
 
+# Documemtation
+TODO.md
