@@ -107,11 +107,24 @@ In your Discord server, run the following slash command in the channel you want 
 /zahul register_channel
 ```
 
-The bot is now active in that channel. Characters assigned to it will start responding to messages.
+The bot is now active in that channel.
 
 ---
 
-### 5. (Optional) Secure the panel
+### 5. Whitelist characters
+
+By default, no characters are allowed to speak in the channel. Run `/whitelist add` to enable them:
+
+```
+/whitelist add Echo
+/whitelist add Echo, Aria, Zara
+```
+
+Use `/whitelist view` to see who's active, and `/whitelist remove` to take someone out.
+
+---
+
+### 6. (Optional) Secure the panel
 
 Go to **AI Config → Panel Security**, enable the toggle, set a password, and save. All future panel access will require login.
 
@@ -119,15 +132,16 @@ Go to **AI Config → Panel Security**, enable the toggle, set a password, and s
 
 ## Tech stack
 
-- **FastAPI** — backend and bot API
-- **SQLite** — single-file database, easy to back up
-- **Vanilla JS** — no build step, no node_modules
-- **Jinja2** — prompt templating engine
+- **FastAPI** - backend and bot API
+- **SQLite** - single-file database, easy to back up
+- **Vanilla JS** - no build step, no node_modules
+- **Jinja2** - prompt templating engine
 
 ---
 
 ## License
 
-AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDGE.md).
+- AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDGE.md).
 
-This project is based on [viel-ai](https://github.com/Iteranya/viel-ai) by [Artes Paradox](https://github.com/Iteranya/). Attribution is mandatory per the license. See [CHANGES.md](CHANGES.md) for what's different.
+- This project is based on [viel-ai](https://github.com/Iteranya/viel-ai) by [Artes Paradox](https://github.com/Iteranya/). Attribution is mandatory per the license. 
+- See [CHANGES.md](CHANGES.md) for what's different.
