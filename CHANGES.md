@@ -5,55 +5,7 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 
 ---
 
-## Quality of Life Improvements
-
-### Removed example dialogues
-- Removed `examples` field from character model — reduces token usage per message and prevents the model from repeating stale phrases
-
-### Discord slash commands
-- `/zahul register_channel` — initializes the current channel for the bot
-- `/whitelist add` — adds characters to the channel whitelist (comma-separated)
-- `/whitelist remove` — removes characters from the channel whitelist
-- `/whitelist view` — shows the current whitelist for this channel
-- `/about <meno>` — posts the character's Info / Author Note in the channel (visible to everyone)
-- `/tokens` — shows token usage per minute and per day
-- `/fallback status` — shows whether fallback is active and when primary returns
-- `/fallback on` / `/fallback off` — manually toggle fallback mode
-- `/autocap set <value>` — sets the bot-to-bot chain limit
-- `/autocap off [hours]` — disables the chain limit temporarily (auto-reverts after given hours)
-- `/autocap on` — re-enables the chain limit with the last set value
-- `/autocap reset` — resets chain limit to the value in AI Config
-- `/autocap status` — shows the current chain limit state
-- `/reminder <character> <when> <text> [mode]` — schedules a one-time reminder; auto-targets the current channel or DM; mode is `exact` (default) or `generate`
-- All commands except `/about` are ephemeral (only visible to the user who ran them)
-
-### Configurable base model with automatic fallback
-- Base model and fallback model are fully configurable from the AI Config panel in the web UI
-- Automatic switch to the fallback model when the primary hits a rate limit
-- Fallback duration is configurable from the web UI
-- Fallback state is persisted to disk - survives bot restarts
-
-### Token usage tracking
-- Tracks tokens used per minute (TPM) and per day (TPD)
-- Limits are configurable from the AI Config panel (no need to edit code)
-- Fallback token usage tracked separately and reset when fallback ends
-
-### Per-character temperature and token overrides
-- Each character can have its own `temperature` and `max_tokens` values
-- If not set on the character, falls back to the global config value
-
-### Image upload via system channel
-- Thread-safe image uploading using the bot's own event loop
-- Automatically finds the system channel or falls back to the first registered channel
-
-### Persistent avatar storage
-- Avatar uploads are saved locally to `static/avatars/` instead of Discord CDN
-- Avatars no longer expire or disappear after bot restarts
-
-### Character filtering by server
-- Dropdown on the Characters page to filter characters by server
-- Shows only characters whitelisted in at least one channel of the selected server
-- Direct Messages excluded from the filter list
+## New features
 
 ### Scheduler & reminders
 - One-time reminders and recurring schedules managed from the web panel at `/scheduler`
@@ -72,12 +24,72 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Log detail shows full request JSON (messages sent to LLM), response body, and error if present
 - Token usage (input/output) stored per interaction and visible in both list and detail view
 
+### Configurable base model with automatic fallback
+- Base model and fallback model are fully configurable from the AI Config panel
+- Automatic switch to the fallback model when the primary hits a rate limit
+- Fallback duration is configurable from the web UI
+- Fallback state is persisted to disk — survives bot restarts
+
+### Token usage tracking
+- Tracks tokens used per minute (TPM) and per day (TPD)
+- Limits are configurable from the AI Config panel (no need to edit code)
+- Fallback token usage tracked separately and reset when fallback ends
+
 ### Panel authentication
 - Optional password protection for the web panel
-- Set a password via AI Config - Panel Security section
+- Set a password via **AI Config → Panel Security**
 - Optional password hint — displayed on the login page after 3 failed attempts
 - Session persists for 7 days, logout button in navbar
 - Auth can be disabled at code level via `PANEL_AUTH_ENABLED` flag in `main.py`
+
+### DM access control
+- `dm_list` field in AI Config — whitelist of Discord usernames allowed to DM the bot directly
+- When the list is empty, DMs are disabled for all users
+- Managed from the AI Config panel, one username per line
+
+---
+
+## Slash commands
+
+All commands use the `/zahul` command group or standalone groups listed below.
+
+- `/zahul register_channel` — initializes the current channel for the bot
+- `/whitelist add` — adds characters to the channel whitelist (comma-separated)
+- `/whitelist remove` — removes characters from the channel whitelist
+- `/whitelist view` — shows the current whitelist for this channel
+- `/about <name>` — posts the character's bio in the channel (visible to everyone)
+- `/tokens` — shows current token usage and active model
+- `/fallback status` — shows whether fallback is active and when primary returns
+- `/fallback on` / `/fallback off` — manually toggle fallback mode
+- `/autocap set <value>` — sets the bot-to-bot chain limit
+- `/autocap off [hours]` — disables the chain limit temporarily (auto-reverts after given hours)
+- `/autocap on` — re-enables the chain limit with the last set value
+- `/autocap reset` — resets chain limit to the value in AI Config
+- `/autocap status` — shows the current chain limit state
+- `/reminder <character> <when> <text> [mode]` — schedules a one-time reminder; auto-targets the current channel or DM; mode is `exact` (default) or `generate`
+- All commands except `/about` are ephemeral (only visible to the user who ran them)
+
+---
+
+## Quality of life
+
+### Per-character fine-tuning
+- Each character can have its own `temperature`, `max_tokens`, and `history_limit` — overrides the global config value if set
+
+### Persistent avatar storage
+- Avatar uploads are saved locally to `static/avatars/` instead of Discord CDN
+- Avatars no longer expire or disappear after bot restarts
+
+### Public URL
+- `public_url` field in AI Config — sets the base URL used to build avatar links in Discord webhooks
+- Required for avatars to display correctly when the bot is hosted behind a domain or reverse proxy
+
+### Character filtering by server
+- Dropdown on the Characters page to filter characters by server
+- Shows only characters whitelisted in at least one channel of the selected server
+
+### Removed example dialogues
+- Removed `examples` field from the character model — reduces token usage per message and prevents the model from repeating stale phrases
 
 
 ---

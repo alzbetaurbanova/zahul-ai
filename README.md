@@ -14,8 +14,6 @@
 </p>
 <h1 align="center">zahul-ai</h1>
 
-A Discord roleplay bot - based on [viel-ai](https://github.com/Iteranya/viel-ai) by Artes Paradox. See [CHANGES.md](CHANGES.md) for what's different.
-
 ---
 
 zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. You run it on your own machine, connect it to any AI provider you want, and control everything through a web panel.
@@ -24,72 +22,38 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 
 ## What it does
 
-### Bring characters to life
-- Run as many characters as you want, each with their own personality, avatar, and trigger words
-- Assign characters to specific channels — they stay in their lane
-- Characters can reply to each other (with safeguards against infinite loops)
-- Import character cards from SillyTavern
+- Multi-character roleplay bot — each character has its own personality, avatar, and trigger words
+- Per-channel setup: assign characters, set persona and instructions, whitelist who can speak where
+- Web panel at `http://localhost:5666` — manage everything without touching code
+- Any OpenAI-compatible AI backend, with automatic fallback when the primary hits rate limits
+- Scheduler for recurring messages and one-time reminders
+- Activity and admin logs at `/logs`
+- Optional panel password protection
 
-### Per-channel world-building
-- Set instructions, lore, and atmosphere per channel
-- Characters adapt their behavior based on where they are
-- Whitelist which characters can speak in which channel
-
-### Web control panel
-- Manage everything through a browser UI at `http://localhost:5666`
-- Edit characters, configure AI settings, manage channels
-- Built-in prompt template editor with Jinja2 support
-- Shared navbar across all pages — no page reload on navigation
-
-### Scheduler & reminders
-- Schedule recurring messages or one-time reminders from the `/scheduler` panel
-- Four repeat types: **Daily**, **Weekly** (pick days), **Monthly** (day of month), **Yearly** (month + day)
-- Two delivery modes: **Exact** (sends your text verbatim) or **Generate** (character reacts in their own voice)
-- Manage everything from the `/scheduler` panel — create, edit, duplicate, disable, delete
-- `/reminder <character> <when> <text> [mode]` — set a reminder directly from Discord; auto-targets the current channel or DM
-
-### Activity logs
-- Every Discord interaction logged: character, user, channel, model, tokens in/out, trigger, response
-- Admin log: tracks all panel actions (character create/update/delete, config changes, task changes)
-- Browse logs at `/logs` — filter by character, user, date, source, status; paginate and export as JSON
-- Request JSON (messages sent to LLM) visible in log detail
-
-### Any AI backend you want
-- Works with any OpenAI-compatible endpoint
-- Configurable base model and automatic fallback when the primary hits rate limits
-- Fallback duration, token limits (per minute / per day) all set from the web panel
-- `/tokens` — check current token usage and active model at any time
-- `/fallback status/on/off` — manually control fallback mode
-- `/autocap set/off/on/reset/status` — manage bot-to-bot reply chain limit
-- `/about <name>` — display a character's bio in the channel
-- `/reminder` — schedule a one-time reminder from Discord
-- Switch providers without losing your characters or settings
-
-### Per-character fine-tuning
-- Set a custom `temperature` and `max_tokens` per character — overrides the global config
-- Upload a custom avatar directly from the character editor
-- Each character can have its own history limit
-
-### Web search & link reading
-- Prefix a message with `search>` to trigger a web search
-- Drop a link and the bot will read it before responding
-
-### Advanced prompt engineering
-- Jinja2 templating for dynamic system prompts
-- Per-character temperature and token overrides
-- Full control from the web panel, no code editing needed
+See [CHANGES.md](CHANGES.md) for the full feature list and slash command reference.
 
 ---
 
 ## Getting started
 
 ### Requirements
-- Python 3.10+
+- Python 3.10+ (or [uv](https://github.com/astral-sh/uv) — recommended)
 - A Discord bot token ([Discord Developer Portal](https://discord.com/developers/applications))
-- An API key for your chosen AI provider
+- An API key for your chosen AI provider (Groq, OpenRouter, or any OpenAI-compatible endpoint)
 
-### Run locally
+---
 
+### 1. Install and run
+
+**With uv (recommended):**
+```bash
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
+cd zahul-ai
+uv sync
+uv run main.py
+```
+
+**With pip:**
 ```bash
 git clone https://github.com/alzbetaurbanova/zahul-ai.git
 cd zahul-ai
@@ -97,26 +61,61 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Open `http://localhost:5666` in your browser and follow the setup steps in the AI Config panel.
-
-### Discord bot setup
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application
-2. Under the **Bot** tab, enable all three Privileged Gateway Intents:
-   - Presence Intent
-   - Server Members Intent
-   - Message Content Intent
-3. Copy your bot token and paste it into the **AI Config** panel
-4. Start the bot from the control panel — an invite link will appear
-5. In your Discord server, run `/zahul register_channel` in the channel you want to use
-
-### Docker
-
+**With Docker (recommended for self-hosting):**
 ```bash
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
+cd zahul-ai
 docker-compose up -d
 ```
 
-Then open `http://localhost:5666`.
+The panel is available at `http://localhost:5666`.
+
+On first run, the database is created automatically — a default character (Echo), a default prompt preset, and a baseline configuration are inserted. No manual database setup needed.
+
+---
+
+### 2. Create a Discord bot
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application
+2. Under the **Bot** tab, enable all three **Privileged Gateway Intents**:
+   - Presence Intent
+   - Server Members Intent
+   - Message Content Intent
+3. Copy your bot token — you'll need it in the next step
+
+---
+
+### 3. Configure via the web panel
+
+Open `http://localhost:5666` and go to **AI Config**. Fill in:
+
+| Field | What to put |
+|---|---|
+| **Discord Bot Token** | Token from the Developer Portal |
+| **AI Endpoint URL** | e.g. `https://api.groq.com/openai/v1` |
+| **AI API Key** | Your provider's API key |
+| **Primary Model** | e.g. `llama-3.3-70b-versatile` |
+| **Default Character** | `Echo` (pre-created) or your own |
+
+Save the config, then click **Start Bot** on the main panel. An invite link will appear — use it to add the bot to your server.
+
+---
+
+### 4. Register a channel
+
+In your Discord server, run the following slash command in the channel you want the bot to use:
+
+```
+/zahul register_channel
+```
+
+The bot is now active in that channel. Characters assigned to it will start responding to messages.
+
+---
+
+### 5. (Optional) Secure the panel
+
+Go to **AI Config → Panel Security**, enable the toggle, set a password, and save. All future panel access will require login.
 
 ---
 
@@ -133,4 +132,4 @@ Then open `http://localhost:5666`.
 
 AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDGE.md).
 
-This project is based on [viel-ai](https://github.com/Iteranya/viel-ai) by [Artes Paradox](https://github.com/Iteranya/). Attribution is mandatory per the license.
+This project is based on [viel-ai](https://github.com/Iteranya/viel-ai) by [Artes Paradox](https://github.com/Iteranya/). Attribution is mandatory per the license. See [CHANGES.md](CHANGES.md) for what's different.
