@@ -412,14 +412,17 @@
                     panel_password_hint: isEnabled ? panelPasswordHintInput.value : ''
                 };
                 try {
-                    const response = await fetch('/api/config', {
-                        method: 'PUT',
+                    const response = await fetch('/api/config/security', {
+                        method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(configData)
                     });
                     if (!response.ok) {
                         const error = await response.json();
-                        throw new Error(error.detail || 'Failed to save security config.');
+                        const msg = typeof error.detail === 'string'
+                            ? error.detail
+                            : 'Failed to save security config.';
+                        throw new Error(msg);
                     }
                     showToast(isEnabled ? 'Panel password saved!' : 'Panel password disabled!');
                     panelPasswordInput.value = '';

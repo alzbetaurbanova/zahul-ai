@@ -3,9 +3,15 @@
 
 from fastapi import APIRouter, Body, HTTPException
 from typing import Set
+from pydantic import BaseModel
 # Assumes your db class is at api/db/database.py
 from api.db.database import Database
 from api.models.models import BotConfig
+
+
+class SecurityConfig(BaseModel):
+    panel_password: str = ""
+    panel_password_hint: str = ""
 
 # --- Constants and DB Initialization ---
 # This business logic is preserved from your original file.
@@ -72,3 +78,15 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating config in database: {e}")
+
+
+@router.patch("/security")
+async def update_security(config: SecurityConfig):
+    """Update only the panel password and hint without requiring the full config."""
+    try:
+        db.set_config("panel_password", config.panel_password)
+        db.set_config("panel_password_hint", config.panel_password_hint)
+        db.log_admin('config.security_update')
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving security config: {e}")
