@@ -14,8 +14,6 @@
 </p>
 <h1 align="center">zahul-ai</h1>
 
----
-
 zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. You run it on your own machine, connect it to any AI provider you want, and control everything through a web panel.
 
 ---
