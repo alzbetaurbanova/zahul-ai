@@ -272,7 +272,7 @@ async def post_login(password: str = Form(...)):
         token = secrets.token_hex(32)
         _sessions.add(token)
         response = RedirectResponse(url="/", status_code=302)
-        response.set_cookie("zahul_session", token, httponly=True, samesite="lax", max_age=86400 * 7)
+        response.set_cookie("zahul_session", token, httponly=True, secure=True, samesite="lax", max_age=86400 * 7)
         return response
     return RedirectResponse(url="/login?error=1", status_code=302)
 
@@ -307,4 +307,4 @@ if __name__ == "__main__":
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
     args = parser.parse_args()
 
-    uvicorn.run("main:app", host=args.host, port=args.port, reload=args.reload)
+    uvicorn.run("main:app", host=args.host, port=args.port, reload=args.reload, proxy_headers=True, forwarded_allow_ips="*")

@@ -1,3 +1,5 @@
 zahul.duckdns.org {
-    reverse_proxy zahul:5666
+    reverse_proxy zahul:5666 {
+        flush_interval -1
+    }
 }
