@@ -3,8 +3,8 @@ services:
   zahul:
     container_name: zahul_ai
     build: .
-    ports:
-      - "5666:5666"
+    expose:
+      - "5666"
 
     environment:
       - DATABASE_URL=/app/data/bot.db
@@ -20,3 +20,30 @@ services:
       - ./api:/app/api
       - ./static:/app/static
     restart: unless-stopped
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    networks:
+      - web
+    depends_on:
+      - zahul
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

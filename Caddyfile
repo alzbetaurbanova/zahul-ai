@@ -1,0 +1,3 @@
+zahul.duckdns.org {
+    reverse_proxy zahul:5666
+}
