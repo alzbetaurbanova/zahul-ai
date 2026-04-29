@@ -1,0 +1,18 @@
+[Unit]
+Description=Zahul-AI GitHub Webhook Listener
+After=network.target docker.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/zahul-ai/webhook
+Environment=WEBHOOK_SECRET=changeme
+Environment=WEBHOOK_BRANCH=refs/heads/main
+Environment=WEBHOOK_PORT=9000
+ExecStart=/usr/bin/python3 /home/ubuntu/zahul-ai/webhook/webhook.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
