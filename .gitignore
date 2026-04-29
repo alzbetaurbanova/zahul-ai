@@ -24,3 +24,6 @@ static/uploads/
 # Data directory (contains database and secrets)
 data/
 data/token_usage.txt
+
+#Documents
+docs/

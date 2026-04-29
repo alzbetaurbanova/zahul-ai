@@ -6,7 +6,7 @@ After=network.target docker.service
 User=ubuntu
 WorkingDirectory=/home/ubuntu/zahul-ai/webhook
 Environment=WEBHOOK_SECRET=changeme
-Environment=WEBHOOK_BRANCH=refs/heads/main
+Environment=WEBHOOK_BRANCH=refs/heads/master
 Environment=WEBHOOK_PORT=9000
 ExecStart=/usr/bin/python3 /home/ubuntu/zahul-ai/webhook/webhook.py
 Restart=always
