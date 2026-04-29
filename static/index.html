@@ -209,7 +209,6 @@
         }
     }
     setupLogStream();
-    checkBotStatus();
     statusInterval = setInterval(checkBotStatus, 10000);
 
     function burstPoll() {
@@ -298,11 +297,11 @@
             .then(response => response.json())
             .then(data => {
                 updateStatus(data.status);
-                // Fetch invite link only when active
                 if (data.status === 'active') {
-                    fetchInviteLink();
+                    if (!inviteLink.value) fetchInviteLink();
                 } else {
                     inviteContainer.classList.add('hidden');
+                    inviteLink.value = '';
                 }
             })
             .catch(error => {
