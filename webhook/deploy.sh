@@ -17,8 +17,8 @@ if [ -n "$RUNNING_IMAGE" ]; then
 fi
 
 # 2) Pull nového kódu
-if ! git pull --ff-only; then
-    echo "ERROR: git pull failed (merge conflict?), aborting."
+if ! { git fetch origin && git reset --hard origin/master; }; then
+    echo "ERROR: git fetch/reset failed, aborting."
     exit 1
 fi
 
