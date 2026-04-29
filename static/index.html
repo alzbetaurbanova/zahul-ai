@@ -210,15 +210,22 @@
     }
     setupLogStream();
     checkBotStatus();
-    statusInterval = setInterval(checkBotStatus, 2500);
+    statusInterval = setInterval(checkBotStatus, 10000);
+
+    function burstPoll() {
+        clearInterval(statusInterval);
+        checkBotStatus();
+        let count = 0;
+        const burst = setInterval(() => { checkBotStatus(); if (++count >= 3) { clearInterval(burst); statusInterval = setInterval(checkBotStatus, 10000); } }, 2000);
+    }
 
     // --- Event Listeners ---
 
     powerBtn.addEventListener('click', function() {
         if (powerBtn.dataset.status === 'active') {
-            deactivateBot();
+            deactivateBot(); burstPoll();
         } else if (powerBtn.dataset.status === 'inactive' || powerBtn.dataset.status === 'crashed') {
-            activateBot();
+            activateBot(); burstPoll();
         }
         // Do nothing if it's starting or stopping
     });

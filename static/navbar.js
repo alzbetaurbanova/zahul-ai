@@ -32,8 +32,10 @@
             else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1); }
             else { indicator.classList.add('status-inactive'); statusText.textContent = 'Inactive'; }
         }
+        let _pollInterval = null;
         function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => updateStatus(d.status)).catch(() => updateStatus('inactive')); }
-        poll();
-        setInterval(poll, 2500);
+        function startPolling() { clearInterval(_pollInterval); poll(); _pollInterval = setInterval(poll, 60000); }
+        startPolling();
+        container.querySelectorAll('[data-page]').forEach(a => a.addEventListener('click', startPolling));
     }
 })();
