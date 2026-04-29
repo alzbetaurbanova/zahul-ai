@@ -928,7 +928,12 @@
                     target_type: task.target_type,
                     target_id: task.target_id,
                     instructions: task.instructions || null,
-                    scheduled_time: task.scheduled_time || null,
+                    scheduled_time: (() => {
+                        if (task.type !== 'reminder') return task.scheduled_time || null;
+                        const t = new Date(); t.setSeconds(0, 0); t.setMinutes(t.getMinutes() + 1);
+                        const pad = n => String(n).padStart(2, '0');
+                        return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}:00`;
+                    })(),
                     repeat_pattern: task.repeat_pattern || null,
                     message_mode: task.message_mode || 'exact',
                     history_limit: task.history_limit ?? null,
