@@ -70,7 +70,7 @@ async def update_server_config(server_id: str = Path(...), body: ServerConfig = 
     updates = body.model_dump(exclude_none=True)
     current.update(updates)
     db.set_server_config(server_id, current)
-    db.log_admin('server.config.update', target=server_id, detail=str(updates))
+    db.log_admin('servers.override.on', target=server_id, detail=str(updates))
     return current
 
 @router.delete("/{server_id}/config", status_code=status.HTTP_204_NO_CONTENT)
@@ -79,7 +79,7 @@ async def reset_server_config(server_id: str = Path(...)):
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     db.clear_server_config(server_id)
-    db.log_admin('server.config.reset', target=server_id)
+    db.log_admin('servers.override.off', target=server_id)
     return None
 
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)

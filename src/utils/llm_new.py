@@ -289,7 +289,7 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
         return f"//[OOC: Error in generate_blank: {e}]"
 
 
-async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database, server_id: str = None) -> tuple:
+async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database, server_id: str = None, history: str = None) -> tuple:
     """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model, messages, temperature)."""
     bot_config = get_effective_config(db, server_id)
     try:
@@ -303,7 +303,8 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
 
         active_char = ActiveCharacter(char_data, db)
         character_prompt = active_char.get_character_prompt()
-        final_system_prompt = f"{character_prompt}\n{system_addon}"
+        history_section = f"\n[History]\n{history}" if history else ""
+        final_system_prompt = f"{character_prompt}{history_section}\n{system_addon}"
 
         messages = [
             {"role": "system", "content": final_system_prompt},

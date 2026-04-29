@@ -112,6 +112,7 @@ def create_task(body: TaskCreate):
         repeat_pattern=body.repeat_pattern,
         status=status,
         message_mode=message_mode,
+        history_limit=body.history_limit,
     )
     task = db.get_task(task_id)
     if not task:
@@ -140,6 +141,9 @@ def update_task(task_id: int, body: TaskUpdate):
         raise HTTPException(status_code=404, detail="Task not found")
     existing = db.get_task(task_id)
     updates = body.model_dump(exclude_none=True)
+    # Allow explicitly setting history_limit to NULL (toggle turned off)
+    if 'history_limit' in body.model_fields_set and body.history_limit is None:
+        updates['history_limit'] = None
     if updates:
         db.update_task(task_id, **updates)
         changed = {k: v for k, v in updates.items() if str(existing.get(k)) != str(v)}

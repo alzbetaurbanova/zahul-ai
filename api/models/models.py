@@ -144,6 +144,7 @@ class TaskCreate(BaseModel):
     repeat_pattern: Optional[Dict[str, Any]] = None  # {days:[0..6], time:"HH:MM"} for schedules
     status: Optional[str] = None  # defaults handled by DB
     message_mode: str = 'exact'  # 'exact' or 'generate'
+    history_limit: Optional[int] = None  # overrides character/server/global default
 
 class TaskUpdate(BaseModel):
     name: Optional[str] = None
@@ -155,6 +156,7 @@ class TaskUpdate(BaseModel):
     repeat_pattern: Optional[Dict[str, Any]] = None
     status: Optional[str] = None
     message_mode: Optional[str] = None
+    history_limit: Optional[int] = None
 
 class Task(BaseModel):
     id: int
@@ -168,5 +170,6 @@ class Task(BaseModel):
     repeat_pattern: Optional[Dict[str, Any]] = None
     status: str
     message_mode: Optional[str] = 'exact'
+    history_limit: Optional[int] = None
     created_at: str
     next_run: Optional[str] = None

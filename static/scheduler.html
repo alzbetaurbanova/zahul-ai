@@ -41,7 +41,13 @@
             </div>
 
             <!-- Filters -->
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-4 items-end justify-between">
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-end">
+                <div class="relative">
+                    <label class="block text-xs text-gray-400 mb-1">Character</label>
+                    <input type="text" id="filter-character" autocomplete="off" placeholder="any"
+                        class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-36">
+                    <div id="filter-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
+                </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Type</label>
                     <select id="filter-type" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
@@ -157,12 +163,27 @@
                     <input type="text" id="f-name" placeholder="Task label..." class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                 </div>
 
-                <!-- Character -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Character</label>
-                    <select id="f-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                        <option value="">Loading characters...</option>
-                    </select>
+                <!-- Character + History toggle -->
+                <div class="flex items-start gap-3">
+                    <div id="char-col" class="w-full transition-all">
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Character</label>
+                        <div class="relative">
+                            <input type="text" id="f-character" autocomplete="off" placeholder="Select character..."
+                                class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                            <div id="f-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
+                        </div>
+                    </div>
+                    <div id="history-limit-row" class="hidden flex-col shrink-0 ml-auto">
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Message history</label>
+                        <div class="flex items-center gap-4">
+                            <button type="button" id="history-toggle" aria-pressed="false"
+                                class="relative w-12 h-6 rounded-full bg-gray-600 transition-colors focus:outline-none shrink-0">
+                                <span id="history-thumb" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"></span>
+                            </button>
+                            <input type="number" id="f-history-limit" min="0" disabled
+                                class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-20 disabled:opacity-40 disabled:cursor-not-allowed">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Target -->
@@ -446,23 +467,96 @@
                     label.textContent = 'Message prefix (bot will continue from here)';
                     textarea.placeholder = 'e.g. I wanted to remind you that...';
                 }
+                document.getElementById('history-limit-row').classList.remove('hidden');
+                document.getElementById('history-limit-row').classList.add('flex');
+                document.getElementById('char-col').classList.remove('w-full');
+                document.getElementById('char-col').classList.add('w-[70%]');
             } else {
                 label.textContent = 'Message Text';
                 textarea.placeholder = 'What the character will say...';
+                document.getElementById('history-limit-row').classList.add('hidden');
+                document.getElementById('history-limit-row').classList.remove('flex');
+                document.getElementById('char-col').classList.remove('w-[70%]');
+                document.getElementById('char-col').classList.add('w-full');
+                setHistoryToggle(false);
             }
         }
+
+        function setHistoryToggle(on) {
+            const btn = document.getElementById('history-toggle');
+            const thumb = document.getElementById('history-thumb');
+            const input = document.getElementById('f-history-limit');
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.classList.toggle('bg-indigo-600', on);
+            btn.classList.toggle('bg-gray-600', !on);
+            thumb.classList.toggle('translate-x-6', on);
+            input.disabled = !on;
+            if (!on) input.value = '';
+        }
+
+        async function loadHistoryDefault() {
+            try {
+                const charName = document.getElementById('f-character').value;
+                let limit = null;
+                if (charName) {
+                    const chars = await fetch('/api/characters').then(r => r.json());
+                    const char = chars.find(c => c.name === charName);
+                    if (char?.data?.history_limit != null) limit = char.data.history_limit;
+                }
+                if (limit == null) {
+                    const cfg = await fetch('/api/config/').then(r => r.json());
+                    limit = cfg.history_limit ?? 10;
+                }
+                document.getElementById('f-history-limit').value = limit;
+            } catch { }
+        }
+
+        document.getElementById('history-toggle').addEventListener('click', async () => {
+            const isOn = document.getElementById('history-toggle').getAttribute('aria-pressed') === 'true';
+            setHistoryToggle(!isOn);
+            if (!isOn) await loadHistoryDefault();
+        });
 
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => setMessageMode(btn.dataset.mode));
         });
 
         // Populate character dropdown
+        let _charNames = [];
+
+        function makeFilterCombobox(inputId, dropdownId, options, onSelect) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            function showDropdown() {
+                const q = input.value.toLowerCase();
+                const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
+                if (!filtered.length) { dropdown.classList.add('hidden'); return; }
+                dropdown.innerHTML = filtered.map(o =>
+                    `<div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-700 text-sm text-white">${esc(o)}</div>`
+                ).join('');
+                dropdown.querySelectorAll('.combobox-item').forEach((item, i) => {
+                    item.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        input.value = filtered[i];
+                        dropdown.classList.add('hidden');
+                        if (onSelect) onSelect(filtered[i]);
+                    });
+                });
+                dropdown.classList.remove('hidden');
+            }
+            input.addEventListener('focus', showDropdown);
+            input.addEventListener('input', () => { showDropdown(); if (onSelect) onSelect(input.value); });
+            input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+        }
+
         async function loadCharacters() {
-            const sel = document.getElementById('f-character');
             try {
                 const data = await fetch('/api/characters').then(r => r.json());
-                sel.innerHTML = data.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-            } catch { sel.innerHTML = '<option value="">Failed to load</option>'; }
+                _charNames = data.map(c => c.name);
+                data.forEach(c => { _charCache[c.name] = c; });
+            } catch { _charNames = []; }
+            makeFilterCombobox('f-character', 'f-character-dd', _charNames);
+            makeFilterCombobox('filter-character', 'filter-character-dd', _charNames, () => renderTasks(allTasks));
         }
 
         // --- Target comboboxes ---
@@ -602,20 +696,22 @@
             }
         }
 
-        function applyDateFilter(tasks) {
+        function applyFilters(tasks) {
             const from = document.getElementById('filter-from').value;
             const to = document.getElementById('filter-to').value;
+            const charFilter = (document.getElementById('filter-character').value || '').toLowerCase();
             return tasks.filter(t => {
                 const dateStr = t.scheduled_time || t.created_at || '';
                 const d = dateStr.substring(0, 10);
                 if (from && d < from) return false;
                 if (to && d > to) return false;
+                if (charFilter && !t.character.toLowerCase().includes(charFilter)) return false;
                 return true;
             });
         }
 
         function renderTasks(tasks) {
-            const filtered = applyDateFilter(tasks);
+            const filtered = applyFilters(tasks);
             if (!filtered.length) {
                 taskList.innerHTML = '<div class="text-gray-500 text-center py-12"><i class="fas fa-calendar-xmark text-3xl mb-3 block"></i>No tasks found.</div>';
                 return;
@@ -835,6 +931,7 @@
                     scheduled_time: task.scheduled_time || null,
                     repeat_pattern: task.repeat_pattern || null,
                     message_mode: task.message_mode || 'exact',
+                    history_limit: task.history_limit ?? null,
                     status: 'disabled',
                 };
                 const resp = await fetch(`${API}/`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -851,7 +948,6 @@
 
         // --- Modal ---
         async function openModal(task = null) {
-            loadCharacters();
             await loadTargetOptions();
             form.reset();
             statusField.classList.add('hidden');
@@ -864,7 +960,7 @@
                 setType(task.type || 'reminder');
                 setMessageMode(task.message_mode || 'exact');
                 document.getElementById('f-name').value = task.name || '';
-                setTimeout(() => { document.getElementById('f-character').value = task.character || ''; }, 300);
+                document.getElementById('f-character').value = task.character || '';
                 const targetType = task.target_type || 'channel';
                 setTargetType(targetType);
                 if (targetType === 'channel') initChannelCombobox(task.target_id || '');
@@ -886,6 +982,12 @@
                         document.getElementById('f-repeat-year-month').value = rp.month || 1;
                         document.getElementById('f-repeat-year-day').value = rp.day || 1;
                     }
+                }
+                if (task.history_limit != null) {
+                    setHistoryToggle(true);
+                    document.getElementById('f-history-limit').value = task.history_limit;
+                } else {
+                    setHistoryToggle(false);
                 }
                 setStatusOptions(task.type, task.status || 'active');
                 document.getElementById('f-status').value = task.status || 'active';
@@ -935,7 +1037,10 @@
             }
 
             const message_mode = document.getElementById('f-message-mode').value;
-            const body = { type, name, character, target_type, target_id, instructions: instructions || null, message_mode };
+            const historyOn = document.getElementById('history-toggle').getAttribute('aria-pressed') === 'true';
+            const historyLimitVal = document.getElementById('f-history-limit').value;
+            const history_limit = historyOn && historyLimitVal !== '' ? parseInt(historyLimitVal) : null;
+            const body = { type, name, character, target_type, target_id, instructions: instructions || null, message_mode, history_limit };
 
             if (type === 'reminder') {
                 const st = document.getElementById('f-scheduled-time').value;
@@ -1044,6 +1149,7 @@
         }
 
         // Init
+        loadCharacters();
         fetchTasks();
     })();
     </script>

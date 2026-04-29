@@ -14,6 +14,17 @@ SK_TZ = ZoneInfo("Europe/Bratislava")
 # --- Scheduler runtime state ---
 _last_schedule_fire: dict = {}  # task_id -> "YYYY-MM-DD" of last fire
 
+
+
+
+def _resolve_history_limit(task: dict, char_data: dict, effective_config) -> int:
+    """Priority: task > character > server override > global config."""
+    if task.get('history_limit') is not None:
+        return task['history_limit']
+    if char_data.get('history_limit') is not None:
+        return char_data['history_limit']
+    return effective_config.history_limit
+
 # --- Autocap runtime state ---
 _autocap_unlimited: bool = False           # True = no cap, ignores DB value
 _autocap_previous: Optional[int] = None   # last manually set value (restored by /autocap on)
@@ -378,9 +389,9 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
 
     char_data = char['data']
     char_name = char['name']
+    bot_config = BotConfig(**bot.db.list_configs())
     avatar_url = char_data.get('avatar')
     if avatar_url and avatar_url.startswith('/'):
-        bot_config = BotConfig(**bot.db.list_configs())
         if bot_config.public_url:
             avatar_url = bot_config.public_url.rstrip('/') + avatar_url
     instructions = (task.get('instructions') or '').strip()
@@ -393,9 +404,48 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         if _ch:
             _server_id = _ch.get('server_id')
 
+    from src.utils.llm_new import generate_in_character, get_effective_config
+    from src.controller.history import get_history
+    effective_config = get_effective_config(bot.db, _server_id)
+    include_history = task.get('history_limit') is not None
+    history_limit = _resolve_history_limit(task, char_data, effective_config)
+
+    # Pre-fetch channel/DM for history injection before LLM call
+    _pre_channel = None
+    if include_history:
+        if task.get('target_type') == 'channel':
+            try:
+                _pre_channel = bot.get_channel(int(task['target_id']))
+                if not _pre_channel:
+                    _pre_channel = await bot.fetch_channel(int(task['target_id']))
+            except Exception as e:
+                print(f"[Scheduler] channel prefetch failed for history: {e}")
+        elif task.get('target_type') == 'dm':
+            try:
+                target = task['target_id']
+                dm_user = None
+                try:
+                    dm_user = await bot.fetch_user(int(target))
+                except (ValueError, discord.NotFound):
+                    for guild in bot.guilds:
+                        member = discord.utils.get(guild.members, name=target)
+                        if member:
+                            dm_user = member
+                            break
+                if dm_user:
+                    _pre_channel = dm_user.dm_channel or await dm_user.create_dm()
+            except Exception as e:
+                print(f"[Scheduler] DM prefetch failed for history: {e}")
+
+    history_str = None
+    history_count = 0
+    if include_history and _pre_channel:
+        history_str = await get_history(_pre_channel, bot.db, limit=history_limit)
+        history_count = history_str.count('[Reply]') if history_str else 0
+        print(f"[Scheduler] history fetched: {history_count} replies, len={len(history_str) if history_str else 0}")
+
     request_messages = None
     if task.get('message_mode') == 'generate':
-        from src.utils.llm_new import generate_in_character
         if task.get('type') == 'reminder':
             prefix = f"Reminder: {instructions}\nResponse:" if instructions else "Reminder\nResponse:"
             system_addon = (
@@ -418,6 +468,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             assistant=prefix,
             db=bot.db,
             server_id=_server_id,
+            history=history_str,
         )
         if text_suffix.startswith('//[OOC:'):
             print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")
@@ -426,7 +477,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 user='system', trigger=instructions or '', response='',
                 model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                 conversation_history=request_messages, temperature=temperature,
-                source='scheduler', status='error', error_message=text_suffix
+                source='scheduler', status='error', error_message=text_suffix,
+                history_count=history_count,
             )
             return
         text_suffix = text_suffix.strip()
@@ -487,7 +539,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                     user='system', trigger=instructions or '', response=text,
                     model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                     conversation_history=request_messages, temperature=temperature,
-                    source='scheduler', status='error', error_message='DM target not found'
+                    source='scheduler', status='error', error_message='DM target not found',
+                    history_count=history_count,
                 )
                 return
 
@@ -496,7 +549,8 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             user='system', trigger=instructions or '', response=text,
             model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
             conversation_history=request_messages, temperature=temperature,
-            source='scheduler', status='ok', error_message=None
+            source='scheduler', status='ok', error_message=None,
+            history_count=history_count,
         )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
@@ -512,7 +566,9 @@ async def _run_scheduler(bot: 'Zahul'):
             now_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
 
             # Fire due reminders
-            for task in bot.db.list_due_reminders(now_iso):
+            due = bot.db.list_due_reminders(now_iso)
+            for task in due:
+                print(f"[Scheduler] Firing reminder id={task['id']} scheduled_time={task.get('scheduled_time')}")
                 await _send_scheduled_message(bot, task)
                 bot.db.update_task(task['id'], status='done')
 
@@ -521,7 +577,6 @@ async def _run_scheduler(bot: 'Zahul'):
             current_time = now.strftime("%H:%M")
             today_str = now.strftime("%Y-%m-%d")
             active_schedules = bot.db.list_active_schedules()
-            print(f"[Scheduler] Checking schedules: {len(active_schedules)} active tasks, time={current_time}, day={current_day}")
             for task in active_schedules:
                 pattern = task.get('repeat_pattern') or {}
                 ptype = pattern.get('type', 'weekly')
@@ -536,7 +591,6 @@ async def _run_scheduler(bot: 'Zahul'):
                         should_fire = now.day == pattern.get('day', 1)
                     elif ptype == 'yearly':
                         should_fire = now.month == pattern.get('month', 1) and now.day == pattern.get('day', 1)
-                print(f"[Scheduler] task={task['id']} type={ptype} fire_time={fire_time} should_fire={should_fire} last_fired={_last_schedule_fire.get(task['id'])}")
                 if should_fire and _last_schedule_fire.get(task['id']) != today_str:
                     print(f"[Scheduler] firing schedule task {task['id']} for {task['character']} at {current_time}")
                     await _send_scheduled_message(bot, task)

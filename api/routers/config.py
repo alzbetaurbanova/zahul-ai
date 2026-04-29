@@ -84,9 +84,15 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
 async def update_security(config: SecurityConfig):
     """Update only the panel password and hint without requiring the full config."""
     try:
+        current = db.list_configs()
+        changed = []
+        if config.panel_password != current.get('panel_password', ''):
+            changed.append('password')
+        if config.panel_password_hint != current.get('panel_password_hint', ''):
+            changed.append('hint')
         db.set_config("panel_password", config.panel_password)
         db.set_config("panel_password_hint", config.panel_password_hint)
-        db.log_admin('config.security_update')
+        db.log_admin('config.security.update', detail=', '.join(changed) if changed else 'no change')
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving security config: {e}")

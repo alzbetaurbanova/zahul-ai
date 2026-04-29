@@ -431,14 +431,19 @@ class Database:
                     repeat_pattern JSON,
                     status TEXT NOT NULL DEFAULT 'upcoming',
                     message_mode TEXT NOT NULL DEFAULT 'exact',
+                    history_limit INTEGER,
                     created_at TEXT NOT NULL
                 );
             """)
-            # Add column if it doesn't exist yet (existing tables)
-            try:
-                conn.execute("ALTER TABLE scheduled_tasks ADD COLUMN message_mode TEXT NOT NULL DEFAULT 'exact'")
-            except Exception:
-                pass
+            # Add columns if they don't exist yet (existing tables)
+            for col_sql in [
+                "ALTER TABLE scheduled_tasks ADD COLUMN message_mode TEXT NOT NULL DEFAULT 'exact'",
+                "ALTER TABLE scheduled_tasks ADD COLUMN history_limit INTEGER",
+            ]:
+                try:
+                    conn.execute(col_sql)
+                except Exception:
+                    pass
             conn.commit()
 
     def _parse_task_row(self, row) -> Dict[str, Any]:
@@ -458,7 +463,8 @@ class Database:
                     scheduled_time: Optional[str] = None,
                     repeat_pattern: Optional[Dict[str, Any]] = None,
                     status: str = 'upcoming',
-                    message_mode: str = 'exact') -> int:
+                    message_mode: str = 'exact',
+                    history_limit: Optional[int] = None) -> int:
         self._ensure_scheduled_tasks_table()
         from datetime import datetime, timezone
         created_at = datetime.now(timezone.utc).isoformat()
@@ -466,8 +472,8 @@ class Database:
         with self._get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO scheduled_tasks (type, name, character, target_type, target_id, instructions, scheduled_time, repeat_pattern, status, message_mode, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (type, name, character, target_type, target_id, instructions, scheduled_time, rp, status, message_mode, created_at)
+                "INSERT INTO scheduled_tasks (type, name, character, target_type, target_id, instructions, scheduled_time, repeat_pattern, status, message_mode, history_limit, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (type, name, character, target_type, target_id, instructions, scheduled_time, rp, status, message_mode, history_limit, created_at)
             )
             conn.commit()
             return cur.lastrowid
@@ -573,7 +579,7 @@ class Database:
         with self._get_connection() as conn:
             total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
