@@ -623,10 +623,13 @@ async def reminder_command(
         await interaction.response.send_message(f"❌ Character **{character}** not found.", ephemeral=True)
         return
     try:
-        dt = datetime.strptime(when, "%Y-%m-%d %H:%M").replace(tzinfo=SK_TZ)
+        dt = datetime.strptime(when, "%Y-%m-%d %H:%M:%S").replace(tzinfo=SK_TZ)
     except ValueError:
-        await interaction.response.send_message("❌ Invalid format. Use `YYYY-MM-DD HH:MM` (Slovak time).", ephemeral=True)
-        return
+        try:
+            dt = datetime.strptime(when, "%Y-%m-%d %H:%M").replace(tzinfo=SK_TZ)
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid format. Use `YYYY-MM-DD HH:MM` or `YYYY-MM-DD HH:MM:SS` (Slovak time).", ephemeral=True)
+            return
     if dt <= datetime.now(SK_TZ):
         await interaction.response.send_message("❌ That time is already in the past.", ephemeral=True)
         return

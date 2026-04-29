@@ -11,7 +11,7 @@ from api.db.database import Database
 from api.models.models import BotConfig
 from src.utils.image_eval import describe_image
 from src.utils.web_eval import fetch_body
-from src.utils.discord_utils import extract_valid_urls
+from src.utils.discord_utils import extract_valid_urls, get_gif_content_description
 
 
 def get_bot_config(db: Database) -> BotConfig:
@@ -46,14 +46,17 @@ class _HistoryFormatter:
         name = self._sanitize_name(message.author.display_name)
         content = self._clean_content(message.content)
 
-        # Combine image and link captions into the content
-        image_caption = await self._get_image_caption(message)
-        if image_caption:
-            content += f" [Attached Image Description: {image_caption}]"
-    
-        link_caption = await self._get_link_caption(message)
-        if link_caption:
-            content += link_caption
+        content_description = get_gif_content_description(message)
+        if content_description is not None:
+            content = content_description
+        else:
+            image_caption = await self._get_image_caption(message)
+            if image_caption:
+                content += f" [Attached Image Description: {image_caption}]"
+
+            link_caption = await self._get_link_caption(message)
+            if link_caption:
+                content += link_caption
 
         if content.startswith("//"):
             return None  # Ignore comments

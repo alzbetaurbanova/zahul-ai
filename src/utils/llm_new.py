@@ -5,6 +5,7 @@ from openai import AsyncOpenAI, RateLimitError
 
 # Adjust these import paths to match your project structure
 from src.models.queue import QueueItem
+from src.utils.discord_utils import get_gif_content_description
 from api.db.database import Database
 from api.models.models import BotConfig # We need a Pydantic model for config
 from src.models.aicharacter import ActiveCharacter
@@ -168,7 +169,8 @@ async def generate_response(task: QueueItem, db: Database):
         system_prompt = task.prompt
         
         # The user's most recent message is cleaned and used in the user role
-        user_message = clean_string(task.message.content)
+        content_description = get_gif_content_description(task.message)
+        user_message = content_description if content_description is not None else clean_string(task.message.content)
 
         # --- PREFILL LOGIC ---
         # Start with the base messages for the API call
