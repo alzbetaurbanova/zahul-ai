@@ -46,7 +46,8 @@ fi
 
 echo "Deploying $PREV_SHA -> $NEW_SHA"
 
-# 3) Build nového image — starý kontajner stále beží
+# 3) Build nového image — odstráň starý tag kvôli docker-compose 1.29.2 bugu (AlreadyExists)
+docker rmi zahul-ai_zahul:latest 2>/dev/null || true
 if ! $DC build; then
     echo "BUILD FAILED — reverting git, production untouched."
     git reset --hard "$PREV_SHA"
