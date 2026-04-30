@@ -23,6 +23,10 @@
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         /* Style for disabled inputs */
         input:disabled, textarea:disabled { background-color: #334155 !important; cursor: not-allowed; opacity: 0.5; }
+        /* Tooltips */
+        .tt { position: relative; display: inline-flex; align-items: center; }
+        .tt .tt-body { visibility: hidden; opacity: 0; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #374151; color: #cbd5e1; padding: 7px 10px; border-radius: 6px; font-size: 11px; line-height: 1.5; white-space: normal; width: 230px; z-index: 100; transition: opacity 0.15s; pointer-events: none; font-weight: 400; }
+        .tt:hover .tt-body { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body class="bg-darker text-light">
@@ -47,36 +51,31 @@
                         <legend class="text-lg font-semibold text-primary px-2">Core AI Settings</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div>
-                                <label for="ai_endpoint" class="block mb-2 text-sm font-medium text-gray-300">AI Endpoint URL</label>
+                                <label for="ai_endpoint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
                                 <input type="text" id="ai_endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
                             </div>
                             <div>
-                                <label for="base_llm" class="block mb-2 text-sm font-medium text-gray-300">Primary Model</label>
+                                <label for="base_llm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Primary Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
                                 <input type="text" id="base_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required placeholder="e.g., gryphe/mythomax-l2-13b">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                           <div>
-                                <label for="history_limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(messages)</span></label>
+                            <div>
+                                <label for="history_limit" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(msgs)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">How many past messages the AI sees as context per response.</span></span></label>
                                 <input type="number" id="history_limit" step="1" min="1" max="50" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 10">
-                                <p class="text-xs text-gray-500 mt-1">How many past messages the AI sees as context.</p>
                             </div>
                             <div>
-                                <label for="max_tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Output Tokens</label>
+                                <label for="max_tokens" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Max Output Tokens <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
                                 <input type="number" id="max_tokens" step="1" min="64" max="4096" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 256">
-                                <p class="text-xs text-gray-500 mt-1">Max response length. Can be overridden per character.</p>
                             </div>
                             <div>
-                                <label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature</label>
+                                <label for="temperature" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Temperature <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
                                 <input type="number" id="temperature" step="0.1" min="0" max="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                                <p class="text-xs text-gray-500 mt-1">0 = predictable, 2 = chaotic. Can be overridden per character.</p>
                             </div>
                             <div>
-                                <label for="auto_cap" class="block mb-2 text-sm font-medium text-gray-300">Chain Limit</label>
+                                <label for="auto_cap" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Chain Limit <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Max bot-to-bot replies per chain before it stops. Also the default value reset by /autocap reset.</span></span></label>
                                 <input type="number" id="auto_cap" step="1" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                                <p class="text-xs text-gray-500 mt-1">Max bot-to-bot replies per chain. Default for <code class="text-indigo-400">/autocap reset</code>.</p>
                             </div>
-
                         </div>
                     </fieldset>
 
@@ -85,24 +84,20 @@
                         <legend class="text-lg font-semibold text-primary px-2">Fallback & Rate Limiting</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div>
-                                <label for="fallback_llm" class="block mb-2 text-sm font-medium text-gray-300">Fallback Model</label>
+                                <label for="fallback_llm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Fallback Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
                                 <input type="text" id="fallback_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., llama-3.1-8b-instant">
-                                <p class="text-xs text-gray-500 mt-1">Model used when the primary hits a rate limit.</p>
                             </div>
                             <div>
-                                <label for="fallback_duration" class="block mb-2 text-sm font-medium text-gray-300">Fallback Duration <span class="text-gray-500 font-normal">(seconds)</span></label>
+                                <label for="fallback_duration" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Fallback Duration <span class="text-gray-500 font-normal">(seconds)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
                                 <input type="number" id="fallback_duration" step="60" min="60" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 7200">
-                                <p class="text-xs text-gray-500 mt-1">How long the fallback stays active (7200 = 2 hrs).</p>
                             </div>
                             <div>
-                                <label for="token_limit_tpm" class="block mb-2 text-sm font-medium text-gray-300">Rate Limit Trigger <span class="text-gray-500 font-normal">(tokens / minute)</span></label>
+                                <label for="token_limit_tpm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Rate Limit Trigger <span class="text-gray-500 font-normal">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
                                 <input type="number" id="token_limit_tpm" step="1000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 12000">
-                                <p class="text-xs text-gray-500 mt-1">Primary switches to fallback when this per-minute limit is reached.</p>
                             </div>
                             <div>
-                                <label for="token_limit_tpd" class="block mb-2 text-sm font-medium text-gray-300">Daily Token Budget <span class="text-gray-500 font-normal">(tokens / day)</span></label>
+                                <label for="token_limit_tpd" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Daily Token Budget <span class="text-gray-500 font-normal">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
                                 <input type="number" id="token_limit_tpd" step="10000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 100000">
-                                <p class="text-xs text-gray-500 mt-1">Total token budget tracked across all models. Visible via <code class="text-indigo-400">/tokens</code>.</p>
                             </div>
                         </div>
                     </fieldset>
@@ -112,7 +107,7 @@
                         <legend class="text-lg font-semibold text-primary px-2">Keys & Integration</legend>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                             <div>
-                                <label for="ai_key" class="block mb-2 text-sm font-medium text-gray-300">AI API Key</label>
+                                <label for="ai_key" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">AI API Key <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
                                 <div class="relative">
                                     <input type="password" id="ai_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
                                     <button type="button" onclick="toggleVisibility('ai_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
@@ -121,7 +116,7 @@
                                 </div>
                             </div>
                             <div>
-                                <label for="discord_key" class="block mb-2 text-sm font-medium text-gray-300">Discord Bot Token</label>
+                                <label for="discord_key" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Discord Bot Token <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the token. Leave blank to keep the existing value. Never share this token.</span></span></label>
                                 <div class="relative">
                                     <input type="password" id="discord_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
                                     <button type="button" onclick="toggleVisibility('discord_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
@@ -130,7 +125,7 @@
                                 </div>
                             </div>
                             <div>
-                                <label for="public_url" class="block mb-2 text-sm font-medium text-gray-300">Public URL <span class="text-gray-500 font-normal">(needed for avatars in Discord webhooks)</span></label>
+                                <label for="public_url" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Public URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Public address of the server. Used to build absolute URLs for Discord webhook avatar images. If empty or set to localhost, Caddy (HTTPS proxy) won't start on deploy.</span></span></label>
                                 <input type="text" id="public_url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. https://yourdomain.com">
                             </div>
                         </div>
@@ -140,14 +135,13 @@
                     <fieldset class="border border-gray-700 rounded-lg p-4">
                         <legend class="text-lg font-semibold text-primary px-2">DM Access Control</legend>
                         <div class="mt-2 mb-4">
-                            <label for="default_character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
+                            <label for="default_character" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Default Character <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
                             <input type="text" id="default_character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
-                            <p class="text-xs text-gray-500 mt-1">Character used for DMs and @mentions when no trigger is matched.</p>
                         </div>
                         <div class="border-t border-gray-700 pt-4 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-300">Allow Direct Messages</p>
-                                <p class="text-xs text-gray-500">Let specific users DM the bot directly.</p>
+                                <p class="text-xs text-gray-500">Let specific Discord users DM the bot directly. When disabled, the bot ignores all DMs.</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="dm_toggle" class="sr-only peer">
@@ -155,8 +149,7 @@
                             </label>
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
-                            <label for="dm_list" class="block mb-2 text-sm font-medium text-gray-300">Allowed Discord Usernames</label>
-                            <p class="text-xs text-gray-500 mb-2">Users listed here are permitted to DM the bot. <strong>Enter one username per line.</strong></p>
+                            <label for="dm_list" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Allowed Discord Usernames <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">One username per line. Only these users can DM the bot.</span></span></label>
                             <textarea id="dm_list" rows="5" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 font-mono" placeholder="username1&#10;username2"></textarea>
                         </div>
                     </fieldset>
@@ -168,7 +161,7 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label for="use_prefill" class="font-medium text-gray-300">Use AI Prefill</label>
-                                    <p class="text-xs text-gray-500">Guides the AI to start its response correctly. May not work with all models.</p>
+                                    <p class="text-xs text-gray-500">Injects a partial assistant response to guide the AI's output format. May not work with all providers.</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input id="use_prefill" type="checkbox" class="sr-only peer">
@@ -179,7 +172,7 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label for="multimodal_enable" class="font-medium text-gray-300">Enable Multimodal (Vision)</label>
-                                    <p class="text-xs text-gray-500">Allows the bot to describe images attached to messages.</p>
+                                    <p class="text-xs text-gray-500">Allows the bot to see and describe images attached to Discord messages. Requires a separate vision-capable model and API key.</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
@@ -188,15 +181,15 @@
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="block mb-2 text-sm font-medium text-gray-300">Multimodal Model</label>
+                                    <label for="multimodal_ai_model" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Vision model used for image description. Must support image inputs (e.g. google/gemini-pro-vision).</span></span></label>
                                     <input type="text" id="multimodal_ai_model" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., google/gemini-pro-vision">
                                 </div>
                                 <div>
-                                    <label for="multimodal_ai_endpoint" class="block mb-2 text-sm font-medium text-gray-300">Multimodal Endpoint URL</label>
+                                    <label for="multimodal_ai_endpoint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal Endpoint URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
                                     <input type="text" id="multimodal_ai_endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                                 </div>
                                 <div>
-                                    <label for="multimodal_ai_api" class="block mb-2 text-sm font-medium text-gray-300">Multimodal API Key</label>
+                                    <label for="multimodal_ai_api" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal API Key <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value.</span></span></label>
                                     <div class="relative">
                                         <input type="password" id="multimodal_ai_api" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
                                         <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
@@ -220,8 +213,7 @@
                 <fieldset class="border border-gray-700 rounded-lg p-4">
                     <legend class="text-lg font-semibold text-primary px-2">Prompt Template Editor (Default)</legend>
                     <div class="mt-4">
-                        <label for="prompt_template" class="block mb-2 text-sm font-medium text-gray-300">Prompt Template</label>
-                        <p class="text-xs text-gray-500 mb-3">This defines the structure of the data sent to the AI. Use placeholders like `{{char}}`, `{{user}}`, etc.</p>
+                        <label for="prompt_template" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Prompt Template <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Defines the structure sent to the AI. </span></span></label>
                         <textarea id="prompt_template" rows="12" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 font-mono" placeholder="Loading prompt template..."></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
@@ -236,8 +228,7 @@
                     <legend class="text-lg font-semibold text-primary px-2">Panel Security</legend>
                     <div class="flex items-center justify-between mt-2">
                         <div>
-                            <p class="text-sm font-medium text-gray-300">Enable Panel Password</p>
-                            <p class="text-xs text-gray-500">Protect this panel with a password on login.</p>
+                            <p class="flex items-center gap-1.5 text-sm font-medium text-gray-300">Enable Panel Password <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Adds a login screen to this admin panel. Recommended on any publicly accessible server.</span></span></p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="security_toggle" class="sr-only peer">
@@ -246,7 +237,7 @@
                     </div>
                     <div id="security-fields" class="hidden">
                         <div class="mt-4">
-                            <label for="panel_password" class="block mb-2 text-sm font-medium text-gray-300">Panel Password</label>
+                            <label for="panel_password" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Panel Password <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Leave blank to keep the existing password. Only fill in when setting or changing it.</span></span></label>
                             <div class="relative">
                                 <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Enter new password">
                                 <button type="button" onclick="toggleVisibility('panel_password', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
@@ -255,7 +246,7 @@
                             </div>
                         </div>
                         <div class="mt-4">
-                            <label for="panel_password_hint" class="block mb-2 text-sm font-medium text-gray-300">Password Hint <span class="text-gray-500 font-normal">(shown on login page)</span></label>
+                            <label for="panel_password_hint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Password Hint <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Optional reminder shown on the login page. Keep it vague enough that it doesn't give the password away.</span></span></label>
                             <input type="text" id="panel_password_hint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. Check your notes">
                         </div>
                     </div>

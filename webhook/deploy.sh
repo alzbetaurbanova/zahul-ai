@@ -9,6 +9,22 @@ echo "=== Deploy started: $(date) ==="
 
 cd "$DEPLOY_DIR"
 
+# Čítaj public_url z DB — ak reálna doména, spusti aj Caddy
+PUBLIC_URL=$(python3 -c "
+import sqlite3, json
+try:
+    conn = sqlite3.connect('data/bot.db')
+    row = conn.execute(\"SELECT value FROM config WHERE key='public_url'\").fetchone()
+    print(json.loads(row[0]) if row else '')
+except:
+    print('')
+" 2>/dev/null)
+
+if [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" != *"localhost"* ]]; then
+    export PUBLIC_URL COMPOSE_PROFILES=production
+fi
+DC="docker-compose"
+
 # 1) Záloha aktuálneho image pred akoukoľvek zmenou
 PREV_SHA=$(git rev-parse --short HEAD)
 RUNNING_IMAGE=$(docker inspect zahul_ai --format='{{.Image}}' 2>/dev/null || echo "")
@@ -31,7 +47,7 @@ fi
 echo "Deploying $PREV_SHA -> $NEW_SHA"
 
 # 3) Build nového image — starý kontajner stále beží
-if ! docker-compose build; then
+if ! $DC build; then
     echo "BUILD FAILED — reverting git, production untouched."
     git reset --hard "$PREV_SHA"
     exit 1
@@ -39,7 +55,7 @@ fi
 
 # 4) Atomický swap (krátky výpadok ~2s, nutné kvôli docker-compose 1.29.2 ContainerConfig bugu)
 docker rm -f $(docker ps -aq) 2>/dev/null || true
-docker-compose up -d
+$DC up -d
 
 # 5) Health check — max 15s
 HEALTHY=false
@@ -63,7 +79,7 @@ else
     fi
 
     git reset --hard "$PREV_SHA"
-    docker-compose up -d
+    $DC up -d
     echo "Rollback complete: back on $PREV_SHA"
     exit 1
 fi

@@ -3,8 +3,8 @@ services:
   zahul:
     container_name: zahul_ai
     build: .
-    expose:
-      - "5666"
+    ports:
+      - "5666:5666"
 
     environment:
       - DATABASE_URL=/app/data/bot.db
@@ -24,12 +24,17 @@ services:
       - web
 
   caddy:
-    image: caddy:2-alpine
+    profiles: ["production"]
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
     container_name: caddy
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    environment:
+      - PUBLIC_URL=${PUBLIC_URL}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data

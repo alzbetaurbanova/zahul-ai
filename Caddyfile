@@ -1,6 +1,34 @@
-zahul.duckdns.org {
+{
+    log {
+        level ERROR
+    }
+}
+
+{$PUBLIC_URL} {
+    rate_limit {
+        zone dynamic {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    @sensitive {
+        path /.env* /.git* /.gitignore /.htaccess *.sql *.bak *.backup /config* /secrets*
+    }
+    respond @sensitive 403
+
     reverse_proxy zahul:5666 {
         flush_interval -1
     }
 }
-
