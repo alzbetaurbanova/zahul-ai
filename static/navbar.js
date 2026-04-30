@@ -16,9 +16,12 @@
         }
     });
 
-    // Hide logout if auth disabled
+    // Show logout only if auth enabled — cached to avoid flash
+    const logoutEl = container.querySelector('a[href="/logout"]');
+    if (logoutEl && localStorage.getItem('auth-enabled') === '1') logoutEl.style.visibility = 'visible';
     fetch('/api/auth-enabled').then(r => r.json()).then(d => {
-        if (!d.enabled) container.querySelectorAll('a[href="/logout"]').forEach(el => el.style.display = 'none');
+        localStorage.setItem('auth-enabled', d.enabled ? '1' : '0');
+        if (logoutEl) logoutEl.style.visibility = d.enabled ? 'visible' : 'hidden';
     });
 
     // Bot status polling
@@ -26,14 +29,17 @@
     const statusText = document.getElementById('bot-status-text');
     if (indicator && statusText) {
         const classes = ['status-active', 'status-inactive', 'status-starting'];
-        function updateStatus(status) {
+        function updateStatus(status, persist = true) {
             indicator.classList.remove(...classes);
             if (status === 'active') { indicator.classList.add('status-active'); statusText.textContent = 'Active'; }
             else if (status === 'starting' || status === 'stopping') { indicator.classList.add('status-starting'); statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1); }
             else { indicator.classList.add('status-inactive'); statusText.textContent = 'Inactive'; }
+            if (persist) localStorage.setItem('bot-status', status);
         }
+        const cached = localStorage.getItem('bot-status');
+        if (cached) updateStatus(cached, false);
         let _pollInterval = null;
-        function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => updateStatus(d.status)).catch(() => updateStatus('inactive')); }
+        function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => updateStatus(d.status)).catch(() => {}); }
         function startPolling() { clearInterval(_pollInterval); poll(); _pollInterval = setInterval(poll, 60000); }
         startPolling();
         container.querySelectorAll('[data-page]').forEach(a => a.addEventListener('click', startPolling));

@@ -5,14 +5,6 @@
 }
 
 {$PUBLIC_URL} {
-    rate_limit {
-        zone dynamic {
-            key {remote_host}
-            events 100
-            window 1m
-        }
-    }
-
     header {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"

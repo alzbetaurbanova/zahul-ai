@@ -64,6 +64,32 @@ def get_discord_log(log_id: int):
     return log
 
 
+@router.delete("/discord/{log_id}", status_code=204)
+def delete_discord_log(log_id: int):
+    log = db.get_discord_log(log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    db.delete_discord_log(log_id)
+    db.log_admin('log.delete', target=f"{log.get('character', '?')} @ {log.get('timestamp', '?')}")
+
+
+@router.get("/admin/{log_id}")
+def get_admin_log(log_id: int):
+    log = db.get_admin_log(log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return log
+
+
+@router.delete("/admin/{log_id}", status_code=204)
+def delete_admin_log(log_id: int):
+    log = db.get_admin_log(log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    db.delete_admin_log(log_id)
+    db.log_admin('log.delete', target=f"admin/{log_id} ({log.get('action', '?')} @ {log.get('timestamp', '?')})")
+
+
 @router.get("/admin")
 def list_admin_logs(
     page: int = Query(1, ge=1),

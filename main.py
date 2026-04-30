@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # --- Local Imports ---
-from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router
+from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
 from api.db.database import Database
 from src.plugins.manager import PluginManager
 
@@ -156,6 +156,8 @@ app.add_middleware(AuthMiddleware)
 async def startup_event():
     """Run the database initialization when the app starts."""
     await initialize_database()
+    from api.db.trash import TrashDB
+    TrashDB().purge_old()
     asyncio.create_task(_auto_activate())
 
 async def _auto_activate():
@@ -177,6 +179,7 @@ app.include_router(discord_router.router)
 app.include_router(preset.router)
 app.include_router(tasks_router.router)
 app.include_router(logs_router.router)
+app.include_router(trash_router.router)
 
 # Set up CORS
 app.add_middleware(

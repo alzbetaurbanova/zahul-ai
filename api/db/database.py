@@ -3,6 +3,10 @@ import json
 from typing import Any, Optional, Dict, List, Tuple
 import os
 
+def _get_trash_db():
+    from api.db.trash import TrashDB
+    return TrashDB()
+
 DB_PATH = os.getenv("DATABASE_URL", "bot.db")
 
 
@@ -213,6 +217,10 @@ class Database:
 
     def delete_server(self, server_id: str):
         """Delete a server and its associated channels."""
+        server = self.get_server(server_id)
+        if server:
+            server['channels'] = self.list_channels_for_server(server_id)
+            _get_trash_db().move_to_trash("servers", server_id, server)
         with self._get_connection() as conn:
             conn.execute("DELETE FROM servers WHERE server_id = ?", (server_id,))
             conn.commit()
@@ -274,6 +282,9 @@ class Database:
 
     def delete_channel(self, channel_id: str):
         """Delete a channel record."""
+        channel = self.get_channel(channel_id)
+        if channel:
+            _get_trash_db().move_to_trash("channels", channel_id, channel)
         with self._get_connection() as conn:
             conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
             conn.commit()
@@ -333,6 +344,9 @@ class Database:
 
     def delete_character(self, name: str):
         """Delete a character and its associated triggers."""
+        char = self.get_character(name)
+        if char:
+            _get_trash_db().move_to_trash("characters", str(char['id']), char)
         with self._get_connection() as conn:
             conn.execute("DELETE FROM characters WHERE name = ?", (name,))
             conn.commit()
@@ -385,6 +399,9 @@ class Database:
 
     def delete_preset(self, name: str):
         """Delete a preset by its name."""
+        preset = self.get_preset(name)
+        if preset:
+            _get_trash_db().move_to_trash("presets", str(preset['id']), preset)
         with self._get_connection() as conn:
             conn.execute("DELETE FROM presets WHERE name = ?", (name,))
             conn.commit()
@@ -521,8 +538,19 @@ class Database:
 
     def delete_task(self, task_id: int):
         self._ensure_scheduled_tasks_table()
+        task = self.get_task(task_id)
+        if task:
+            _get_trash_db().move_to_trash("scheduled_tasks", str(task_id), task)
         with self._get_connection() as conn:
             conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
+            conn.commit()
+
+    def delete_discord_log(self, log_id: int):
+        log = self.get_discord_log(log_id)
+        if log:
+            _get_trash_db().move_to_trash("discord_logs", str(log_id), log)
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM discord_logs WHERE id = ?", (log_id,))
             conn.commit()
 
     # ------------------------------------------------------
@@ -593,6 +621,19 @@ class Database:
             try: d['conversation_history'] = json.loads(d['conversation_history'])
             except: pass
         return d
+
+    def get_admin_log(self, log_id: int) -> Optional[Dict]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM admin_logs WHERE id = ?", (log_id,)).fetchone()
+        return dict(row) if row else None
+
+    def delete_admin_log(self, log_id: int):
+        log = self.get_admin_log(log_id)
+        if log:
+            _get_trash_db().move_to_trash("admin_logs", str(log_id), log)
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM admin_logs WHERE id = ?", (log_id,))
+            conn.commit()
 
     def list_admin_logs(self, page: int = 1, limit: int = 50, **filters) -> Dict:
         conditions, params = [], []
