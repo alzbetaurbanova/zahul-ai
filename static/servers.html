@@ -7,29 +7,14 @@
     <title>zahul-ai - Servers & Channels</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #6366f1; --primary-dark: #4f46e5; --dark: #1e293b;
-            --darker: #0f172a; --light: #f8fafc;
-        }
-        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
-        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
-        .nav-link.active { border-bottom: 2px solid var(--primary); }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); }
-        .list-item.active { background-color: var(--primary); }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
-        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body class="bg-darker text-light">
     <div id="toast-container" class="toast z-50"></div>
     
     <div id="navbar-container"></div>
     <script>window.activePage = 'dashboard';</script>
-    <script src="/static/navbar.js"></script>
+    <script src="/static/js/navbar.js"></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6">
@@ -39,7 +24,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <!-- Server List -->
                 <div class="lg:col-span-1">
-                    <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
+                    <div class="panel-dark-pad-6">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-semibold text-white">Servers</h2>
                             <button id="add-server-btn" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-lg text-sm">
@@ -54,7 +39,7 @@
 
                 <!-- Channel List -->
                 <div class="lg:col-span-1">
-                    <div id="channel-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+                    <div id="channel-panel" class="panel-dark-pad-6 hidden">
                         <div class="flex justify-between items-center mb-4">
                             <h2 id="channel-list-title" class="text-xl font-semibold text-white">Channels</h2>
                             <button id="add-channel-btn" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-lg text-sm">
@@ -69,7 +54,7 @@
 
                 <!-- Channel Config Form -->
                 <div class="lg:col-span-2">
-                    <div id="config-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+                    <div id="config-panel" class="panel-dark-pad-6 hidden">
                         <h2 id="form-title" class="text-xl font-semibold text-white mb-6">Channel Configuration</h2>
                         <form id="channel-form" class="space-y-4">
                             <div>
@@ -103,7 +88,7 @@
             </div>
 
             <!-- Server Config Panel — full width below grid, hidden for DM -->
-            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+            <div id="server-config-panel" class="mt-6 panel-dark-pad-6 hidden">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="text-lg font-semibold text-white">Server Overrides</h2>

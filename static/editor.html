@@ -6,32 +6,12 @@
     <title>zahul-ai - Avatar Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root { --primary: #6366f1; --primary-dark: #4f46e5; --darker: #0f172a; --light: #f8fafc; }
-        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
-        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
-        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        #avatar-canvas { cursor: grab; display: block; background: #1e293b; border-radius: 0.5rem; }
-        #avatar-canvas:active { cursor: grabbing; }
-        .slider-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-        .slider-row label { width: 90px; font-size: 0.8rem; color: #94a3b8; }
-        .slider-row input[type=range] { flex: 1; accent-color: #6366f1; }
-        .slider-row span { width: 40px; font-size: 0.8rem; color: #e2e8f0; text-align: right; }
-        #circle-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            border-radius: 0.5rem; pointer-events: none;
-            background: radial-gradient(circle 178px at center, transparent 176px, rgba(0,0,0,0.6) 178px);
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div id="navbar-container"></div>
     <script>window.activePage = 'characters';</script>
-    <script src="/static/navbar.js"></script>
+    <script src="/static/js/navbar.js"></script>
 
     <!-- Main -->
     <main class="max-w-5xl mx-auto p-8 space-y-8">
@@ -41,7 +21,7 @@
             <!-- Canvas + previews -->
             <div class="flex-shrink-0 space-y-4">
                 <!-- Main canvas with circle overlay -->
-                <div style="position: relative; display: inline-block;">
+                <div class="relative-inline-block">
                     <canvas id="avatar-canvas" width="360" height="360"></canvas>
                     <div id="circle-overlay"></div>
                 </div>
@@ -66,7 +46,7 @@
                 <div>
                     <p class="text-xs text-gray-500 mb-2 uppercase tracking-wide">Discord preview</p>
                     <div class="flex items-center gap-3">
-                        <canvas id="discord-preview" width="40" height="40" style="border-radius: 50%; background: #36393f; display: block; flex-shrink: 0;"></canvas>
+                        <canvas id="discord-preview" width="40" height="40" class="preview-canvas"></canvas>
                         <div class="text-xs text-gray-500 leading-relaxed">
                             <p class="text-gray-300 font-semibold text-sm">Character Name</p>
                             <p>This is how your avatar<br>appears on Discord.</p>

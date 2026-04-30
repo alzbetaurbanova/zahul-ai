@@ -2,7 +2,7 @@
     const container = document.getElementById('navbar-container');
     container.style.minHeight = '64px';
 
-    const res = await fetch('/static/navbar.html');
+    const res = await fetch('/static/templates/navbar.html');
     const html = await res.text();
     container.style.minHeight = '';
     container.innerHTML = html;

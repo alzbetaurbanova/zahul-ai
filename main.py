@@ -206,7 +206,7 @@ async def custom_swagger_ui_html():
             "docExpansion": "none",
             "defaultModelsExpandDepth": -1,
             "syntaxHighlight": {"theme": "monokai"},
-            "customCssUrl": "/static/swagger-dark.css",
+            "customCssUrl": "/static/css/swagger-dark.css",
         },
     )
 
@@ -255,11 +255,11 @@ async def get_editor_html():
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("static/favicon.png")
+    return FileResponse("static/img/favicon.png")
 
 @app.get("/zahul", include_in_schema=False)
 async def zahul_logo():
-    return FileResponse("static/favicon.png")
+    return FileResponse("static/img/favicon.png")
 
 # --- Auth Endpoints ---
 

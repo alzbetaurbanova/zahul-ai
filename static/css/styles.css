@@ -1,0 +1,272 @@
+:root {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --dark: #1e293b;
+    --darker: #0f172a;
+    --light: #f8fafc;
+}
+
+/* ========================================================================== */
+/* Base Theme                                                                */
+/* ========================================================================== */
+body {
+    background-color: var(--darker);
+    color: var(--light);
+    font-family: 'Inter', sans-serif;
+}
+
+/* ========================================================================== */
+/* Shared Navigation                                                          */
+/* ========================================================================== */
+.nav-link:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
+.nav-link.active {
+    border-bottom: 2px solid var(--primary);
+}
+
+/* ========================================================================== */
+/* Shared Status Indicators                                                   */
+/* ========================================================================== */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-active {
+    background-color: #10b981;
+    box-shadow: 0 0 10px #10b981;
+}
+
+.status-inactive {
+    background-color: #ef4444;
+}
+
+.status-starting {
+    background-color: #f59e0b;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* ========================================================================== */
+/* Shared Disabled-State Styling                                              */
+/* ========================================================================== */
+input:disabled,
+textarea:disabled {
+    background-color: #334155 !important;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+#name:read-only {
+    background-color: #334155 !important;
+    cursor: not-allowed;
+}
+
+/* ========================================================================== */
+/* Modal Surfaces                                                             */
+/* ========================================================================== */
+.modal {
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    max-height: 90vh;
+}
+
+.modal-backdrop {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+/* ========================================================================== */
+/* Character Editor                                                           */
+/* ========================================================================== */
+#avatar-upload {
+    color: #cbd5e1;
+    background: transparent;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+#avatar-upload::file-selector-button {
+    background: #1f2937;
+    color: #e2e8f0;
+    border: 1px solid #374151;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+    cursor: pointer;
+}
+
+#avatar-upload::file-selector-button:hover {
+    background: #2d3748;
+    border-color: #4b5563;
+}
+
+#avatar-upload::file-selector-button:active {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+#avatar-canvas {
+    cursor: grab;
+    display: block;
+    background: #1e293b;
+    border-radius: 0.5rem;
+}
+
+#avatar-canvas:active {
+    cursor: grabbing;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.slider-row label {
+    width: 90px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.slider-row input[type="range"] {
+    flex: 1;
+    accent-color: #6366f1;
+}
+
+.slider-row span {
+    width: 40px;
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    text-align: right;
+}
+
+#circle-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0.5rem;
+    pointer-events: none;
+    background: radial-gradient(circle 178px at center, transparent 176px, rgba(0, 0, 0, 0.6) 178px);
+}
+
+/* ========================================================================== */
+/* Dashboard and Logs                                                         */
+/* ========================================================================== */
+.log-stream {
+    font-family: 'Fira Code', monospace;
+    background-color: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.log-entry {
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.power-btn {
+    transition: all 0.3s ease;
+}
+
+.power-btn:hover {
+    transform: scale(1.05);
+}
+
+.power-btn.active {
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.7);
+}
+
+/* ========================================================================== */
+/* Tabs                                                                       */
+/* ========================================================================== */
+.tab-active {
+    border-bottom: 2px solid var(--primary);
+    color: white;
+}
+
+/* ========================================================================== */
+/* Generic Content                                                            */
+/* ========================================================================== */
+pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+input[type="date"],
+input[type="datetime-local"] {
+    color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+/* ========================================================================== */
+/* Tooltips                                                                  */
+/* ========================================================================== */
+.tt {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.tt .tt-body {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    border: 1px solid #374151;
+    color: #cbd5e1;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: normal;
+    width: 230px;
+    z-index: 100;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    font-weight: 400;
+}
+
+.tt:hover .tt-body {
+    visibility: visible;
+    opacity: 1;
+}

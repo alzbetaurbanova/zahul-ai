@@ -6,26 +6,12 @@
     <title>zahul-ai - Logs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root { --primary: #6366f1; --primary-dark: #4f46e5; --darker: #0f172a; --light: #f8fafc; }
-        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
-        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
-        .nav-link.active { border-bottom: 2px solid var(--primary); }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
-        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .tab-active { border-bottom: 2px solid var(--primary); color: white; }
-        pre { white-space: pre-wrap; word-break: break-all; }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
-        input[type="date"] { color-scheme: dark; }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body class="bg-darker text-light min-h-screen">
     <div id="navbar-container"></div>
     <script>window.activePage = '';</script>
-    <script src="/static/navbar.js"></script>
+    <script src="/static/js/navbar.js"></script>
 
     <main class="p-6">
         <div class="max-w-6xl mx-auto">
@@ -42,8 +28,8 @@
 
             <!-- Discord Filters -->
             <div id="discord-filters" class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
-                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="df-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="df-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="df-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div class="relative"><label class="block text-xs text-gray-400 mb-1">Character</label>
                     <input type="text" id="df-character" autocomplete="off" placeholder="any" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-32">
                     <div id="df-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
@@ -77,8 +63,8 @@
 
             <!-- Admin Filters -->
             <div id="admin-filters" class="hidden bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 flex flex-wrap gap-3 items-end">
-                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs" style="height:24px;display:flex;align-items:center;"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">From</label><div class="relative"><input type="date" id="af-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-from-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="block text-xs text-gray-400 mb-1">To</label><div class="relative"><input type="date" id="af-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8"><button id="af-to-clear" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div class="relative">
                     <label class="block text-xs text-gray-400 mb-1">Action</label>
                     <button class="cb-dd-btn bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[10rem]" data-dd="dd-action">
@@ -421,7 +407,7 @@
                     <div class="text-gray-500">${fmt(item.timestamp)}</div>
 
                     <!-- Metadata grid -->
-                    <div class="grid gap-x-6 gap-y-2" style="grid-template-columns: max-content 1fr max-content 1fr">
+                    <div class="metadata-grid">
                         ${row('Character', esc(item.character || ''))}
                         ${row('User', esc(item.user || ''))}
                         ${row('Server', esc(chServer))}
