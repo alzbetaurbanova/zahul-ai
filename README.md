@@ -104,7 +104,7 @@ Save the config, then click **Start Bot** on the main panel. An invite link will
 In your Discord server, run the following slash command in the channel you want the bot to use:
 
 ```
-/zahul register_channel
+/register_channel
 ```
 
 The bot is now active in that channel.

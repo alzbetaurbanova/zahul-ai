@@ -456,6 +456,7 @@ class Database:
             for col_sql in [
                 "ALTER TABLE scheduled_tasks ADD COLUMN message_mode TEXT NOT NULL DEFAULT 'exact'",
                 "ALTER TABLE scheduled_tasks ADD COLUMN history_limit INTEGER",
+                "ALTER TABLE scheduled_tasks ADD COLUMN error_message TEXT",
             ]:
                 try:
                     conn.execute(col_sql)

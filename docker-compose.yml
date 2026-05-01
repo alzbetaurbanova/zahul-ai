@@ -33,11 +33,12 @@ services:
       - "443:443/udp"
     environment:
       - PUBLIC_URL=${PUBLIC_URL}
+    entrypoint: ["/bin/sh", "-c", "if [ -z \"$$PUBLIC_URL\" ]; then echo '[caddy] PUBLIC_URL is not set, skipping.'; exit 0; fi; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    restart: unless-stopped
+    restart: on-failure
     networks:
       - web
     depends_on:

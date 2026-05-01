@@ -51,9 +51,8 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 
 ## Slash commands
 
-All commands use the `/zahul` command group or standalone groups listed below.
-
-- `/zahul register_channel` — initializes the current channel for the bot
+- `/register_channel` — initializes the current channel for the bot
+- `/unregister_channel` — removes the current channel from the bot
 - `/whitelist add` — adds characters to the channel whitelist (comma-separated)
 - `/whitelist remove` — removes characters from the channel whitelist
 - `/whitelist view` — shows the current whitelist for this channel
@@ -96,7 +95,6 @@ All commands use the `/zahul` command group or standalone groups listed below.
 
 ## Adapted for Slovak Audience
 
-- Bot slash command group renamed to `/zahul`
 - All Discord slash commands and responses written in Slovak
 - `/tokens` command displays model names and limits in Slovak
 - UI panel labels and descriptions kept in English for maintainability

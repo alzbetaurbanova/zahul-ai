@@ -138,9 +138,10 @@
 
     <script>
     (() => {
-        let LIMIT = 25;
-        let currentTab = new URLSearchParams(location.search).get('tab') === 'admin' ? 'admin' : 'discord';
-        let currentPage = 1;
+        const _qs = new URLSearchParams(location.search);
+        let currentTab = _qs.get('tab') === 'admin' ? 'admin' : 'discord';
+        let currentPage = parseInt(_qs.get('page')) || 1;
+        let LIMIT = parseInt(_qs.get('limit')) || 25;
         let totalItems = 0;
         let channelMap = {};  // channel_id -> {server_name, channel_name}
         let serverNames = {};  // server_id -> server_name
@@ -276,6 +277,7 @@
         document.getElementById('prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchLogs(); } });
         document.getElementById('next-btn').addEventListener('click', () => { if (currentPage * LIMIT < totalItems) { currentPage++; fetchLogs(); } });
         document.getElementById('limit-select').addEventListener('change', function() { LIMIT = parseInt(this.value); currentPage = 1; fetchLogs(); });
+        document.getElementById('limit-select').value = LIMIT;
 
         // --- Export ---
         document.getElementById('export-btn').addEventListener('click', () => {
@@ -306,6 +308,7 @@
         }
 
         async function fetchLogs() {
+            syncUrl();
             const list = document.getElementById('log-list');
             list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
             try {
@@ -347,6 +350,7 @@
                     <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
                         <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                         <span>${fmt(item.timestamp)}</span>
+                        <span class="text-gray-600">#${item.id}</span>
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 truncate">${esc(item.trigger || '')}</p>
@@ -382,8 +386,19 @@
                     ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
                     ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}
                 </div>
-                <span class="text-xs text-gray-500 flex-shrink-0">${fmt(item.timestamp)}</span>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span class="text-xs text-gray-500">${fmt(item.timestamp)}</span>
+                    <span class="text-xs text-gray-600">#${item.id}</span>
+                </div>
             </div>`;
+        }
+
+        function syncUrl() {
+            const p = new URLSearchParams(location.search);
+            p.set('tab', currentTab);
+            p.set('page', currentPage);
+            p.set('limit', LIMIT);
+            history.replaceState(null, '', '?' + p.toString());
         }
 
         function updatePagination() {
