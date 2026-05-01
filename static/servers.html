@@ -26,7 +26,7 @@
 </head>
 <body class="bg-darker text-light">
     <div id="toast-container" class="toast z-50"></div>
-    
+
     <div id="navbar-container"></div>
     <script>window.activePage = 'dashboard';</script>
     <script src="/static/navbar.js"></script>
@@ -53,7 +53,7 @@
                 </div>
 
                 <!-- Channel List -->
-                <div class="w-full lg:w-3/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
+                <div class="w-full lg:w-1/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
                     <div id="channel-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
                         <div class="flex justify-between items-center mb-4">
                             <h2 id="channel-list-title" class="text-xl font-semibold text-white">Channels</h2>
@@ -105,7 +105,7 @@
 
     <!-- "Edit Channel" Modal -->
     <div id="channel-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-6 border border-gray-800 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-6 border border-gray-800 w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-6">
                 <h2 id="form-title" class="text-xl font-semibold text-white">Channel Configuration</h2>
                 <button id="close-channel-edit-modal-btn" type="button" class="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close edit modal">&times;</button>
@@ -118,7 +118,7 @@
                 <div>
                     <label for="default-character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
                     <select id="default-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                        <option value="">Inherit global default</option>
+                        <option value="">Inherit server default</option>
                     </select>
                     <p id="default-character-status" class="mt-2 text-xs text-gray-400"></p>
                 </div>
@@ -140,11 +140,36 @@
                     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
 
-            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
+    <!-- "Edit Server" Modal -->
+    <div id="server-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-6 border border-gray-800 w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="server-edit-title" class="text-xl font-semibold text-white">Server Settings</h2>
+                <button id="close-server-edit-modal-btn" type="button" class="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close server edit modal">&times;</button>
+            </div>
+
+            <!-- Default Character -->
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label for="srv-default-character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
+                    <select id="srv-default-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <option value="">Inherit global default</option>
+                    </select>
+                    <p id="srv-default-character-status" class="mt-2 text-xs text-gray-400"></p>
+                </div>
+                <div class="flex justify-end">
+                    <button id="srv-save-character-btn" type="button" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg">Save Character</button>
+                </div>
+            </div>
+
+            <!-- Server Overrides -->
+            <div class="border-t border-gray-700 pt-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold text-white">Server Overrides</h2>
+                        <h3 class="text-lg font-semibold text-white">Server Overrides</h3>
                         <p class="text-xs text-gray-500 mt-0.5">Override global AI Config for this server only.</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
@@ -153,52 +178,52 @@
                     </label>
                 </div>
                 <form id="server-config-form">
-                    <div id="sc-fields" class="hidden">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-                            <div class="sm:col-span-2 lg:col-span-3">
-                                <label class="block text-xs font-medium text-gray-400 mb-1">API Endpoint</label>
-                                <input type="text" id="sc-ai-endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                            </div>
+                    <div id="sc-fields" class="hidden space-y-4">
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-gray-300">API Endpoint</label>
+                            <input type="text" id="sc-ai-endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Primary Model</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Primary Model</label>
                                 <input type="text" id="sc-base-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Fallback Model</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Fallback Model</label>
                                 <input type="text" id="sc-fallback-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Temperature</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Temperature</label>
                                 <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Max Tokens</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Max Tokens</label>
                                 <input type="number" id="sc-max-tokens" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Message History</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Message History</label>
                                 <input type="number" id="sc-history-limit" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Auto Cap</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Auto Cap</label>
                                 <input type="number" id="sc-auto-cap" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / min</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Token Limit / min</label>
                                 <input type="number" id="sc-token-limit-tpm" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / day</label>
+                                <label class="block mb-2 text-sm font-medium text-gray-300">Token Limit / day</label>
                                 <input type="number" id="sc-token-limit-tpd" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
                             </div>
-                            <div class="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5">
-                                <span class="text-sm text-gray-300">Use Prefill</span>
-                                <select id="sc-use-prefill" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-2 py-1">
-                                    <option value="">— default —</option>
-                                    <option value="true">Enabled</option>
-                                    <option value="false">Disabled</option>
-                                </select>
-                            </div>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5">
+                            <span class="text-sm font-medium text-gray-300">Use Prefill</span>
+                            <select id="sc-use-prefill" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-2 py-1">
+                                <option value="">— default —</option>
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
                         </div>
                         <div class="flex justify-end">
                             <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-lg">Save Overrides</button>
@@ -232,18 +257,24 @@
             const addChannelModal = document.getElementById('add-channel-modal');
             const closeModalBtn = document.getElementById('close-modal-btn');
             const toastContainer = document.getElementById('toast-container');
-            
-            // Form fields
+            const serverEditModal = document.getElementById('server-edit-modal');
+            const closeServerEditModalBtn = document.getElementById('close-server-edit-modal-btn');
+            const serverEditTitle = document.getElementById('server-edit-title');
+
+            // Channel form fields
             const nameInput = document.getElementById('name');
             const defaultCharacterInput = document.getElementById('default-character');
             const defaultCharacterStatus = document.getElementById('default-character-status');
             const whitelistInput = document.getElementById('whitelist');
             const isSystemChannelInput = document.getElementById('is_system_channel');
 
-            // --- Server Config ---
+            // Server edit fields
+            const srvDefaultCharacterInput = document.getElementById('srv-default-character');
+            const srvDefaultCharacterStatus = document.getElementById('srv-default-character-status');
             const scToggle = document.getElementById('sc-toggle');
             const scFields = document.getElementById('sc-fields');
 
+            // --- Server Config (AI overrides) ---
             function setScEnabled(enabled) {
                 scToggle.checked = enabled;
                 scFields.classList.toggle('hidden', !enabled);
@@ -272,27 +303,63 @@
             }
 
             function hasAnyOverride(cfg) {
-                return Object.values(cfg).some(v => v !== null && v !== undefined);
+                const aiFields = ['ai_endpoint','base_llm','fallback_llm','temperature','max_tokens',
+                                  'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd'];
+                return aiFields.some(f => cfg[f] !== null && cfg[f] !== undefined);
+            }
+
+            // --- Character selectors ---
+            function populateSrvDefaultCharacterSelector(selectedCharacter = '') {
+                srvDefaultCharacterInput.innerHTML = '';
+                const inheritedLabel = globalDefaultCharacter
+                    ? `Inherit global default (${globalDefaultCharacter})`
+                    : 'Inherit global default (not set)';
+                const inheritedOption = document.createElement('option');
+                inheritedOption.value = '';
+                inheritedOption.textContent = inheritedLabel;
+                srvDefaultCharacterInput.appendChild(inheritedOption);
+                availableCharacters.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    srvDefaultCharacterInput.appendChild(opt);
+                });
+                srvDefaultCharacterInput.value = selectedCharacter || '';
+            }
+
+            function updateSrvDefaultCharacterStatus() {
+                const selected = srvDefaultCharacterInput.value;
+                if (selected) {
+                    srvDefaultCharacterStatus.textContent = `Server default: ${selected}. Channels inherit this unless they override it.`;
+                    srvDefaultCharacterStatus.className = 'mt-2 text-xs text-indigo-300';
+                } else {
+                    const fallback = globalDefaultCharacter || 'None configured';
+                    srvDefaultCharacterStatus.textContent = `Inheriting global default: ${fallback}.`;
+                    srvDefaultCharacterStatus.className = 'mt-2 text-xs text-gray-400';
+                }
             }
 
             function populateDefaultCharacterSelector(selectedCharacter = '') {
                 defaultCharacterInput.innerHTML = '';
-                const inheritedLabel = globalDefaultCharacter
-                    ? `Inherit global default (${globalDefaultCharacter})`
-                    : 'Inherit global default (not set)';
-
+                const serverDefault = currentServer?.defaultCharacter || '';
+                let inheritedLabel;
+                if (serverDefault) {
+                    inheritedLabel = `Inherit server default (${serverDefault})`;
+                } else if (globalDefaultCharacter) {
+                    inheritedLabel = `Inherit server default → global (${globalDefaultCharacter})`;
+                } else {
+                    inheritedLabel = 'Inherit server default (not set)';
+                }
                 const inheritedOption = document.createElement('option');
                 inheritedOption.value = '';
                 inheritedOption.textContent = inheritedLabel;
                 defaultCharacterInput.appendChild(inheritedOption);
-
-                availableCharacters.forEach((characterName) => {
-                    const option = document.createElement('option');
-                    option.value = characterName;
-                    option.textContent = characterName;
-                    defaultCharacterInput.appendChild(option);
+                availableCharacters.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    defaultCharacterInput.appendChild(opt);
                 });
-
                 defaultCharacterInput.value = selectedCharacter || '';
                 if (selectedCharacter && !availableCharacters.includes(selectedCharacter)) {
                     defaultCharacterInput.value = '';
@@ -302,12 +369,17 @@
             function updateDefaultCharacterStatus() {
                 const selected = defaultCharacterInput.value;
                 if (selected) {
-                    defaultCharacterStatus.textContent = `Explicit channel character: ${selected} (priority: channel > global default).`;
+                    defaultCharacterStatus.textContent = `Channel override: ${selected} (channel > server > global).`;
                     defaultCharacterStatus.className = 'mt-2 text-xs text-indigo-300';
                     return;
                 }
-                const fallback = globalDefaultCharacter || 'None configured';
-                defaultCharacterStatus.textContent = `Inherited from global default: ${fallback} (priority: channel > global default).`;
+                const serverDefault = currentServer?.defaultCharacter;
+                if (serverDefault) {
+                    defaultCharacterStatus.textContent = `Inherited from server default: ${serverDefault} (channel > server > global).`;
+                } else {
+                    const fallback = globalDefaultCharacter || 'None configured';
+                    defaultCharacterStatus.textContent = `Inherited from global default: ${fallback} (channel > server > global).`;
+                }
                 defaultCharacterStatus.className = 'mt-2 text-xs text-gray-400';
             }
 
@@ -328,7 +400,6 @@
                     globalDefaultCharacter = globalCfg.default_character || '';
                 } catch {
                     globalDefaultCharacter = '';
-                    showToast('Failed to load global default character.', 'error');
                 }
             }
 
@@ -344,6 +415,47 @@
                     }
                 } catch { showToast('Failed to load server config.', 'error'); }
             }
+
+            async function loadServerDefaultCharacter(serverId) {
+                try {
+                    const cfg = await fetch(`${API_BASE}/${serverId}/config`).then(r => r.json());
+                    return cfg.default_character || '';
+                } catch { return ''; }
+            }
+
+            // --- Server edit modal ---
+            async function openServerEditModal(server) {
+                currentServer = { ...currentServer, id: server.server_id, name: server.server_name };
+                serverEditTitle.textContent = server.server_name;
+                serverEditModal.classList.remove('hidden');
+
+                await Promise.all([loadGlobalDefaultCharacter(), loadCharactersForServer()]);
+                const serverDefault = await loadServerDefaultCharacter(server.server_id);
+                currentServer.defaultCharacter = serverDefault;
+
+                populateSrvDefaultCharacterSelector(serverDefault);
+                updateSrvDefaultCharacterStatus();
+                await loadServerConfig(server.server_id);
+            }
+
+            closeServerEditModalBtn.addEventListener('click', () => serverEditModal.classList.add('hidden'));
+
+            srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
+
+            document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
+                if (!currentServer) return;
+                const value = srvDefaultCharacterInput.value || null;
+                try {
+                    const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ default_character: value })
+                    });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    currentServer.defaultCharacter = value || '';
+                    showToast('Server default character saved.');
+                } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
+            });
 
             scToggle.addEventListener('change', async () => {
                 if (!currentServer) { scToggle.checked = false; return; }
@@ -417,6 +529,7 @@
                 } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
             });
 
+            // --- Server list ---
             async function fetchServers() {
                 try {
                     const response = await fetch(API_BASE);
@@ -424,9 +537,24 @@
                     serverList.innerHTML = '';
                     servers.forEach(server => {
                         const li = document.createElement('li');
-                        li.className = 'list-item px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700';
-                        li.textContent = server.server_name;
+                        li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
                         li.dataset.serverId = server.server_id;
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = server.server_name;
+                        nameSpan.className = 'truncate min-w-0 pr-8';
+
+                        const editBtn = document.createElement('button');
+                        editBtn.innerHTML = '<i class="fas fa-cog"></i>';
+                        editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
+                        editBtn.title = 'Server settings';
+                        editBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openServerEditModal(server);
+                        });
+
+                        li.appendChild(nameSpan);
+                        li.appendChild(editBtn);
                         li.addEventListener('click', () => {
                             document.querySelectorAll('#server-list .list-item').forEach(el => el.classList.remove('active'));
                             li.classList.add('active');
@@ -438,12 +566,14 @@
             }
 
             async function fetchChannels(serverId, serverName) {
-                currentServer = { id: serverId, name: serverName };
                 channelEditModal.classList.add('hidden');
                 channelListTitle.textContent = serverName;
                 channelPanel.classList.remove('hidden');
+
                 await Promise.all([loadGlobalDefaultCharacter(), loadCharactersForServer()]);
-                
+                const serverDefault = await loadServerDefaultCharacter(serverId);
+                currentServer = { id: serverId, name: serverName, defaultCharacter: serverDefault };
+
                 try {
                     const response = await fetch(`${API_BASE}/${serverId}/channels`);
                     const channels = await response.json();
@@ -495,7 +625,6 @@
                 currentChannel = channel;
                 channelEditModal.classList.remove('hidden');
                 formTitle.textContent = `Editing #${channel.data.name}`;
-                loadServerConfig(currentServer.id);
 
                 const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
                 document.getElementById('whitelist-field').classList.toggle('hidden', isDM);
@@ -521,7 +650,7 @@
                     whitelist: isDM ? [] : whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
                     is_system_channel: isDM ? false : isSystemChannelInput.checked
                 };
-                
+
                 try {
                     const response = await fetch(`${API_BASE}/${currentServer.id}/channels/${currentChannel.channel_id}`, {
                         method: 'PUT',
@@ -534,10 +663,10 @@
                     }
                     channelEditModal.classList.add('hidden');
                     showToast(`Channel #${updatedData.name} saved successfully!`);
-                    await fetchChannels(currentServer.id, currentServer.name); // Refresh list
+                    await fetchChannels(currentServer.id, currentServer.name);
                 } catch (error) { showToast(`Error: ${error.message}`, 'error'); }
             }
-            
+
             function showToast(message, type = 'success') {
                 const toast = document.createElement('div');
                 const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
@@ -575,7 +704,7 @@
             });
             document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
 
-            // Form listener
+            // Form listeners
             defaultCharacterInput.addEventListener('change', updateDefaultCharacterStatus);
             form.addEventListener('submit', handleFormSubmit);
             closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
