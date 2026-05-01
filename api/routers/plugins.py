@@ -2,6 +2,9 @@
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+from api.db.database import Database
+
+_db = Database()
 
 router = APIRouter(prefix="/plugins", tags=["Plugins"])
 
@@ -52,8 +55,9 @@ async def reload_plugins(request: Request):
             for p in manager.plugins
         ]
         
+        _db.log_admin('plugins.reload', detail=f"{len(info_list)} plugins loaded")
         return {
-            "status": "reloaded", 
+            "status": "reloaded",
             "count": len(manager.plugins),
             "plugins": info_list
         }

@@ -71,7 +71,8 @@ class Zahul(discord.Client):
 
         # --- Slash Commands ---
         # Register command groups, passing the database instance to them
-        self.tree.add_command(CoreCommands(self.db))
+        self.tree.add_command(register_channel_command(self.db))
+        self.tree.add_command(unregister_channel_command(self.db))
         self.tree.add_command(WhitelistCommands(self.db))
         self.tree.add_command(FallbackGroup())
         self.tree.add_command(AutocapGroup())
@@ -391,9 +392,10 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
     char_name = char['name']
     bot_config = BotConfig(**bot.db.list_configs())
     avatar_url = char_data.get('avatar')
-    if avatar_url and avatar_url.startswith('/'):
-        if bot_config.public_url:
-            avatar_url = bot_config.public_url.rstrip('/') + avatar_url
+    if avatar_url and avatar_url.startswith('/') and bot_config.public_url:
+        avatar_url = bot_config.public_url.rstrip('/') + avatar_url
+    if avatar_url and not str(avatar_url).startswith(('http://', 'https://')):
+        avatar_url = None
     instructions = (task.get('instructions') or '').strip()
     print(f"[Scheduler] sending task {task['id']} type={task.get('type')} mode={task.get('message_mode')} char={char_name} target={task.get('target_type')} id={task.get('target_id')}")
 
@@ -557,7 +559,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
 
 
 async def _run_scheduler(bot: 'Zahul'):
-    """Background loop that fires due reminders and recurring schedules every minute."""
+    """Background loop that fires due reminders and recurring schedules every minute, aligned to wall-clock minutes."""
     global _last_schedule_fire
     await asyncio.sleep(10)  # let the bot fully connect first
     while True:
@@ -569,8 +571,19 @@ async def _run_scheduler(bot: 'Zahul'):
             due = bot.db.list_due_reminders(now_iso)
             for task in due:
                 print(f"[Scheduler] Firing reminder id={task['id']} scheduled_time={task.get('scheduled_time')}")
-                await _send_scheduled_message(bot, task)
-                bot.db.update_task(task['id'], status='done')
+                try:
+                    await _send_scheduled_message(bot, task)
+                    bot.db.update_task(task['id'], status='done', error_message=None)
+                except Exception as e:
+                    err = str(e)
+                    print(f"[Scheduler] Reminder id={task['id']} failed: {err}\n{traceback.format_exc()}")
+                    bot.db.update_task(task['id'], status='failed', error_message=err)
+                    bot.db.log_discord(
+                        character=task.get('character', ''), channel_id=f"{task['target_type']}:{task['target_id']}",
+                        user='system', trigger=task.get('instructions') or '', response='',
+                        model='', input_tokens=0, output_tokens=0, conversation_history=None,
+                        source='scheduler', status='error', error_message=err, history_count=0,
+                    )
 
             # Fire active schedules whose time matches now
             current_day = now.weekday()  # 0=Mon, 6=Sun
@@ -593,11 +606,25 @@ async def _run_scheduler(bot: 'Zahul'):
                         should_fire = now.month == pattern.get('month', 1) and now.day == pattern.get('day', 1)
                 if should_fire and _last_schedule_fire.get(task['id']) != today_str:
                     print(f"[Scheduler] firing schedule task {task['id']} for {task['character']} at {current_time}")
-                    await _send_scheduled_message(bot, task)
+                    try:
+                        await _send_scheduled_message(bot, task)
+                        bot.db.update_task(task['id'], error_message=None)
+                    except Exception as e:
+                        err = str(e)
+                        print(f"[Scheduler] Schedule id={task['id']} failed: {err}\n{traceback.format_exc()}")
+                        bot.db.update_task(task['id'], error_message=err)
+                        bot.db.log_discord(
+                            character=task.get('character', ''), channel_id=f"{task['target_type']}:{task['target_id']}",
+                            user='system', trigger=task.get('instructions') or '', response='',
+                            model='', input_tokens=0, output_tokens=0, conversation_history=None,
+                            source='scheduler', status='error', error_message=err, history_count=0,
+                        )
                     _last_schedule_fire[task['id']] = today_str
         except Exception:
             print(f"[Scheduler] Loop error:\n{traceback.format_exc()}")
-        await asyncio.sleep(60)
+        # Sleep until the start of the next wall-clock minute
+        now = datetime.now(SK_TZ)
+        await asyncio.sleep(60 - now.second - now.microsecond / 1_000_000)
 
 
 @app_commands.command(name="reminder", description="Set a one-time reminder in this channel or DM.")
@@ -661,27 +688,32 @@ async def reminder_command(
     )
 
 
-# --- Slash Command Groups ---
-class CoreCommands(app_commands.Group):
-    def __init__(self, db: Database):
-        super().__init__(name="zahul", description="Main bot commands")
-        self.db = db
-
+def register_channel_command(db: Database):
     @app_commands.command(name="register_channel", description="Initializes this channel for the bot.")
-    async def register_channel(self, interaction: discord.Interaction):
+    async def _register(interaction: discord.Interaction):
         server_id = str(interaction.guild.id)
         channel_id = str(interaction.channel.id)
-        
-        if not self.db.get_server(server_id):
-            self.db.create_server(server_id, interaction.guild.name)
-        
-        if self.db.get_channel(channel_id):
+        if not db.get_server(server_id):
+            db.create_server(server_id, interaction.guild.name)
+        if db.get_channel(channel_id):
             await interaction.response.send_message("This channel is already registered.", ephemeral=True)
             return
-
         default_data = {"name": interaction.channel.name, "whitelist": []}
-        self.db.create_channel(channel_id, server_id, interaction.guild.name, default_data)
+        db.create_channel(channel_id, server_id, interaction.guild.name, default_data)
         await interaction.response.send_message(f"Channel '{interaction.channel.name}' has been successfully registered!", ephemeral=True)
+    return _register
+
+
+def unregister_channel_command(db: Database):
+    @app_commands.command(name="unregister_channel", description="Removes this channel from the bot.")
+    async def _unregister(interaction: discord.Interaction):
+        channel_id = str(interaction.channel.id)
+        if not db.get_channel(channel_id):
+            await interaction.response.send_message("This channel is not registered.", ephemeral=True)
+            return
+        db.delete_channel(channel_id)
+        await interaction.response.send_message(f"Channel '{interaction.channel.name}' has been unregistered.", ephemeral=True)
+    return _unregister
 
 
 class WhitelistCommands(app_commands.Group):

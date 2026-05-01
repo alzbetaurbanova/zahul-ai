@@ -134,13 +134,26 @@ async def save_avatar(
     if not image:
         raise HTTPException(status_code=400, detail="No image provided.")
     safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
-    avatars_dir = "/app/static/avatars"
-    os.makedirs(avatars_dir, exist_ok=True)
-    file_path = f"{avatars_dir}/{safe_name}.png"
+    os.makedirs(_AVATARS_DIR, exist_ok=True)
+    file_path = f"{_AVATARS_DIR}/{safe_name}.png"
     contents = await image.read()
     with open(file_path, "wb") as f:
         f.write(contents)
+    db.log_admin('character.avatar.upload', target=safe_name)
     return {"url": f"/static/avatars/{safe_name}.png"}
+
+
+@router.post("/mirror_avatar")
+async def mirror_avatar_endpoint(
+    name: str = Query(..., description="Character name (used as filename)"),
+    url: str = Query(..., description="Image URL to download")
+):
+    """Downloads an image from a URL, saves it to static/avatars, returns the local path."""
+    local_path = await _mirror_avatar(name, url)
+    if local_path == url:
+        raise HTTPException(status_code=400, detail="Failed to download image from URL.")
+    db.log_admin('character.avatar.mirror', target=name)
+    return {"url": local_path}
 
 
 @router.get("/proxy_image")
@@ -197,8 +210,6 @@ async def create_character(
         )
     try:
         char_data = character.data.model_dump()
-        if char_data.get("avatar"):
-            char_data["avatar"] = await _mirror_avatar(character.name, char_data["avatar"])
         db.create_character(
             name=character.name,
             data=char_data,
@@ -240,8 +251,6 @@ async def update_character(
     try:
         # Step 1: Update the main character data (persona, examples, etc.)
         char_data = character_update.data.model_dump()
-        if char_data.get("avatar"):
-            char_data["avatar"] = await _mirror_avatar(character_name, char_data["avatar"])
         db.update_character(name=character_name, data=char_data)
         
         # Step 2: Update the triggers by replacing them completely
@@ -291,11 +300,12 @@ async def create_character_from_import(request: Request):
             
         # Card imports don't have triggers, so an empty list is passed
         db.create_character(name=name, data=data_dict, triggers=[])
-        
+        db.log_admin('character.import', target=name)
+
         new_character = db.get_character(name=name)
         if not new_character:
             raise HTTPException(status_code=500, detail="Failed to retrieve character after creation.")
-            
+
         return new_character
     except HTTPException as e:
         raise e # Re-raise known HTTP exceptions
@@ -331,4 +341,5 @@ async def upload_image(
             detail="Failed to upload image. Check server logs for Discord API errors or misconfigurations."
         )
 
+    db.log_admin('character.image.upload', target=image.filename)
     return {"filename": image.filename, "cdn_url": cdn_url}

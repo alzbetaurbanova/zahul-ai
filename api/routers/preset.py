@@ -55,6 +55,7 @@ async def create_preset(preset_data: PresetBody = Body(..., description="The new
         new_preset = db.get_preset(name=preset_data.name)
         if not new_preset:
             raise HTTPException(status_code=500, detail="Failed to retrieve preset after creation.")
+        db.log_admin('preset.create', target=preset_data.name)
         return new_preset
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create preset: {e}")
@@ -97,8 +98,7 @@ async def update_preset(
         # Now, `update_data` only contains fields like 'description' and 'prompt_template'.
         # The `name` argument is supplied only by `preset_name` from the URL.
         db.update_preset(name=preset_name, **update_data)
-        
-        # Fetch and return the updated preset using the original name from the path
+        db.log_admin('preset.update', target=preset_name)
         return db.get_preset(name=preset_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update preset: {e}")
@@ -116,6 +116,7 @@ async def delete_preset(preset_name: str = Path(..., description="The name of th
 
     try:
         db.delete_preset(name=preset_name)
-        return None  # Return an empty response for 204 No Content
+        db.log_admin('preset.delete', target=preset_name)
+        return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete preset: {e}")

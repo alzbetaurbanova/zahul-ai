@@ -138,14 +138,29 @@
 
                 <!-- Avatar -->
                 <div>
-                    <label class="block mb-2 text-sm font-medium text-gray-300">Avatar</label>
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 mb-5">
+                        <label class="text-sm font-medium text-gray-300">Avatar</label>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
+                            <button type="button" id="avatar-mode-url" class="px-3 py-0.5 bg-indigo-600 text-white transition-colors">External URL</button>
+                            <button type="button" id="avatar-mode-upload" class="px-3 py-0.5 bg-gray-800 text-gray-400 hover:text-white transition-colors">Upload (static)</button>
+                        </div>
+                        <div class="relative group">
+                            <i class="fas fa-circle-info text-gray-500 hover:text-gray-300 cursor-help text-sm"></i>
+                            <div class="absolute left-0 bottom-6 w-64 bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 hidden group-hover:block z-50 shadow-xl">
+                                <p class="font-semibold text-white mb-1">External URL</p>
+                                <p class="mb-2 text-gray-400">URL is stored as-is - image is not downloaded.</p>
+                                <p class="font-semibold text-white mb-1">Upload (static)</p>
+                                <p class="text-gray-400">Pick a file or paste a URL - the image is downloaded and saved to <code class="text-indigo-300">static/avatars</code>.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 mb-8">
                         <img id="avatar-preview" src="" alt="" class="w-24 h-24 rounded-lg object-cover bg-gray-800 flex-shrink-0">
                         <div class="flex-grow space-y-2">
-                            <input type="text" id="avatar-url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Paste image URL">
+                            <input type="text" id="avatar-url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Paste image URL (https://...)">
                             <div class="flex items-center gap-3">
-                                <input id="avatar-upload" type="file" accept="image/*" class="block text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer">
-                                <a href="/editor" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
+                                <input id="avatar-upload" type="file" accept="image/*" class="invisible text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer">
+                                <a href="/editor" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap ml-auto"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
                             </div>
                         </div>
                     </div>
@@ -299,6 +314,9 @@
 
                     personaInput.value = char.data.persona;
                     instructionsInput.value = char.data.instructions;
+                    _savedExternalUrl = char.data.avatar_source || '';
+                    const isStaticAvatar = char.data.avatar && char.data.avatar.startsWith('/static/');
+                    _savedStaticUrl = isStaticAvatar ? char.data.avatar : '';
                     avatarUrlInput.value = char.data.avatar || '';
                     infoInput.value = char.data.about || '';
                     temperatureInput.value = char.data.temperature != null ? char.data.temperature : '';
@@ -307,6 +325,7 @@
                     triggersInput.value = char.triggers.join(', ');
 
                     updateAvatarPreview(char.data.avatar);
+                    if (isStaticAvatar) setAvatarMode('upload');
                     saveBtn.textContent = 'Save Changes';
                     deleteBtn.classList.remove('hidden');
                     exportBtn.classList.remove('hidden');
@@ -326,6 +345,15 @@
                 deleteBtn.classList.add('hidden');
                 exportBtn.classList.add('hidden');
                 updateAvatarPreview('https://via.placeholder.com/96');
+                _savedExternalUrl = '';
+                _savedStaticUrl = '';
+                currentAvatarMode = 'url';
+                avatarModeUrl.classList.add('bg-indigo-600', 'text-white');
+                avatarModeUrl.classList.remove('bg-gray-800', 'text-gray-400');
+                avatarModeUpload.classList.add('bg-gray-800', 'text-gray-400');
+                avatarModeUpload.classList.remove('bg-indigo-600', 'text-white');
+                avatarUploadInput.classList.add('invisible');
+                avatarUploadInput.classList.remove('visible');
             }
 
             // REWORKED: Handle form submission (both create and update)
@@ -342,6 +370,7 @@
                     persona: personaInput.value,
                     instructions: instructionsInput.value,
                     avatar: avatarUrlInput.value.trim() || null,
+                    avatar_source: (currentAvatarMode === 'upload' && _savedExternalUrl) ? _savedExternalUrl : null,
                     about: infoInput.value.trim() || null,
                     temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
                     history_limit: charHistoryLimitInput.value !== '' ? parseInt(charHistoryLimitInput.value) : null,
@@ -438,6 +467,83 @@
                 }
             }
             
+            // Avatar mode toggle
+            const avatarModeUrl = document.getElementById('avatar-mode-url');
+            const avatarModeUpload = document.getElementById('avatar-mode-upload');
+            let currentAvatarMode = 'url';
+            let _savedExternalUrl = '';
+            let _savedStaticUrl = '';
+
+            function setAvatarMode(mode) {
+                currentAvatarMode = mode;
+                if (mode === 'url') {
+                    avatarModeUrl.classList.replace('bg-gray-800', 'bg-indigo-600');
+                    avatarModeUrl.classList.replace('text-gray-400', 'text-white');
+                    avatarModeUpload.classList.replace('bg-indigo-600', 'bg-gray-800');
+                    avatarModeUpload.classList.replace('text-white', 'text-gray-400');
+                    avatarUploadInput.classList.add('invisible');
+                    avatarUploadInput.classList.remove('visible');
+                    avatarUrlInput.placeholder = 'Paste image URL (https://...)';
+                    if (_savedExternalUrl) {
+                        avatarUrlInput.value = _savedExternalUrl;
+                        updateAvatarPreview(_savedExternalUrl);
+                    }
+                } else {
+                    avatarModeUpload.classList.replace('bg-gray-800', 'bg-indigo-600');
+                    avatarModeUpload.classList.replace('text-gray-400', 'text-white');
+                    avatarModeUrl.classList.replace('bg-indigo-600', 'bg-gray-800');
+                    avatarModeUrl.classList.replace('text-white', 'text-gray-400');
+                    avatarUploadInput.classList.remove('invisible');
+                    avatarUploadInput.classList.add('visible');
+                    avatarUrlInput.placeholder = 'Paste URL to auto-download, or pick a file below';
+                    const existingUrl = avatarUrlInput.value.trim();
+                    if (existingUrl.startsWith('http')) {
+                        if (existingUrl === _savedExternalUrl && _savedStaticUrl) {
+                            avatarUrlInput.value = _savedStaticUrl;
+                            updateAvatarPreview(_savedStaticUrl);
+                        } else {
+                            _savedExternalUrl = existingUrl;
+                            _savedStaticUrl = '';
+                            mirrorUrl(existingUrl);
+                        }
+                    }
+                }
+            }
+            avatarModeUrl.addEventListener('click', () => setAvatarMode('url'));
+            avatarModeUpload.addEventListener('click', () => setAvatarMode('upload'));
+
+            // Auto-mirror URL to static when in upload mode
+            async function mirrorUrl(url) {
+                _savedExternalUrl = url;
+                const charName = nameInput.value.trim() || 'avatar';
+                const originalUrl = avatarUrlInput.value;
+                avatarUrlInput.value = 'Downloading...';
+                saveBtn.disabled = true;
+                try {
+                    const response = await fetch(`${API_BASE}/mirror_avatar?name=${encodeURIComponent(charName)}&url=${encodeURIComponent(url)}`, { method: 'POST' });
+                    if (!response.ok) { const e = await response.json(); throw new Error(e.detail || 'Download failed.'); }
+                    const result = await response.json();
+                    _savedStaticUrl = result.url;
+                    avatarUrlInput.value = result.url;
+                    updateAvatarPreview(result.url);
+                    showToast('Avatar saved to static!');
+                } catch (error) {
+                    showToast(`Auto-download failed: ${error.message}`, 'error');
+                    avatarUrlInput.value = originalUrl;
+                } finally {
+                    saveBtn.disabled = false;
+                }
+            }
+
+            let _mirrorTimer = null;
+            avatarUrlInput.addEventListener('input', () => {
+                if (currentAvatarMode !== 'upload') return;
+                const url = avatarUrlInput.value.trim();
+                if (!url.startsWith('http')) return;
+                clearTimeout(_mirrorTimer);
+                _mirrorTimer = setTimeout(() => mirrorUrl(url), 800);
+            });
+
             // Avatar upload logic
             async function uploadFile(file) {
                  if (!file) return;

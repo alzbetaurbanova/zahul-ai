@@ -20,6 +20,14 @@ def list_trash():
     return _get_trash_db().list_all()
 
 
+@router.get("/{trash_id}")
+def get_trash_item(trash_id: int):
+    item = _get_trash_db().get(trash_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Trash item not found")
+    return item
+
+
 @router.post("/{trash_id}/restore")
 def restore(trash_id: int):
     trash_db = _get_trash_db()
@@ -36,6 +44,7 @@ def restore(trash_id: int):
         raise HTTPException(status_code=400, detail=str(e))
 
     trash_db.delete(trash_id)
+    db.log_admin('trash.restore', target=f"{item['source_table']}:{trash_id}")
     return restored
 
 

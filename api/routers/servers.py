@@ -42,6 +42,7 @@ async def create_server(server: Server = Body(..., description="Server data to c
             description=server.description,
             instruction=server.instruction
         )
+        db.log_admin('server.create', target=f"{server.server_name} ({server.server_id})")
         return server
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create server: {e}")
@@ -92,7 +93,8 @@ async def delete_server(server_id: str = Path(..., description="The unique ID of
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
     try:
         db.delete_server(server_id)
-        return None # Return empty response for 204
+        db.log_admin('server.delete', target=server_id)
+        return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete server: {e}")
 
@@ -128,7 +130,7 @@ async def create_channel(
             server_name=server["server_name"],
             data=channel_data_dict
         )
-        # Fetch the newly created channel to return the full object
+        db.log_admin('channel.create', target=f"{request.data.name} ({request.channel_id})")
         return db.get_channel(request.channel_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create channel: {e}")
@@ -166,6 +168,7 @@ async def update_channel(
         # Use by_alias=True to correctly handle the 'global' field name
         channel_data_dict = channel_data.model_dump(by_alias=True)
         db.update_channel(channel_id, data=channel_data_dict)
+        db.log_admin('channel.update', target=f"{channel_data.name} ({channel_id})")
         return db.get_channel(channel_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update channel: {e}")
@@ -182,6 +185,7 @@ async def delete_channel(
 
     try:
         db.delete_channel(channel_id)
+        db.log_admin('channel.delete', target=f"{existing_channel.get('data', {}).get('name', channel_id)} ({channel_id})")
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete channel: {e}")

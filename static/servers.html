@@ -389,13 +389,38 @@
                     }
                     channels.forEach(channel => {
                         const li = document.createElement('li');
-                        li.className = 'list-item px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700';
-                        li.textContent = channel.data.name;
+                        li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
                         li.dataset.channelId = channel.channel_id;
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = channel.data.name;
+                        nameSpan.className = 'truncate min-w-0 pr-6';
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        removeBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity';
+                        removeBtn.title = 'Unregister channel';
+                        removeBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            if (!confirm(`Unregister "${channel.data.name}"?`)) return;
+                            try {
+                                const res = await fetch(`${API_BASE}/${currentServer.id}/channels/${channel.channel_id}`, { method: 'DELETE' });
+                                if (!res.ok) throw new Error();
+                                showToast('Channel unregistered.');
+                                if (currentChannel?.channel_id === channel.channel_id) {
+                                    currentChannel = null;
+                                    configPanel.classList.add('hidden');
+                                }
+                                fetchChannels(currentServer.id, currentServer.name);
+                            } catch { showToast('Failed to unregister channel.', 'error'); }
+                        });
+
+                        li.appendChild(nameSpan);
+                        li.appendChild(removeBtn);
                         li.addEventListener('click', () => {
-                             document.querySelectorAll('#channel-list .list-item').forEach(el => el.classList.remove('active'));
+                            document.querySelectorAll('#channel-list .list-item').forEach(el => el.classList.remove('active'));
                             li.classList.add('active');
-                            loadChannelForEdit(channel)
+                            loadChannelForEdit(channel);
                         });
                         channelList.appendChild(li);
                     });

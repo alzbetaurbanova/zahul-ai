@@ -85,6 +85,7 @@ class CharacterData(BaseModel):
     persona: str
     instructions: str
     avatar: Optional[str] = None
+    avatar_source: Optional[str] = None
     about: Optional[str] = None
     temperature: Optional[float] = None
     history_limit: Optional[int] = None
@@ -173,3 +174,4 @@ class Task(BaseModel):
     history_limit: Optional[int] = None
     created_at: str
     next_run: Optional[str] = None
+    error_message: Optional[str] = None
