@@ -144,11 +144,15 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         # If no triggers were found, check for fallbacks (mentions, DMs, etc.)
         if not responding_characters:
             is_mention = message.guild and message.guild.me in message.mentions
-            if (is_dm or is_mention) and bot_config.default_character:
-                char_data = db.get_character(bot_config.default_character)
-                if char_data:
-                    # Create the default character and add it to our list
-                    responding_characters.append(ActiveCharacter(char_data, db))
+            if is_dm or is_mention:
+                channel_default_name = getattr(channel, "default_character", None)
+                selected_default_name = channel_default_name or bot_config.default_character
+                selected_default = db.get_character(selected_default_name) if selected_default_name else None
+                if not selected_default and channel_default_name and bot_config.default_character:
+                    selected_default = db.get_character(bot_config.default_character)
+                if selected_default:
+                    # Create the resolved default character and add it to our list
+                    responding_characters.append(ActiveCharacter(selected_default, db))
 
         if not responding_characters:
             # If still no one to respond, SOMETHING IS WRONG
@@ -171,9 +175,10 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         await asyncio.gather(*generation_tasks)
 
         # --- 4. Final Cleanup ---
+        await asyncio.sleep(1.5)
         try:
             await message.remove_reaction('✨', zahul.user)
-        except discord.NotFound: 
+        except discord.NotFound:
             pass
 
     except Exception as e:
