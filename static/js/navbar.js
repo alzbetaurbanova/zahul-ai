@@ -2,13 +2,13 @@
     const container = document.getElementById('navbar-container');
     container.style.minHeight = '64px';
 
-    const res = await fetch('/static/navbar.html');
+    const res = await fetch('/static/templates/navbar.html');
     const html = await res.text();
     container.style.minHeight = '';
     container.innerHTML = html;
 
     // Mark active link
-    const page = window.activePage || '';
+    const page = document.body.dataset.page || window.activePage || '';
     container.querySelectorAll('[data-page]').forEach(a => {
         if (a.dataset.page === page) {
             a.classList.add('active', 'text-white');
