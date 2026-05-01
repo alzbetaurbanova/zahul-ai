@@ -23,6 +23,7 @@ class ActiveChannel:
         self.description: Optional[str] = data.get('description')
         self.global_note: Optional[str] = data.get('global') 
         self.instruction: Optional[str] = data.get('instruction')
+        self.default_character: Optional[str] = data.get('default_character')
         self.whitelist: List[str] = data.get('whitelist', [])
         self.is_system_channel: bool = data.get('is_system_channel', False)
 
@@ -66,7 +67,8 @@ class ActiveChannel:
                 "name": f"DM with {user_name}",
                 "description": f"Private Direct Message history with {user_name}",
                 "global": None,
-                "instruction": None, 
+                "instruction": None,
+                "default_character": None,
                 "whitelist": [],
                 "is_system_channel": False
             }
@@ -89,6 +91,7 @@ class ActiveChannel:
             "description": self.description,
             "global": self.global_note, 
             "instruction": self.instruction,
+            "default_character": self.default_character,
             "whitelist": self.whitelist,
             "is_system_channel": self.is_system_channel
         }
@@ -102,6 +105,7 @@ class ActiveChannel:
             "description": self.description,
             "global": self.global_note,
             "instruction": self.instruction,
+            "default_character": self.default_character,
             "whitelist": self.whitelist
         }
 
@@ -122,6 +126,10 @@ class ActiveChannel:
 
     def set_instruction(self, instruction: Optional[str]):
         self.instruction = instruction
+        self.save()
+
+    def set_default_character(self, character_name: Optional[str]):
+        self.default_character = character_name
         self.save()
 
     def set_whitelist(self, whitelist: List[str]):

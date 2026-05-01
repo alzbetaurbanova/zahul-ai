@@ -182,6 +182,8 @@
             let botActive = false;
             
     // --- Main Setup ---
+    const _cachedStatus = localStorage.getItem('bot-status');
+    if (_cachedStatus) updateStatus(_cachedStatus);
     checkBotStatus();
     loadServers();
 
@@ -312,7 +314,7 @@
 
     // Update bot status UI
     function updateStatus(status) {
-        // Store current status on the button for easier logic
+        localStorage.setItem('bot-status', status);
         powerBtn.dataset.status = status;
 
         // Reset all classes

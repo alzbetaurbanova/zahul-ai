@@ -36,9 +36,9 @@
         <div class="max-w-7xl mx-auto">
             <h1 class="text-3xl font-bold text-white mb-6">Server & Channel Management</h1>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="flex flex-col lg:flex-row gap-8">
                 <!-- Server List -->
-                <div class="lg:col-span-1">
+                <div class="w-full lg:w-1/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
                     <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-semibold text-white">Servers</h2>
@@ -53,7 +53,7 @@
                 </div>
 
                 <!-- Channel List -->
-                <div class="lg:col-span-1">
+                <div class="w-full lg:w-3/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
                     <div id="channel-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
                         <div class="flex justify-between items-center mb-4">
                             <h2 id="channel-list-title" class="text-xl font-semibold text-white">Channels</h2>
@@ -66,44 +66,82 @@
                         </ul>
                     </div>
                 </div>
-
-                <!-- Channel Config Form -->
-                <div class="lg:col-span-2">
-                    <div id="config-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
-                        <h2 id="form-title" class="text-xl font-semibold text-white mb-6">Channel Configuration</h2>
-                        <form id="channel-form" class="space-y-4">
-                            <div>
-                                <label for="name" class="block mb-2 text-sm font-medium text-gray-300">Channel Name</label>
-                                <input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                            </div>
-                            <div>
-                                <label for="instruction" class="block mb-2 text-sm font-medium text-gray-300">Instruction</label>
-                                <textarea id="instruction" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5"></textarea>
-                            </div>
-                            <div id="whitelist-field">
-                                <label for="whitelist" class="block mb-2 text-sm font-medium text-gray-300">Character Whitelist (comma-separated)</label>
-                                <textarea id="whitelist" rows="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave empty to allow all"></textarea>
-                            </div>
-                            <div id="system-channel-field" class="flex items-center justify-between">
-                                <div>
-                                    <label for="is_system_channel" class="text-sm font-medium text-gray-300">System Channel</label>
-                                    <p class="text-xs text-gray-500">Used for bot uploads and system tasks.</p>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input id="is_system_channel" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
-                            </div>
-                            <div class="flex justify-end pt-4">
-                                <button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg">Save Changes</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
             </div>
+        </div>
+    </main>
 
-            <!-- Server Config Panel — full width below grid, hidden for DM -->
-            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+    <!-- "Add Channel" Modal -->
+    <div id="add-channel-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
+            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
+            <p class="text-gray-400 mb-6">
+                To add a new channel for the bot to use, go to your Discord server and use the following slash command in the desired channel:
+            </p>
+            <div class="bg-gray-800 text-white p-3 rounded-lg font-mono text-left">
+                /zahul register_channel
+            </div>
+            <p class="text-gray-500 text-sm mt-4">
+                This ensures the bot has the correct permissions and context for the channel.
+            </p>
+            <button id="close-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
+                Got it!
+            </button>
+        </div>
+    </div>
+
+    <!-- "Invite Bot" Modal -->
+    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
+            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
+            <p class="text-gray-400 mb-6">Use this link to invite the bot to a new Discord server.</p>
+            <div id="invite-link-container">
+                <p class="text-gray-500 text-sm">Loading invite link...</p>
+            </div>
+            <button id="close-invite-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- "Edit Channel" Modal -->
+    <div id="channel-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-lg shadow-xl p-6 border border-gray-800 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="form-title" class="text-xl font-semibold text-white">Channel Configuration</h2>
+                <button id="close-channel-edit-modal-btn" type="button" class="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close edit modal">&times;</button>
+            </div>
+            <form id="channel-form" class="space-y-4">
+                <div>
+                    <label for="name" class="block mb-2 text-sm font-medium text-gray-300">Channel Name</label>
+                    <input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                </div>
+                <div>
+                    <label for="default-character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
+                    <select id="default-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                        <option value="">Inherit global default</option>
+                    </select>
+                    <p id="default-character-status" class="mt-2 text-xs text-gray-400"></p>
+                </div>
+                <div id="whitelist-field">
+                    <label for="whitelist" class="block mb-2 text-sm font-medium text-gray-300">Character Whitelist (comma-separated)</label>
+                    <textarea id="whitelist" rows="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave empty to allow all"></textarea>
+                </div>
+                <div id="system-channel-field" class="flex items-center justify-between">
+                    <div>
+                        <label for="is_system_channel" class="text-sm font-medium text-gray-300">System Channel</label>
+                        <p class="text-xs text-gray-500">Used for bot uploads and system tasks.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input id="is_system_channel" type="checkbox" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+                <div class="flex justify-end pt-4">
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Save Changes</button>
+                </div>
+            </form>
+
+            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="text-lg font-semibold text-white">Server Overrides</h2>
@@ -169,39 +207,6 @@
                 </form>
             </div>
         </div>
-    </main>
-
-    <!-- "Add Channel" Modal -->
-    <div id="add-channel-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
-            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
-            <p class="text-gray-400 mb-6">
-                To add a new channel for the bot to use, go to your Discord server and use the following slash command in the desired channel:
-            </p>
-            <div class="bg-gray-800 text-white p-3 rounded-lg font-mono text-left">
-                /zahul register_channel
-            </div>
-            <p class="text-gray-500 text-sm mt-4">
-                This ensures the bot has the correct permissions and context for the channel.
-            </p>
-            <button id="close-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
-                Got it!
-            </button>
-        </div>
-    </div>
-
-    <!-- "Invite Bot" Modal -->
-    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
-            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
-            <p class="text-gray-400 mb-6">Use this link to invite the bot to a new Discord server.</p>
-            <div id="invite-link-container">
-                <p class="text-gray-500 text-sm">Loading invite link...</p>
-            </div>
-            <button id="close-invite-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
-                Close
-            </button>
-        </div>
     </div>
 
 
@@ -210,13 +215,16 @@
             const API_BASE = '/api/servers';
             let currentServer = null;
             let currentChannel = null;
+            let availableCharacters = [];
+            let globalDefaultCharacter = '';
 
             // DOM Elements
             const serverList = document.getElementById('server-list');
             const channelPanel = document.getElementById('channel-panel');
             const channelListTitle = document.getElementById('channel-list-title');
             const channelList = document.getElementById('channel-list');
-            const configPanel = document.getElementById('config-panel');
+            const channelEditModal = document.getElementById('channel-edit-modal');
+            const closeChannelEditModalBtn = document.getElementById('close-channel-edit-modal-btn');
             const form = document.getElementById('channel-form');
             const formTitle = document.getElementById('form-title');
             const addChannelBtn = document.getElementById('add-channel-btn');
@@ -227,10 +235,10 @@
             
             // Form fields
             const nameInput = document.getElementById('name');
-            const instructionInput = document.getElementById('instruction');
+            const defaultCharacterInput = document.getElementById('default-character');
+            const defaultCharacterStatus = document.getElementById('default-character-status');
             const whitelistInput = document.getElementById('whitelist');
             const isSystemChannelInput = document.getElementById('is_system_channel');
-            const serverConfigPanel = document.getElementById('server-config-panel');
 
             // --- Server Config ---
             const scToggle = document.getElementById('sc-toggle');
@@ -267,8 +275,64 @@
                 return Object.values(cfg).some(v => v !== null && v !== undefined);
             }
 
+            function populateDefaultCharacterSelector(selectedCharacter = '') {
+                defaultCharacterInput.innerHTML = '';
+                const inheritedLabel = globalDefaultCharacter
+                    ? `Inherit global default (${globalDefaultCharacter})`
+                    : 'Inherit global default (not set)';
+
+                const inheritedOption = document.createElement('option');
+                inheritedOption.value = '';
+                inheritedOption.textContent = inheritedLabel;
+                defaultCharacterInput.appendChild(inheritedOption);
+
+                availableCharacters.forEach((characterName) => {
+                    const option = document.createElement('option');
+                    option.value = characterName;
+                    option.textContent = characterName;
+                    defaultCharacterInput.appendChild(option);
+                });
+
+                defaultCharacterInput.value = selectedCharacter || '';
+                if (selectedCharacter && !availableCharacters.includes(selectedCharacter)) {
+                    defaultCharacterInput.value = '';
+                }
+            }
+
+            function updateDefaultCharacterStatus() {
+                const selected = defaultCharacterInput.value;
+                if (selected) {
+                    defaultCharacterStatus.textContent = `Explicit channel character: ${selected} (priority: channel > global default).`;
+                    defaultCharacterStatus.className = 'mt-2 text-xs text-indigo-300';
+                    return;
+                }
+                const fallback = globalDefaultCharacter || 'None configured';
+                defaultCharacterStatus.textContent = `Inherited from global default: ${fallback} (priority: channel > global default).`;
+                defaultCharacterStatus.className = 'mt-2 text-xs text-gray-400';
+            }
+
+            async function loadCharactersForServer() {
+                try {
+                    const response = await fetch('/api/characters');
+                    const characters = await response.json();
+                    availableCharacters = characters.map(c => c.name).sort((a, b) => a.localeCompare(b));
+                } catch {
+                    availableCharacters = [];
+                    showToast('Failed to load character list.', 'error');
+                }
+            }
+
+            async function loadGlobalDefaultCharacter() {
+                try {
+                    const globalCfg = await fetch('/api/config/').then(r => r.json());
+                    globalDefaultCharacter = globalCfg.default_character || '';
+                } catch {
+                    globalDefaultCharacter = '';
+                    showToast('Failed to load global default character.', 'error');
+                }
+            }
+
             async function loadServerConfig(serverId) {
-                serverConfigPanel.classList.remove('hidden');
                 try {
                     const cfg = await fetch(`${API_BASE}/${serverId}/config`).then(r => r.json());
                     if (hasAnyOverride(cfg)) {
@@ -375,10 +439,10 @@
 
             async function fetchChannels(serverId, serverName) {
                 currentServer = { id: serverId, name: serverName };
-                configPanel.classList.add('hidden');
+                channelEditModal.classList.add('hidden');
                 channelListTitle.textContent = serverName;
                 channelPanel.classList.remove('hidden');
-                loadServerConfig(serverId);
+                await Promise.all([loadGlobalDefaultCharacter(), loadCharactersForServer()]);
                 
                 try {
                     const response = await fetch(`${API_BASE}/${serverId}/channels`);
@@ -409,7 +473,7 @@
                                 showToast('Channel unregistered.');
                                 if (currentChannel?.channel_id === channel.channel_id) {
                                     currentChannel = null;
-                                    configPanel.classList.add('hidden');
+                                    channelEditModal.classList.add('hidden');
                                 }
                                 fetchChannels(currentServer.id, currentServer.name);
                             } catch { showToast('Failed to unregister channel.', 'error'); }
@@ -429,15 +493,17 @@
 
             function loadChannelForEdit(channel) {
                 currentChannel = channel;
-                configPanel.classList.remove('hidden');
+                channelEditModal.classList.remove('hidden');
                 formTitle.textContent = `Editing #${channel.data.name}`;
+                loadServerConfig(currentServer.id);
 
                 const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
                 document.getElementById('whitelist-field').classList.toggle('hidden', isDM);
                 document.getElementById('system-channel-field').classList.toggle('hidden', isDM);
 
                 nameInput.value = channel.data.name || '';
-                instructionInput.value = channel.data.instruction || '';
+                populateDefaultCharacterSelector(channel.data.default_character || '');
+                updateDefaultCharacterStatus();
                 whitelistInput.value = (channel.data.whitelist || []).join(', ');
                 isSystemChannelInput.checked = channel.data.is_system_channel || false;
             }
@@ -449,7 +515,8 @@
                 const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
                 const updatedData = {
                     name: nameInput.value,
-                    instruction: instructionInput.value,
+                    instruction: currentChannel?.data?.instruction || null,
+                    default_character: defaultCharacterInput.value || null,
                     global: null,
                     whitelist: isDM ? [] : whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
                     is_system_channel: isDM ? false : isSystemChannelInput.checked
@@ -465,6 +532,7 @@
                         const error = await response.json();
                         throw new Error(error.detail || 'Failed to save.');
                     }
+                    channelEditModal.classList.add('hidden');
                     showToast(`Channel #${updatedData.name} saved successfully!`);
                     await fetchChannels(currentServer.id, currentServer.name); // Refresh list
                 } catch (error) { showToast(`Error: ${error.message}`, 'error'); }
@@ -508,7 +576,9 @@
             document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
 
             // Form listener
+            defaultCharacterInput.addEventListener('change', updateDefaultCharacterStatus);
             form.addEventListener('submit', handleFormSubmit);
+            closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
 
             // Initial Load
             fetchServers();

@@ -27,3 +27,10 @@ data/token_usage.txt
 
 #Documents
 docs/
+
+# Claude Code
+.claude/
+tasks/
+
+# Cursor agent logs
+global
