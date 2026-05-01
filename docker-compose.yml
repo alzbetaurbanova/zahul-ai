@@ -25,7 +25,6 @@ services:
       - web
 
   caddy:
-    profiles: ["production"]
     image: caddy:2-alpine
     container_name: caddy
     ports:
