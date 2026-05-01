@@ -8,7 +8,7 @@
     container.innerHTML = html;
 
     // Mark active link
-    const page = window.activePage || '';
+    const page = document.body.dataset.page || window.activePage || '';
     container.querySelectorAll('[data-page]').forEach(a => {
         if (a.dataset.page === page) {
             a.classList.add('active', 'text-white');
