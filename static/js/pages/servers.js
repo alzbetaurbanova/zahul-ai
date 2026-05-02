@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentChannel = null;
     let availableCharacters = [];
     let globalDefaultCharacter = '';
-
     // DOM Elements
     const serverList = document.getElementById('server-list');
     const channelPanel = document.getElementById('channel-panel');
@@ -59,7 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function hasAnyOverride(cfg) {
-        return Object.values(cfg).some(v => v !== null && v !== undefined);
+        const aiFields = ['ai_endpoint','base_llm','fallback_llm','temperature','max_tokens',
+                          'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd'];
+        return aiFields.some(f => cfg[f] !== null && cfg[f] !== undefined);
     }
 
     function populateDefaultCharacterSelector(selectedCharacter = '') {
@@ -189,6 +190,26 @@ document.addEventListener('DOMContentLoaded', function() {
             token_limit_tpd: num('sc-token-limit-tpd'),
             use_prefill: (() => { const v = document.getElementById('sc-use-prefill').value; return v !== '' ? v === 'true' : null; })(),
         }).filter(([, v]) => v !== null));
+        if (!isValidHttpUrl(payload.ai_endpoint || '')) {
+            showToast('API Endpoint must be a valid http/https URL.', 'error');
+            return;
+        }
+        const rangeChecks = [
+            ['temperature', 0, 2],
+            ['max_tokens', 64, 4096],
+            ['history_limit', 1, 50],
+            ['auto_cap', 0, Infinity],
+            ['token_limit_tpm', 0, Infinity],
+            ['token_limit_tpd', 0, Infinity],
+        ];
+        for (const [key, min, max] of rangeChecks) {
+            const value = payload[key];
+            if (value == null) continue;
+            if (value < min || value > max) {
+                showToast(`${key} must be between ${min} and ${max === Infinity ? 'infinity' : max}.`, 'error');
+                return;
+            }
+        }
         try {
             const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
             if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
@@ -298,6 +319,10 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleFormSubmit(event) {
         event.preventDefault();
         if (!currentChannel || !currentServer) return;
+        if (!nameInput.value.trim()) {
+            showToast('Channel name cannot be empty.', 'error');
+            return;
+        }
 
         const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
         const updatedData = {
@@ -324,16 +349,6 @@ document.addEventListener('DOMContentLoaded', function() {
             await fetchChannels(currentServer.id, currentServer.name); // Refresh list
         } catch (error) { showToast(`Error: ${error.message}`, 'error'); }
     }
-    
-    function showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-        toast.className = `toast ${bgColor} text-white py-2 px-4 rounded-lg shadow-lg animate-pulse`;
-        toast.textContent = message;
-        toastContainer.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 3000);
-    }
-
     // Channel modal
     addChannelBtn.addEventListener('click', () => addChannelModal.classList.remove('hidden'));
     closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));

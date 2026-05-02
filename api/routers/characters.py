@@ -15,23 +15,40 @@ This file manages the full lifecycle of characters via RESTful endpoints:
 import asyncio
 import os
 import httpx
+from urllib.parse import urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query
 from fastapi.responses import Response
 from typing import List, Annotated
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
+_AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
+_MIRROR_MAX_SIZE_BYTES = 5 * 1024 * 1024
+_ALLOWED_AVATAR_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
+
+
+def _is_http_url(url: str) -> bool:
+    parsed = urlparse(url.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 async def _mirror_avatar(name: str, url: str) -> str:
     """Downloads an external avatar URL and saves it locally. Returns local path or original URL on failure."""
-    if not url or not url.startswith("http"):
+    if not url or not _is_http_url(url):
         return url
     try:
         safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
         os.makedirs(_AVATARS_DIR, exist_ok=True)
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "").split(";")[0].lower()
+        if content_type and content_type not in _ALLOWED_AVATAR_TYPES:
+            return url
+        content_length = resp.headers.get("content-length")
+        if content_length and int(content_length) > _MIRROR_MAX_SIZE_BYTES:
+            return url
+        if len(resp.content) > _MIRROR_MAX_SIZE_BYTES:
+            return url
         file_path = os.path.join(_AVATARS_DIR, f"{safe_name}.png")
         with open(file_path, "wb") as f:
             f.write(resp.content)
@@ -133,10 +150,15 @@ async def save_avatar(
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
     if not image:
         raise HTTPException(status_code=400, detail="No image provided.")
+    content_type = (image.content_type or "").lower()
+    if content_type not in _ALLOWED_AVATAR_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported avatar file type.")
     safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
     os.makedirs(_AVATARS_DIR, exist_ok=True)
     file_path = f"{_AVATARS_DIR}/{safe_name}.png"
     contents = await image.read()
+    if len(contents) > _AVATAR_MAX_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Avatar file too large (max 5MB).")
     with open(file_path, "wb") as f:
         f.write(contents)
     db.log_admin('character.avatar.upload', target=safe_name)
@@ -149,6 +171,8 @@ async def mirror_avatar_endpoint(
     url: str = Query(..., description="Image URL to download")
 ):
     """Downloads an image from a URL, saves it to static/avatars, returns the local path."""
+    if not _is_http_url(url):
+        raise HTTPException(status_code=400, detail="URL must be a valid http/https URL.")
     local_path = await _mirror_avatar(name, url)
     if local_path == url:
         raise HTTPException(status_code=400, detail="Failed to download image from URL.")

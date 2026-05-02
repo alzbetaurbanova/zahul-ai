@@ -13,148 +13,149 @@
 
     <div id="navbar-container"></div>
     <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/pages/scheduler.js" defer></script>
 
     <!-- Main Content -->
     <main class="p-6">
         <div class="max-w-4xl mx-auto">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <h1 class="text-3xl font-bold text-white">Scheduler</h1>
-                <button id="create-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <h1 class="heading-page">Scheduler</h1>
+                <button id="create-btn" class="btn-primary text-sm">
                     <i class="fas fa-plus mr-2"></i>New Task
                 </button>
             </div>
 
             <!-- Filters -->
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 items-end">
+            <div class="filter-panel mb-6">
                 <div class="relative">
-                    <label class="block text-xs text-gray-400 mb-1">Character</label>
+                    <label class="label-xs">Character</label>
                     <input type="text" id="filter-character" autocomplete="off" placeholder="any"
-                        class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-36">
-                    <div id="filter-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
+                        class="input-field w-36">
+                    <div id="filter-character-dd" class="autocomplete-dd hidden"></div>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-400 mb-1">Type</label>
-                    <select id="filter-type" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                    <label class="label-xs">Type</label>
+                    <select id="filter-type" class="input-field">
                         <option value="">All</option>
                         <option value="schedule">Schedule</option>
                         <option value="reminder">Reminder</option>
                     </select>
                 </div>
                 <div class="relative">
-                    <label class="block text-xs text-gray-400 mb-1">Status</label>
-                    <button id="filter-status-btn" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 flex items-center gap-2 min-w-[8rem]">
-                        <span id="filter-status-label">All</span><i class="fas fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+                    <label class="label-xs">Status</label>
+                    <button id="filter-status-btn" class="cb-dd-btn min-w-[8rem]">
+                        <span id="filter-status-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
                     </button>
-                    <div id="filter-status-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[9rem]">
-                        <label id="fs-active-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="active" class="filter-status-cb accent-indigo-500"> Active</label>
-                        <label id="fs-upcoming-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="upcoming" class="filter-status-cb accent-indigo-500"> Upcoming</label>
-                        <label id="fs-done-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="done" class="filter-status-cb accent-indigo-500"> Done</label>
-                        <label id="fs-disabled-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="disabled" class="filter-status-cb accent-indigo-500"> Disabled</label>
-                        <label id="fs-failed-row" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"><input type="checkbox" value="failed" class="filter-status-cb accent-indigo-500"> Failed</label>
+                    <div id="filter-status-dd" class="cb-dd hidden min-w-[9rem]">
+                        <label id="fs-active-row" class="cb-dd-item"><input type="checkbox" value="active" class="filter-status-cb accent-indigo-500"> Active</label>
+                        <label id="fs-upcoming-row" class="cb-dd-item"><input type="checkbox" value="upcoming" class="filter-status-cb accent-indigo-500"> Upcoming</label>
+                        <label id="fs-done-row" class="cb-dd-item"><input type="checkbox" value="done" class="filter-status-cb accent-indigo-500"> Done</label>
+                        <label id="fs-disabled-row" class="cb-dd-item"><input type="checkbox" value="disabled" class="filter-status-cb accent-indigo-500"> Disabled</label>
+                        <label id="fs-failed-row" class="cb-dd-item"><input type="checkbox" value="failed" class="filter-status-cb accent-indigo-500"> Failed</label>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-400 mb-1">From</label>
+                    <label class="label-xs">From</label>
                     <div class="relative">
-                        <input type="date" id="filter-from" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8 w-full">
-                        <button id="clear-from-btn" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn" title="Clear From date">
+                        <input type="date" id="filter-from" class="input-field pr-8">
+                        <button id="clear-from-btn" class="icon-clear-btn" title="Clear From date">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-400 mb-1">To</label>
+                    <label class="label-xs">To</label>
                     <div class="relative">
-                        <input type="date" id="filter-to" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 pr-8 w-full">
-                        <button id="clear-to-btn" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 text-xs icon-clear-btn" title="Clear To date">
+                        <input type="date" id="filter-to" class="input-field pr-8">
+                        <button id="clear-to-btn" class="icon-clear-btn" title="Clear To date">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
-                <button id="clear-filter-btn" class="ml-auto text-gray-400 hover:text-white text-sm self-end">Clear filters</button>
+                <button id="clear-filter-btn" class="btn-clear-filter">Clear filters</button>
             </div>
 
             <!-- Task List -->
             <div id="task-list" class="space-y-3">
-                <div class="text-gray-500 text-center py-12">Loading...</div>
+                <div class="text-muted text-center py-12">Loading...</div>
             </div>
 
             <!-- Pagination -->
-            <div id="pagination" class="flex items-center justify-between mt-6 text-sm text-gray-400">
+            <div id="pagination" class="pagination-bar">
                 <div class="flex items-center gap-2">
                     <span id="pagination-info"></span>
-                    <select id="page-size-select" class="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 ml-3">
+                    <select id="page-size-select" class="select-sm ml-3">
                         <option value="10">10</option>
                         <option value="25" selected>25</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
-                    <span class="text-xs text-gray-500">/ page</span>
+                    <span class="text-hint">/ page</span>
                 </div>
                 <div class="flex gap-2">
-                    <button id="prev-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-40" disabled>← Prev</button>
-                    <button id="next-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg disabled:opacity-40">Next →</button>
+                    <button id="prev-btn" class="btn-page" disabled>← Prev</button>
+                    <button id="next-btn" class="btn-page">Next →</button>
                 </div>
             </div>
         </div>
     </main>
 
     <!-- Detail Modal -->
-    <div id="detail-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4">
-        <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-md">
-            <div class="flex items-center justify-between p-5 border-b border-gray-800">
+    <div id="detail-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
                 <div class="flex items-center gap-3">
                     <div id="detail-avatar"></div>
                     <div>
                         <div class="flex items-center gap-2 mb-0.5" id="detail-badges"></div>
-                        <h2 id="detail-name" class="text-white font-bold text-lg leading-tight"></h2>
+                        <h2 id="detail-name" class="heading-section leading-tight"></h2>
                     </div>
                 </div>
-                <button id="detail-close" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+                <button id="detail-close" class="btn-icon"><i class="fas fa-times"></i></button>
             </div>
             <div class="p-5 space-y-3 text-sm">
-                <div class="flex justify-between text-gray-400"><span>Character</span><span id="detail-character" class="text-white"></span></div>
-                <div class="flex justify-between text-gray-400"><span>Target</span><span id="detail-target" class="text-white"></span></div>
-                <div class="flex justify-between text-gray-400"><span>Status</span><span id="detail-status" class="flex items-center gap-2 flex-wrap justify-end"></span></div>
-                <div id="detail-time-row" class="flex justify-between text-gray-400"><span>Time</span><span id="detail-time" class="text-white"></span></div>
-                <div id="detail-repeat-row" class="flex justify-between text-gray-400"><span>Repeat</span><span id="detail-repeat" class="text-white"></span></div>
-                <div id="detail-next-run-row" class="hidden flex justify-between text-gray-400"><span>Next run</span><span id="detail-next-run" class="text-indigo-300 font-medium"></span></div>
+                <div class="detail-row"><span>Character</span><span id="detail-character" class="text-white"></span></div>
+                <div class="detail-row"><span>Target</span><span id="detail-target" class="text-white"></span></div>
+                <div class="detail-row"><span>Status</span><span id="detail-status" class="flex items-center gap-2 flex-wrap justify-end"></span></div>
+                <div id="detail-time-row" class="detail-row"><span>Time</span><span id="detail-time" class="text-white"></span></div>
+                <div id="detail-repeat-row" class="detail-row"><span>Repeat</span><span id="detail-repeat" class="text-white"></span></div>
+                <div id="detail-next-run-row" class="hidden detail-row"><span>Next run</span><span id="detail-next-run" class="text-indigo-300 font-medium"></span></div>
                 <div id="detail-instructions-row" class="pt-1">
-                    <p class="text-gray-400 mb-1">Instructions</p>
-                    <p id="detail-instructions" class="text-gray-300 whitespace-pre-wrap break-words bg-gray-800 rounded-lg p-3 text-xs"></p>
+                    <p class="text-dim mb-1">Instructions</p>
+                    <p id="detail-instructions" class="instructions-display"></p>
                 </div>
             </div>
             <div class="flex items-center justify-between p-5 border-t border-gray-800">
-                <button id="detail-delete" class="text-red-400 hover:text-red-300 text-sm flex items-center gap-1"><i class="fas fa-trash"></i> Delete</button>
+                <button id="detail-delete" class="btn-delete"><i class="fas fa-trash"></i> Delete</button>
                 <div class="flex gap-2">
-                    <button id="detail-toggle" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg"></button>
-                    <button id="detail-edit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg"><i class="fas fa-pen mr-1"></i>Edit</button>
+                    <button id="detail-toggle" class="btn-gray-sm"></button>
+                    <button id="detail-edit" class="btn-primary-sm"><i class="fas fa-pen mr-1"></i>Edit</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Create / Edit Modal -->
-    <div id="modal" class="hidden fixed inset-0 modal-backdrop flex items-start justify-center z-50 p-4 pt-16">
-        <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between p-6 border-b border-gray-800">
-                <h2 id="modal-title" class="text-xl font-bold text-white">New Task</h2>
-                <button id="modal-close" class="text-gray-500 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+    <div id="modal" class="modal-backdrop-top hidden">
+        <div class="modal-box modal-md max-h-[90vh] overflow-y-auto">
+            <div class="modal-header p-6">
+                <h2 id="modal-title" class="heading-card">New Task</h2>
+                <button id="modal-close" class="btn-icon"><i class="fas fa-times"></i></button>
             </div>
             <form id="task-form" class="p-6 space-y-4">
                 <input type="hidden" id="task-id">
 
                 <!-- Type -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                    <label class="label-form">Type</label>
                     <div class="flex gap-2">
                         <button type="button" data-type="reminder" id="type-reminder"
-                            class="type-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-amber-600 border-amber-500 text-white">
+                            class="type-btn flex-1 tab-amber-on">
                             <i class="fas fa-bell mr-1"></i> Reminder
                         </button>
                         <button type="button" data-type="schedule" id="type-schedule"
-                            class="type-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white">
+                            class="type-btn flex-1 tab-off">
                             <i class="fas fa-rotate mr-1"></i> Schedule
                         </button>
                     </div>
@@ -163,43 +164,42 @@
 
                 <!-- Name (schedules only) -->
                 <div id="name-field">
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
-                    <input type="text" id="f-name" placeholder="Task label..." class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                    <label class="label-form">Name</label>
+                    <input type="text" id="f-name" minlength="3" placeholder="Task label..." class="input-field">
                 </div>
 
                 <!-- Character + History toggle -->
                 <div class="flex items-start gap-3">
                     <div id="char-col" class="w-full transition-all">
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Character</label>
+                        <label class="label-form">Character</label>
                         <div class="relative">
-                            <input type="text" id="f-character" autocomplete="off" placeholder="Select character..."
-                                class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                            <div id="f-character-dd" class="hidden absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto min-w-full"></div>
+                            <input type="text" id="f-character" autocomplete="off" required placeholder="Select character..."
+                                class="input-field">
+                            <div id="f-character-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>
                     <div id="history-limit-row" class="hidden flex-col shrink-0 ml-auto">
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Message history</label>
+                        <label class="label-form">Message history</label>
                         <div class="flex items-center gap-4">
-                            <button type="button" id="history-toggle" aria-pressed="false"
-                                class="relative w-12 h-6 rounded-full bg-gray-600 transition-colors focus:outline-none shrink-0">
-                                <span id="history-thumb" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"></span>
+                            <button type="button" id="history-toggle" aria-pressed="false">
+                                <span id="history-thumb"></span>
                             </button>
                             <input type="number" id="f-history-limit" min="0" disabled
-                                class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-20 disabled:opacity-40 disabled:cursor-not-allowed">
+                                class="input-field w-20 disabled:opacity-40 disabled:cursor-not-allowed">
                         </div>
                     </div>
                 </div>
 
                 <!-- Target -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Target Type</label>
+                    <label class="label-form">Target Type</label>
                     <div class="flex gap-2">
                         <button type="button" data-target="channel" id="ttype-channel"
-                            class="ttype-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-indigo-600 border-indigo-500 text-white">
+                            class="ttype-btn flex-1 tab-indigo-on">
                             <i class="fas fa-hashtag mr-1"></i> Channel
                         </button>
                         <button type="button" data-target="dm" id="ttype-dm"
-                            class="ttype-btn flex-1 py-2 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white">
+                            class="ttype-btn flex-1 tab-off">
                             <i class="fas fa-user mr-1"></i> DM
                         </button>
                     </div>
@@ -208,81 +208,75 @@
 
                 <!-- Channel combobox -->
                 <div id="target-channel-fields">
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Channel</label>
+                    <label class="label-form">Channel</label>
                     <div class="relative">
-                        <input type="text" id="f-channel-input" autocomplete="off" placeholder="Type to search or paste ID..."
-                            class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                        <div id="f-channel-dropdown" class="hidden absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"></div>
+                        <input type="text" id="f-channel-input" autocomplete="off" required placeholder="Type to search or paste ID..."
+                            class="input-field">
+                        <div id="f-channel-dropdown" class="picker-dd hidden"></div>
                     </div>
                 </div>
 
                 <!-- DM combobox -->
                 <div id="target-dm-fields" class="hidden">
-                    <label class="block text-sm font-medium text-gray-300 mb-1">User</label>
+                    <label class="label-form">User</label>
                     <div class="relative">
-                        <input type="text" id="f-dm-input" autocomplete="off" placeholder="Type to search or paste ID..."
-                            class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
-                        <div id="f-dm-dropdown" class="hidden absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"></div>
+                        <input type="text" id="f-dm-input" autocomplete="off" required placeholder="Type to search or paste ID..."
+                            class="input-field">
+                        <div id="f-dm-dropdown" class="picker-dd hidden"></div>
                     </div>
                 </div>
 
                 <!-- Message mode + instructions -->
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label id="instructions-label" class="text-sm font-medium text-gray-300">Message Text</label>
+                    <div class="flex-between mb-2">
+                        <label id="instructions-label" class="label-inline">Message Text</label>
                         <div id="mode-toggle" class="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
                             <button type="button" data-mode="exact" id="mode-exact"
-                                class="mode-btn px-3 py-1 rounded-md text-xs font-medium transition-colors bg-indigo-600 text-white">
+                                class="mode-btn mode-tab-on">
                                 Exact
                             </button>
                             <button type="button" data-mode="generate" id="mode-generate"
-                                class="mode-btn px-3 py-1 rounded-md text-xs font-medium transition-colors text-gray-400 hover:text-white">
+                                class="mode-btn mode-tab-off">
                                 Generate
                             </button>
                         </div>
                     </div>
                     <input type="hidden" id="f-message-mode" value="exact">
-                    <textarea id="f-instructions" rows="3" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 resize-none"
+                    <textarea id="f-instructions" rows="3" class="input-field resize-none"
                         placeholder="What the character will say..."></textarea>
                 </div>
 
                 <!-- Reminder fields -->
                 <div id="reminder-fields">
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Date & Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
-                    <input type="datetime-local" id="f-scheduled-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                    <label class="label-form">Date & Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
+                    <input type="datetime-local" id="f-scheduled-time" class="input-field">
                 </div>
 
                 <!-- Schedule fields -->
                 <div id="schedule-fields" class="hidden space-y-4">
-                    <!-- Repeat Type (narrow) -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-1">Repeat Type</label>
-                        <select id="f-repeat-type" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-44">
+                        <label class="label-form">Repeat Type</label>
+                        <select id="f-repeat-type" class="input-field w-44">
                             <option value="daily">Daily</option>
                             <option value="weekly" selected>Weekly</option>
                             <option value="monthly">Monthly</option>
                             <option value="yearly">Yearly</option>
                         </select>
                     </div>
-                    <!-- Pattern + Time side by side -->
                     <div class="flex gap-4 items-start mb-4">
-                        <!-- Left: dynamic pattern fields -->
                         <div class="flex-1">
-                            <!-- Weekly -->
                             <div id="rp-weekly">
-                                <label class="block text-sm font-medium text-gray-300 mb-2">Repeat Days</label>
+                                <label class="label-form">Repeat Days</label>
                                 <div class="flex flex-wrap gap-2" id="day-checkboxes"></div>
                             </div>
-                            <!-- Monthly -->
                             <div id="rp-monthly" class="hidden">
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Day of Month</label>
-                                <input type="number" id="f-repeat-month-day" min="1" max="31" value="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-24">
+                                <label class="label-form">Day of Month</label>
+                                <input type="number" id="f-repeat-month-day" min="1" max="31" value="1" class="input-field w-24">
                             </div>
-                            <!-- Yearly -->
                             <div id="rp-yearly" class="hidden flex gap-3">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1">Month</label>
-                                    <select id="f-repeat-year-month" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5">
+                                    <label class="label-form">Month</label>
+                                    <select id="f-repeat-year-month" class="input-field">
                                         <option value="1">January</option><option value="2">February</option><option value="3">March</option>
                                         <option value="4">April</option><option value="5">May</option><option value="6">June</option>
                                         <option value="7">July</option><option value="8">August</option><option value="9">September</option>
@@ -290,27 +284,25 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-300 mb-1">Day</label>
-                                    <input type="number" id="f-repeat-year-day" min="1" max="31" value="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-20">
+                                    <label class="label-form">Day</label>
+                                    <input type="number" id="f-repeat-year-day" min="1" max="31" value="1" class="input-field w-20">
                                 </div>
                             </div>
-                            <!-- Daily: no extra fields -->
                             <div id="rp-daily" class="hidden">
                                 <p class="text-sm text-gray-500">Fires every day at the selected time.</p>
                             </div>
                         </div>
-                        <!-- Right: Time -->
                         <div class="flex-shrink-0">
-                            <label class="block text-sm font-medium text-gray-300 mb-1">Time <span class="text-xs text-gray-400 font-normal">(SK)</span></label>
-                            <input type="time" id="f-repeat-time" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2.5 w-36">
+                            <label class="label-form">Time <span class="text-xs text-gray-400 font-normal">(SK)</span></label>
+                            <input type="time" id="f-repeat-time" class="input-field w-36">
                         </div>
                     </div>
                 </div>
 
                 <!-- Status (edit only) -->
                 <div id="status-field" class="hidden">
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
-                    <select id="f-status" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                    <label class="label-form">Status</label>
+                    <select id="f-status" class="input-field">
                         <option value="upcoming">Upcoming</option>
                         <option value="active">Active</option>
                         <option value="done">Done</option>
@@ -319,13 +311,13 @@
                 </div>
 
                 <div class="flex justify-end gap-3 pt-2">
-                    <button type="button" id="modal-cancel" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">Cancel</button>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg text-sm">Save</button>
+                    <button type="button" id="modal-cancel" class="btn-gray text-sm">Cancel</button>
+                    <button type="submit" class="btn-primary px-6 text-sm">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    
+
 </body>
 </html>

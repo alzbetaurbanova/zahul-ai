@@ -7,65 +7,36 @@
     <title>zahul-ai - Characters</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #6366f1; --primary-dark: #4f46e5; --dark: #1e293b;
-            --darker: #0f172a; --light: #f8fafc;
-        }
-        body { background-color: var(--darker); color: var(--light); font-family: 'Inter', sans-serif; }
-        .nav-link:hover { background-color: rgba(99, 102, 241, 0.1); }
-        .nav-link.active { border-bottom: 2px solid var(--primary); }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); }
-        #name:read-only {
-            background-color: #334155 !important;
-            cursor: not-allowed;
-        }
-        .modal { transition: opacity 0.3s ease; }
-        .modal-content { max-height: 90vh; }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-        .status-inactive { background-color: #ef4444; }
-        .status-starting { background-color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        #avatar-upload {
-            color: #cbd5e1; background: transparent; font-size: 0.9rem; cursor: pointer;
-        }
-        #avatar-upload::file-selector-button {
-            background: #1f2937; color: #e2e8f0; border: 1px solid #374151; padding: 0.5rem 1rem;
-            border-radius: 0.5rem; font-weight: 600; transition: background 0.2s, border-color 0.2s; cursor: pointer;
-        }
-        #avatar-upload::file-selector-button:hover { background: #2d3748; border-color: #4b5563; }
-        #avatar-upload::file-selector-button:active { background: #4f46e5; border-color: #4f46e5; color: white; }
-
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body class="bg-darker text-light" data-page="characters">
     <div id="toast-container" class="toast z-50"></div>
 
     <div id="navbar-container"></div>
     <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/pages/characters.js" defer></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6 sm:p-8">
         <div class="max-w-7xl mx-auto">
-            <h1 class="text-3xl font-bold text-white mb-6">Character Management</h1>
+            <h1 class="heading-page mb-6">Character Management</h1>
             <div class="flex items-center gap-3 mb-8">
-                <button id="new-char-btn" class="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-dashed border-gray-600 rounded-lg text-sm text-gray-300 hover:border-primary hover:text-primary transition-colors cursor-pointer">
+                <button id="new-char-btn" class="btn-dashed">
                     <i class="fas fa-plus"></i> New Character
                 </button>
-                <button id="import-card-btn" class="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-dashed border-gray-600 rounded-lg text-sm text-gray-300 hover:border-primary hover:text-primary transition-colors cursor-pointer">
+                <button id="import-card-btn" class="btn-dashed">
                     <i class="fas fa-upload"></i> Import Card
                 </button>
                 <div class="flex items-center gap-2 ml-auto">
-                    <label for="server-filter" class="text-sm text-gray-400 whitespace-nowrap">Filter by server:</label>
-                    <select id="server-filter" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <label for="server-filter" class="label-filter">Filter by server:</label>
+                    <select id="server-filter" class="input-field">
                         <option value="all">All</option>
                     </select>
                 </div>
             </div>
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                <p class="text-gray-400 col-span-full">Loading characters...</p>
+                <p class="text-dim col-span-full">Loading characters...</p>
             </div>
         </div>
     </main>
@@ -75,23 +46,23 @@
 
     <!-- Import Info Modal -->
     <div id="import-info-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
-        <div class="bg-gray-900 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
-            <div class="border-b border-gray-800 p-5 flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-white"><i class="fas fa-upload mr-2 text-indigo-400"></i>Import Character Card</h2>
-                <button id="import-info-close" class="text-gray-400 hover:text-white transition"><i class="fas fa-times fa-lg"></i></button>
+        <div class="modal-box modal-md">
+            <div class="modal-header p-5">
+                <h2 class="heading-section"><i class="fas fa-upload mr-2 text-indigo-400"></i>Import Character Card</h2>
+                <button id="import-info-close" class="btn-icon"><i class="fas fa-times fa-lg"></i></button>
             </div>
             <div class="p-5 space-y-4 text-sm">
                 <div>
-                    <p class="text-gray-400 font-medium mb-2">Supported formats</p>
+                    <p class="label-muted">Supported formats</p>
                     <div class="space-y-1">
-                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.png</span><span class="text-gray-300">SillyTavern / TavernAI character card (metadata embedded in PNG)</span></div>
-                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.json</span><span class="text-gray-300">Native format (below) or Pygmalion / TavernAI JSON export</span></div>
-                        <div class="flex items-start gap-2"><span class="text-indigo-400 font-mono text-xs bg-gray-800 px-2 py-0.5 rounded mt-0.5">.jsonc</span><span class="text-gray-300">JSON with comments — same as .json but supports <code class="text-gray-400">//</code> annotations</span></div>
+                        <div class="flex items-start gap-2"><span class="badge-code mt-0.5">.png</span><span class="text-secondary">SillyTavern / TavernAI character card (metadata embedded in PNG)</span></div>
+                        <div class="flex items-start gap-2"><span class="badge-code mt-0.5">.json</span><span class="text-secondary">Native format (below) or Pygmalion / TavernAI JSON export</span></div>
+                        <div class="flex items-start gap-2"><span class="badge-code mt-0.5">.jsonc</span><span class="text-secondary">JSON with comments — same as .json but supports <code class="code-inline">//</code> annotations</span></div>
                     </div>
                 </div>
                 <div>
-                    <p class="text-gray-400 font-medium mb-2">Native JSON template</p>
-                    <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300 overflow-x-auto leading-relaxed">{
+                    <p class="label-muted">Native JSON template</p>
+                    <pre class="code-block">{
   "name": "CharacterName",
   "data": {
     "persona": "Character description...",
@@ -105,82 +76,82 @@
   "triggers": ["trigger1", "trigger2"]
 }</pre>
                 </div>
-                <p class="text-gray-500 text-xs">Leave <code class="text-gray-400">temperature</code>, <code class="text-gray-400">history_limit</code>, <code class="text-gray-400">max_tokens</code> as <code class="text-gray-400">null</code> to use global config values. Triggers can be added after import.</p>
+                <p class="text-hint">Leave <code class="code-inline">temperature</code>, <code class="code-inline">history_limit</code>, <code class="code-inline">max_tokens</code> as <code class="code-inline">null</code> to use global config values. Triggers can be added after import.</p>
             </div>
-            <div class="border-t border-gray-800 p-5 flex gap-3 justify-end">
-                <button id="import-template-download" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-lg transition-colors"><i class="fas fa-download mr-2"></i>Download Template</button>
-                <button id="import-info-proceed" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"><i class="fas fa-folder-open mr-2"></i>Choose File</button>
+            <div class="modal-footer">
+                <button id="import-template-download" class="btn-gray text-sm"><i class="fas fa-download mr-2"></i>Download Template</button>
+                <button id="import-info-proceed" class="btn-primary text-sm"><i class="fas fa-folder-open mr-2"></i>Choose File</button>
             </div>
         </div>
     </div>
 
     <!-- Character Edit/Create Modal -->
     <div id="character-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-40 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-900 rounded-lg shadow-2xl w-full max-w-3xl overflow-y-auto border border-gray-700">
-            <div class="sticky top-0 bg-gray-900 border-b border-gray-800 p-6 z-10 flex justify-between items-center">
-                <h2 id="form-title" class="text-xl font-semibold text-white">Select or Create a Character</h2>
-                <button id="modal-close-btn" class="text-gray-400 hover:text-white transition"><i class="fas fa-times fa-lg"></i></button>
+        <div class="modal-content modal-box modal-lg overflow-y-auto">
+            <div class="modal-header p-6 sticky top-0 bg-gray-900 z-10">
+                <h2 id="form-title" class="heading-card">Select or Create a Character</h2>
+                <button id="modal-close-btn" class="btn-icon"><i class="fas fa-times fa-lg"></i></button>
             </div>
             
-            <form id="character-form" class="space-y-6 p-6">
+            <form id="character-form">
                 <!-- Name, Persona, Examples, Instructions (Unchanged) -->
-                <div><label for="name" class="block mb-2 text-sm font-medium text-gray-300">Name</label><input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" required></div>
+                <div><label for="name" class="label-form">Name</label><input type="text" id="name" class="input-field" required></div>
 
                 <!-- Per-character overrides -->
                 <div class="grid grid-cols-3 gap-3">
-                    <div><label for="temperature" class="block mb-2 text-sm font-medium text-gray-300">Temperature <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="temperature" min="0" max="2" step="0.1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 0.7"></div>
-                    <div><label for="char-history-limit" class="block mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="char-history-limit" min="1" max="50" step="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 10"></div>
-                    <div><label for="char-max-tokens" class="block mb-2 text-sm font-medium text-gray-300">Max Tokens <span class="text-gray-500 text-xs">(empty = global)</span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="e.g. 256"></div>
+                    <div><label for="temperature" class="label-form">Temperature <span class="text-hint">(empty = global)</span></label><input type="number" id="temperature" min="0" max="2" step="0.1" class="input-field" placeholder="e.g. 0.7"></div>
+                    <div><label for="char-history-limit" class="label-form">History Limit <span class="text-hint">(empty = global)</span></label><input type="number" id="char-history-limit" min="1" max="50" step="1" class="input-field" placeholder="e.g. 10"></div>
+                    <div><label for="char-max-tokens" class="label-form">Max Tokens <span class="text-hint">(empty = global)</span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="input-field" placeholder="e.g. 256"></div>
                 </div>
 
-                <div><label for="persona" class="block mb-2 text-sm font-medium text-gray-300">Persona</label><textarea id="persona" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
-                <div><label for="instructions" class="block mb-2 text-sm font-medium text-gray-300">Instructions</label><textarea id="instructions" rows="4" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></textarea></div>
+                <div><label for="persona" class="label-form">Persona</label><textarea id="persona" rows="4" minlength="3" class="input-field"></textarea></div>
+                <div><label for="instructions" class="label-form">Instructions</label><textarea id="instructions" rows="4" minlength="3" class="input-field"></textarea></div>
 
                 <!-- Avatar -->
                 <div>
                     <div class="flex items-center gap-2 mb-5">
-                        <label class="text-sm font-medium text-gray-300">Avatar</label>
+                        <label class="label-inline">Avatar</label>
                         <div class="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
-                            <button type="button" id="avatar-mode-url" class="px-3 py-0.5 bg-indigo-600 text-white transition-colors">External URL</button>
-                            <button type="button" id="avatar-mode-upload" class="px-3 py-0.5 bg-gray-800 text-gray-400 hover:text-white transition-colors">Upload (static)</button>
+                            <button type="button" id="avatar-mode-url" class="mode-tab mode-tab-on">External URL</button>
+                            <button type="button" id="avatar-mode-upload" class="mode-tab mode-tab-off">Upload (static)</button>
                         </div>
                         <div class="relative group">
-                            <i class="fas fa-circle-info text-gray-500 hover:text-gray-300 cursor-help text-sm"></i>
-                            <div class="absolute left-0 bottom-6 w-64 bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 hidden group-hover:block z-50 shadow-xl">
-                                <p class="font-semibold text-white mb-1">External URL</p>
-                                <p class="mb-2 text-gray-400">URL is stored as-is - image is not downloaded.</p>
-                                <p class="font-semibold text-white mb-1">Upload (static)</p>
-                                <p class="text-gray-400">Pick a file or paste a URL - the image is downloaded and saved to <code class="text-indigo-300">static/avatars</code>.</p>
+                            <i class="fas fa-circle-info icon-info"></i>
+                            <div class="tooltip-popup hidden group-hover:block">
+                                <p class="tooltip-title">External URL</p>
+                                <p class="tooltip-text mb-2">URL is stored as-is - image is not downloaded.</p>
+                                <p class="tooltip-title">Upload (static)</p>
+                                <p class="tooltip-text">Pick a file or paste a URL - the image is downloaded and saved to <code class="text-indigo-300">static/avatars</code>.</p>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-4 mb-8">
-                        <img id="avatar-preview" src="" alt="" class="w-24 h-24 rounded-lg object-cover bg-gray-800 flex-shrink-0">
+                        <img id="avatar-preview" src="" alt="" class="avatar-img w-24 h-24">
                         <div class="flex-grow space-y-2">
-                            <input type="text" id="avatar-url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Paste image URL (https://...)">
+                            <input type="url" id="avatar-url" class="input-field" placeholder="Paste image URL (https://...)">
                             <div class="flex items-center gap-3">
-                                <input id="avatar-upload" type="file" accept="image/*" class="invisible text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark cursor-pointer">
-                                <a href="/editor" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap ml-auto"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
+                                <input id="avatar-upload" type="file" accept="image/*" class="invisible">
+                                <a href="/editor" target="_blank" class="link-indigo-sm ml-auto"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Info -->
-                <div><label for="about" class="block mb-2 text-sm font-medium text-gray-300">About</label><input type="text" id="about" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"></div>
+                <div><label for="about" class="label-form">About</label><input type="text" id="about" class="input-field"></div>
 
                 <!-- NEW: Triggers -->
                 <div>
-                    <label for="triggers" class="block mb-2 text-sm font-medium text-gray-300">Triggers</label>
-                    <input type="text" id="triggers" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Comma-separated, e.g., hello, hey bot, respond">
+                    <label for="triggers" class="label-form">Triggers</label>
+                    <input type="text" id="triggers" class="input-field" placeholder="Comma-separated, e.g., hello, hey bot, respond">
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="flex justify-between pt-4">
-                    <button type="button" id="export-btn" class="hidden bg-transparent border border-gray-600 hover:bg-gray-700 hover:border-gray-500 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Export JSON</button>
+                    <button type="button" id="export-btn" class="hidden btn-ghost">Export JSON</button>
                     <div class="flex space-x-4 ml-auto">
-                        <button type="button" id="delete-btn" class="hidden bg-transparent border border-gray-600 hover:bg-red-600 hover:border-red-600 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">Delete</button>
-                        <button type="submit" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Create Character</button>
+                        <button type="button" id="delete-btn" class="hidden btn-danger">Delete</button>
+                        <button type="submit" id="save-btn" class="btn-green">Create Character</button>
                     </div>
                 </div>
             </form>

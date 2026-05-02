@@ -14,39 +14,40 @@
     
     <div id="navbar-container"></div>
     <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/pages/servers.js" defer></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6">
         <div class="max-w-7xl mx-auto">
-            <h1 class="text-3xl font-bold text-white mb-6">Server & Channel Management</h1>
+            <h1 class="heading-page mb-6">Server & Channel Management</h1>
 
             <div class="flex flex-col lg:flex-row gap-8">
                 <!-- Server List -->
                 <div class="w-full lg:w-1/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
-                    <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
+                    <div class="card-dark">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-semibold text-white">Servers</h2>
-                            <button id="add-server-btn" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-lg text-sm">
+                            <h2 class="heading-card">Servers</h2>
+                            <button id="add-server-btn" class="btn-primary-sm">
                                 <i class="fas fa-plus mr-1"></i> Add
                             </button>
                         </div>
-                        <ul id="server-list" class="space-y-2 max-h-[60vh] overflow-y-auto">
-                            <li class="text-gray-400">Loading servers...</li>
+                        <ul id="server-list" class="sidebar-list max-h-[60vh]">
+                            <li class="text-dim">Loading servers...</li>
                         </ul>
                     </div>
                 </div>
 
                 <!-- Channel List -->
                 <div class="w-full lg:w-3/4 overflow-y-auto max-h-[calc(100vh-8rem)]">
-                    <div id="channel-panel" class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 hidden">
+                    <div id="channel-panel" class="card-dark hidden">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 id="channel-list-title" class="text-xl font-semibold text-white">Channels</h2>
-                            <button id="add-channel-btn" class="bg-primary hover:bg-primary-dark text-white px-3 py-1 rounded-lg text-sm">
+                            <h2 id="channel-list-title" class="heading-card">Channels</h2>
+                            <button id="add-channel-btn" class="btn-primary-sm">
                                 <i class="fas fa-plus mr-1"></i> Add
                             </button>
                         </div>
-                        <ul id="channel-list" class="space-y-2 max-h-[60vh] overflow-y-auto">
+                        <ul id="channel-list" class="sidebar-list max-h-[60vh]">
                             <!-- JS will populate this -->
                         </ul>
                     </div>
@@ -56,83 +57,83 @@
     </main>
 
     <!-- "Add Channel" Modal -->
-    <div id="add-channel-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
-            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
-            <p class="text-gray-400 mb-6">
+    <div id="add-channel-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm p-8 text-center">
+            <h3 class="modal-heading"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
+            <p class="text-dim mb-6">
                 To add a new channel for the bot to use, go to your Discord server and use the following slash command in the desired channel:
             </p>
-            <div class="bg-gray-800 text-white p-3 rounded-lg font-mono text-left">
+            <div class="code-block">
                 /zahul register_channel
             </div>
-            <p class="text-gray-500 text-sm mt-4">
+            <p class="text-hint mt-4">
                 This ensures the bot has the correct permissions and context for the channel.
             </p>
-            <button id="close-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
+            <button id="close-modal-btn" class="btn-primary mt-8 px-6">
                 Got it!
             </button>
         </div>
     </div>
 
     <!-- "Invite Bot" Modal -->
-    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-8 border border-gray-800 max-w-lg text-center">
-            <h3 class="text-2xl font-bold text-white mb-4"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
-            <p class="text-gray-400 mb-6">Use this link to invite the bot to a new Discord server.</p>
+    <div id="invite-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm p-8 text-center">
+            <h3 class="modal-heading"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
+            <p class="text-dim mb-6">Use this link to invite the bot to a new Discord server.</p>
             <div id="invite-link-container">
-                <p class="text-gray-500 text-sm">Loading invite link...</p>
+                <p class="text-muted">Loading invite link...</p>
             </div>
-            <button id="close-invite-modal-btn" class="mt-8 bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-lg">
+            <button id="close-invite-modal-btn" class="btn-primary mt-8 px-6">
                 Close
             </button>
         </div>
     </div>
 
     <!-- "Edit Channel" Modal -->
-    <div id="channel-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-gray-900 rounded-lg shadow-xl p-6 border border-gray-800 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-6">
-                <h2 id="form-title" class="text-xl font-semibold text-white">Channel Configuration</h2>
-                <button id="close-channel-edit-modal-btn" type="button" class="text-gray-400 hover:text-white text-xl leading-none" aria-label="Close edit modal">&times;</button>
+    <div id="channel-edit-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-lg p-6 mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex-between mb-6">
+                <h2 id="form-title" class="heading-card">Channel Configuration</h2>
+                <button id="close-channel-edit-modal-btn" type="button" class="btn-icon" aria-label="Close edit modal">&times;</button>
             </div>
             <form id="channel-form" class="space-y-4">
                 <div>
-                    <label for="name" class="block mb-2 text-sm font-medium text-gray-300">Channel Name</label>
-                    <input type="text" id="name" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                    <label for="name" class="label-form">Channel Name</label>
+                    <input type="text" id="name" class="input-field">
                 </div>
                 <div>
-                    <label for="default-character" class="block mb-2 text-sm font-medium text-gray-300">Default Character</label>
-                    <select id="default-character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                    <label for="default-character" class="label-form">Default Character</label>
+                    <select id="default-character" class="input-field">
                         <option value="">Inherit global default</option>
                     </select>
-                    <p id="default-character-status" class="mt-2 text-xs text-gray-400"></p>
+                    <p id="default-character-status" class="text-hint mt-2"></p>
                 </div>
                 <div id="whitelist-field">
-                    <label for="whitelist" class="block mb-2 text-sm font-medium text-gray-300">Character Whitelist (comma-separated)</label>
-                    <textarea id="whitelist" rows="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="Leave empty to allow all"></textarea>
+                    <label for="whitelist" class="label-form">Character Whitelist (comma-separated)</label>
+                    <textarea id="whitelist" rows="2" class="input-field" placeholder="Leave empty to allow all"></textarea>
                 </div>
-                <div id="system-channel-field" class="flex items-center justify-between">
+                <div id="system-channel-field" class="flex-between">
                     <div>
-                        <label for="is_system_channel" class="text-sm font-medium text-gray-300">System Channel</label>
-                        <p class="text-xs text-gray-500">Used for bot uploads and system tasks.</p>
+                        <label for="is_system_channel" class="label-inline">System Channel</label>
+                        <p class="text-hint">Used for bot uploads and system tasks.</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
+                    <label class="toggle-wrap">
                         <input id="is_system_channel" type="checkbox" class="sr-only peer">
                         <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                     </label>
                 </div>
                 <div class="flex justify-end pt-4">
-                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Save Changes</button>
+                    <button type="submit" class="btn-green">Save Changes</button>
                 </div>
             </form>
 
-            <div id="server-config-panel" class="mt-6 bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
-                <div class="flex items-center justify-between mb-4">
+            <div id="server-config-panel" class="mt-6 card-dark">
+                <div class="flex-between mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold text-white">Server Overrides</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Override global AI Config for this server only.</p>
+                        <h2 class="heading-section">Server Overrides</h2>
+                        <p class="text-hint mt-0.5">Override global AI Config for this server only.</p>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
+                    <label class="toggle-wrap">
                         <input id="sc-toggle" type="checkbox" class="sr-only peer">
                         <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
@@ -141,44 +142,44 @@
                     <div id="sc-fields" class="hidden">
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
                             <div class="sm:col-span-2 lg:col-span-3">
-                                <label class="block text-xs font-medium text-gray-400 mb-1">API Endpoint</label>
-                                <input type="text" id="sc-ai-endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">API Endpoint</label>
+                                <input type="url" id="sc-ai-endpoint" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Primary Model</label>
-                                <input type="text" id="sc-base-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Primary Model</label>
+                                <input type="text" id="sc-base-llm" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Fallback Model</label>
-                                <input type="text" id="sc-fallback-llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Fallback Model</label>
+                                <input type="text" id="sc-fallback-llm" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Temperature</label>
-                                <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Temperature</label>
+                                <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Max Tokens</label>
-                                <input type="number" id="sc-max-tokens" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Max Tokens</label>
+                                <input type="number" id="sc-max-tokens" min="64" max="4096" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Message History</label>
-                                <input type="number" id="sc-history-limit" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Message History</label>
+                                <input type="number" id="sc-history-limit" min="1" max="50" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Auto Cap</label>
-                                <input type="number" id="sc-auto-cap" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Auto Cap</label>
+                                <input type="number" id="sc-auto-cap" min="0" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / min</label>
-                                <input type="number" id="sc-token-limit-tpm" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Token Limit / min</label>
+                                <input type="number" id="sc-token-limit-tpm" min="0" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Token Limit / day</label>
-                                <input type="number" id="sc-token-limit-tpd" min="1" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label class="label-xs">Token Limit / day</label>
+                                <input type="number" id="sc-token-limit-tpd" min="0" class="input-field">
                             </div>
-                            <div class="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5">
-                                <span class="text-sm text-gray-300">Use Prefill</span>
-                                <select id="sc-use-prefill" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-2 py-1">
+                            <div class="toggle-row">
+                                <span class="text-secondary">Use Prefill</span>
+                                <select id="sc-use-prefill" class="select-inline">
                                     <option value="">— default —</option>
                                     <option value="true">Enabled</option>
                                     <option value="false">Disabled</option>
@@ -186,7 +187,7 @@
                             </div>
                         </div>
                         <div class="flex justify-end">
-                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-lg">Save Overrides</button>
+                            <button type="submit" class="btn-primary">Save Overrides</button>
                         </div>
                     </div>
                 </form>

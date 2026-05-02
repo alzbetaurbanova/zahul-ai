@@ -9,6 +9,66 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 db = Database()
 
 _SK_TZ = ZoneInfo("Europe/Bratislava")
+_REPEAT_TYPES = {"daily", "weekly", "monthly", "yearly"}
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    return datetime.fromisoformat(normalized)
+
+
+def _validate_repeat_pattern(pattern: Dict[str, Any]) -> None:
+    ptype = pattern.get("type")
+    if ptype not in _REPEAT_TYPES:
+        raise HTTPException(status_code=400, detail="repeat_pattern.type must be one of: daily, weekly, monthly, yearly")
+
+    time_value = pattern.get("time")
+    if not isinstance(time_value, str):
+        raise HTTPException(status_code=400, detail="repeat_pattern.time is required in HH:MM format")
+    try:
+        hour_str, minute_str = time_value.split(":")
+        hour = int(hour_str)
+        minute = int(minute_str)
+        if len(hour_str) != 2 or len(minute_str) != 2 or hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise ValueError
+    except Exception:
+        raise HTTPException(status_code=400, detail="repeat_pattern.time must be in HH:MM format")
+
+    if ptype == "weekly":
+        days = pattern.get("days")
+        if not isinstance(days, list) or not days:
+            raise HTTPException(status_code=400, detail="repeat_pattern.days must contain at least one weekday")
+        if not all(isinstance(day, int) and 0 <= day <= 6 for day in days):
+            raise HTTPException(status_code=400, detail="repeat_pattern.days entries must be integers in range 0-6")
+    elif ptype == "monthly":
+        day = pattern.get("day")
+        if not isinstance(day, int) or day < 1 or day > 31:
+            raise HTTPException(status_code=400, detail="repeat_pattern.day must be an integer in range 1-31")
+    elif ptype == "yearly":
+        month = pattern.get("month")
+        day = pattern.get("day")
+        if not isinstance(month, int) or month < 1 or month > 12:
+            raise HTTPException(status_code=400, detail="repeat_pattern.month must be an integer in range 1-12")
+        if not isinstance(day, int) or day < 1 or day > 31:
+            raise HTTPException(status_code=400, detail="repeat_pattern.day must be an integer in range 1-31")
+
+
+def _validate_task_dependencies(type_value: str, character: str, target_type: str, target_id: str) -> None:
+    if not db.get_character(character):
+        raise HTTPException(status_code=400, detail=f"Character '{character}' does not exist")
+
+    if target_type == "channel":
+        if not db.get_channel(target_id):
+            raise HTTPException(status_code=400, detail=f"Channel '{target_id}' does not exist")
+        return
+
+    if target_type == "dm":
+        dm_allowlist = db.list_configs().get("dm_list") or []
+        if target_id not in dm_allowlist:
+            raise HTTPException(status_code=400, detail=f"DM target '{target_id}' is not in dm_list")
+        return
 
 
 def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
@@ -98,6 +158,25 @@ def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])
 
 @router.post("/", response_model=Task, status_code=201)
 def create_task(body: TaskCreate):
+    _validate_task_dependencies(body.type, body.character, body.target_type, body.target_id)
+    if body.type == "reminder":
+        if not body.scheduled_time:
+            raise HTTPException(status_code=400, detail="scheduled_time is required for reminder tasks")
+        try:
+            scheduled_dt = _parse_iso_datetime(body.scheduled_time)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="scheduled_time must be a valid ISO datetime")
+        now = datetime.now(_SK_TZ)
+        if scheduled_dt.tzinfo is None:
+            if scheduled_dt <= now.replace(tzinfo=None):
+                raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
+        elif scheduled_dt.astimezone(_SK_TZ) <= now:
+            raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
+    elif body.type == "schedule":
+        if not body.repeat_pattern:
+            raise HTTPException(status_code=400, detail="repeat_pattern is required for schedule tasks")
+        _validate_repeat_pattern(body.repeat_pattern)
+
     default_status = 'upcoming' if body.type == 'reminder' else 'active'
     status = body.status or default_status
     message_mode = body.message_mode or 'exact'
@@ -141,6 +220,27 @@ def update_task(task_id: int, body: TaskUpdate):
         raise HTTPException(status_code=404, detail="Task not found")
     existing = db.get_task(task_id)
     updates = body.model_dump(exclude_none=True)
+    merged = {**existing, **updates}
+
+    _validate_task_dependencies(merged["type"], merged["character"], merged["target_type"], merged["target_id"])
+
+    if merged["type"] == "reminder" and "scheduled_time" in updates:
+        try:
+            scheduled_dt = _parse_iso_datetime(merged["scheduled_time"])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="scheduled_time must be a valid ISO datetime")
+        now = datetime.now(_SK_TZ)
+        if scheduled_dt.tzinfo is None:
+            if scheduled_dt <= now.replace(tzinfo=None):
+                raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
+        elif scheduled_dt.astimezone(_SK_TZ) <= now:
+            raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
+
+    if merged["type"] == "schedule" and "repeat_pattern" in updates:
+        if not merged.get("repeat_pattern"):
+            raise HTTPException(status_code=400, detail="repeat_pattern is required for schedule tasks")
+        _validate_repeat_pattern(merged["repeat_pattern"])
+
     # Allow explicitly setting history_limit to NULL (toggle turned off)
     if 'history_limit' in body.model_fields_set and body.history_limit is None:
         updates['history_limit'] = None

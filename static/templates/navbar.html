@@ -1,7 +1,7 @@
 <nav class="bg-darker border-b border-gray-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-            <div class="flex items-center">
+        <div class="flex-between h-16">
+            <div class="flex items-center min-w-0 overflow-hidden">
                 <div class="flex-shrink-0">
                     <a href="/" class="flex items-center space-x-3 text-white">
                         <img class="h-8 w-8" src="/zahul" alt="zahul-ai" width="32" height="32">
@@ -17,14 +17,24 @@
                     </div>
                 </div>
             </div>
-            <div class="hidden md:flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
                 <span class="text-sm text-gray-400">Status:</span>
                 <span id="bot-status-indicator" class="status-indicator"></span>
-                <span id="bot-status-text" class="text-sm text-gray-300" style="min-width:48px;display:inline-block"></span>
-                <div style="min-width:70px;text-align:right;margin-left:1.5rem">
-                    <a href="/logout" class="text-sm text-gray-400 hover:text-white transition-colors" style="visibility:hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:4px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
+                <span id="bot-status-text" class="text-sm text-gray-300"></span>
+                <div class="hidden md:block" style="min-width:70px;text-align:right;margin-left:1.5rem">
+                    <a href="/logout" class="nav-logout text-sm text-gray-400 hover:text-white transition-colors" style="visibility:hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:4px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
                 </div>
+                <button id="nav-hamburger" class="hamburger-btn md:hidden" aria-label="Open menu">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
         </div>
+    </div>
+    <div id="nav-mobile-menu" class="nav-mobile-menu hidden md:hidden">
+        <a href="/" data-page="dashboard" class="nav-mobile-link"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
+        <a href="/characters" data-page="characters" class="nav-mobile-link"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
+        <a href="/scheduler" data-page="scheduler" class="nav-mobile-link"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
+        <a href="/ai-config" data-page="ai-config" class="nav-mobile-link"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
+        <a href="/logout" class="nav-mobile-logout nav-mobile-link hidden" style="margin-left:auto"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:6px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
     </div>
 </nav>

@@ -7,7 +7,7 @@
     container.style.minHeight = '';
     container.innerHTML = html;
 
-    // Mark active link
+    // Mark active link (desktop + mobile)
     const page = document.body.dataset.page || window.activePage || '';
     container.querySelectorAll('[data-page]').forEach(a => {
         if (a.dataset.page === page) {
@@ -16,12 +16,29 @@
         }
     });
 
+    // Hamburger toggle
+    const hamburger = container.querySelector('#nav-hamburger');
+    const mobileMenu = container.querySelector('#nav-mobile-menu');
+    if (hamburger && mobileMenu) {
+        hamburger.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+        mobileMenu.querySelectorAll('a[data-page]').forEach(a => {
+            a.addEventListener('click', () => mobileMenu.classList.add('hidden'));
+        });
+    }
+
     // Show logout only if auth enabled — cached to avoid flash
-    const logoutEl = container.querySelector('a[href="/logout"]');
-    if (logoutEl && localStorage.getItem('auth-enabled') === '1') logoutEl.style.visibility = 'visible';
+    function setLogoutVisible(visible) {
+        const desktopLogout = container.querySelector('a.nav-logout');
+        const mobileLogout = container.querySelector('a.nav-mobile-logout');
+        if (desktopLogout) desktopLogout.style.visibility = visible ? 'visible' : 'hidden';
+        if (mobileLogout) mobileLogout.classList.toggle('hidden', !visible);
+    }
+    if (localStorage.getItem('auth-enabled') === '1') setLogoutVisible(true);
     fetch('/api/auth-enabled').then(r => r.json()).then(d => {
         localStorage.setItem('auth-enabled', d.enabled ? '1' : '0');
-        if (logoutEl) logoutEl.style.visibility = d.enabled ? 'visible' : 'hidden';
+        setLogoutVisible(d.enabled);
     });
 
     // Bot status polling

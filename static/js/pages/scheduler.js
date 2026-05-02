@@ -1,6 +1,7 @@
 (() => {
         const API = '/api/tasks';
         const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        const esc = escapeHtml;
 
         // --- DOM refs ---
         const taskList = document.getElementById('task-list');
@@ -19,15 +20,11 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.dataset.day = i;
-            btn.className = 'day-pill px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-white';
+            btn.className = 'day-pill tab-off';
             btn.textContent = d;
             btn.addEventListener('click', () => {
-                btn.classList.toggle('bg-indigo-600');
-                btn.classList.toggle('border-indigo-500');
-                btn.classList.toggle('text-white');
-                btn.classList.toggle('bg-gray-800');
-                btn.classList.toggle('border-gray-700');
-                btn.classList.toggle('text-gray-400');
+                btn.classList.toggle('tab-indigo-on');
+                btn.classList.toggle('tab-off');
             });
             dayCheckboxes.appendChild(btn);
         });
@@ -45,18 +42,14 @@
         }
 
         function getSelectedDays() {
-            return [...document.querySelectorAll('.day-pill')].filter(b => b.classList.contains('bg-indigo-600')).map(b => parseInt(b.dataset.day));
+            return [...document.querySelectorAll('.day-pill')].filter(b => b.classList.contains('tab-indigo-on')).map(b => parseInt(b.dataset.day));
         }
 
         function setSelectedDays(days) {
             document.querySelectorAll('.day-pill').forEach(b => {
                 const active = days.includes(parseInt(b.dataset.day));
-                b.classList.toggle('bg-indigo-600', active);
-                b.classList.toggle('border-indigo-500', active);
-                b.classList.toggle('text-white', active);
-                b.classList.toggle('bg-gray-800', !active);
-                b.classList.toggle('border-gray-700', !active);
-                b.classList.toggle('text-gray-400', !active);
+                b.classList.toggle('tab-indigo-on', active);
+                b.classList.toggle('tab-off', !active);
             });
         }
 
@@ -108,14 +101,13 @@
             document.querySelectorAll('.type-btn').forEach(btn => {
                 const isActive = btn.dataset.type === type;
                 const isScheduleBtn = btn.dataset.type === 'schedule';
-                const activeClass = isScheduleBtn ? ['bg-indigo-600','border-indigo-500','text-white'] : ['bg-amber-600','border-amber-500','text-white'];
-                const inactiveClass = ['bg-gray-800','border-gray-700','text-gray-400'];
+                const activeClass = isScheduleBtn ? 'tab-indigo-on' : 'tab-amber-on';
                 if (isActive) {
-                    btn.classList.remove(...inactiveClass);
-                    btn.classList.add(...activeClass);
+                    btn.classList.remove('tab-off');
+                    btn.classList.add(activeClass);
                 } else {
-                    btn.classList.remove(...activeClass);
-                    btn.classList.add(...inactiveClass);
+                    btn.classList.remove(activeClass);
+                    btn.classList.add('tab-off');
                 }
             });
         }
@@ -131,9 +123,8 @@
             const type = document.getElementById('selected-type').value;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 const active = btn.dataset.mode === mode;
-                btn.classList.toggle('bg-indigo-600', active);
-                btn.classList.toggle('text-white', active);
-                btn.classList.toggle('text-gray-400', !active);
+                btn.classList.toggle('mode-tab-on', active);
+                btn.classList.toggle('mode-tab-off', !active);
             });
             if (mode === 'generate') {
                 if (type === 'schedule') {
@@ -163,9 +154,8 @@
             const thumb = document.getElementById('history-thumb');
             const input = document.getElementById('f-history-limit');
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            btn.classList.toggle('bg-indigo-600', on);
-            btn.classList.toggle('bg-gray-600', !on);
-            thumb.classList.toggle('translate-x-6', on);
+            btn.classList.toggle('is-on', on);
+            thumb.classList.toggle('is-on', on);
             input.disabled = !on;
             if (!on) input.value = '';
         }
@@ -200,39 +190,21 @@
         // Populate character dropdown
         let _charNames = [];
 
-        function makeFilterCombobox(inputId, dropdownId, options, onSelect) {
-            const input = document.getElementById(inputId);
-            const dropdown = document.getElementById(dropdownId);
-            function showDropdown() {
-                const q = input.value.toLowerCase();
-                const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
-                if (!filtered.length) { dropdown.classList.add('hidden'); return; }
-                dropdown.innerHTML = filtered.map(o =>
-                    `<div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-700 text-sm text-white">${esc(o)}</div>`
-                ).join('');
-                dropdown.querySelectorAll('.combobox-item').forEach((item, i) => {
-                    item.addEventListener('mousedown', e => {
-                        e.preventDefault();
-                        input.value = filtered[i];
-                        dropdown.classList.add('hidden');
-                        if (onSelect) onSelect(filtered[i]);
-                    });
-                });
-                dropdown.classList.remove('hidden');
-            }
-            input.addEventListener('focus', showDropdown);
-            input.addEventListener('input', () => { showDropdown(); if (onSelect) onSelect(input.value); });
-            input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
-        }
-
         async function loadCharacters() {
             try {
                 const data = await fetch('/api/characters').then(r => r.json());
                 _charNames = data.map(c => c.name);
                 data.forEach(c => { _charCache[c.name] = c; });
             } catch { _charNames = []; }
-            makeFilterCombobox('f-character', 'f-character-dd', _charNames);
-            makeFilterCombobox('filter-character', 'filter-character-dd', _charNames, () => { currentPage = 1; renderTasks(allTasks); });
+            setupFilterCombobox('f-character', 'f-character-dd', _charNames, null, null, 'hover:bg-gray-700');
+            setupFilterCombobox(
+                'filter-character',
+                'filter-character-dd',
+                _charNames,
+                () => { currentPage = 1; renderTasks(allTasks); },
+                () => { currentPage = 1; renderTasks(allTasks); },
+                'hover:bg-gray-700'
+            );
         }
 
         // --- Target comboboxes ---
@@ -307,14 +279,12 @@
             const isChannel = type === 'channel';
             document.getElementById('target-channel-fields').classList.toggle('hidden', !isChannel);
             document.getElementById('target-dm-fields').classList.toggle('hidden', isChannel);
+            document.getElementById('f-channel-input').required = isChannel;
+            document.getElementById('f-dm-input').required = !isChannel;
             document.querySelectorAll('.ttype-btn').forEach(btn => {
                 const active = btn.dataset.target === type;
-                btn.classList.toggle('bg-indigo-600', active);
-                btn.classList.toggle('border-indigo-500', active);
-                btn.classList.toggle('text-white', active);
-                btn.classList.toggle('bg-gray-800', !active);
-                btn.classList.toggle('border-gray-700', !active);
-                btn.classList.toggle('text-gray-400', !active);
+                btn.classList.toggle('tab-indigo-on', active);
+                btn.classList.toggle('tab-off', !active);
             });
         }
 
@@ -334,6 +304,16 @@
             }
             const inp = document.getElementById('f-channel-input');
             return inp.dataset.value || inp.value.trim();
+        }
+
+        function isFutureLocalDatetime(value) {
+            if (!value) return false;
+            const dt = new Date(value);
+            return !Number.isNaN(dt.getTime()) && dt.getTime() > Date.now();
+        }
+
+        function isValidTime(time) {
+            return /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
         }
 
         // --- Character cache ---
@@ -528,10 +508,6 @@
             if (ptype === 'monthly') return `Day ${pattern.day} of every month at ${time}`;
             if (ptype === 'yearly') return `${MONTHS[(pattern.month||1)-1]} ${pattern.day} every year at ${time}`;
             return '';
-        }
-
-        function esc(s) {
-            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         function formatNextRun(isoStr) {
@@ -739,6 +715,10 @@
                 showToast('Character and target are required.', 'error');
                 return;
             }
+            if (type === 'schedule' && name.length < 3) {
+                showToast('Task name must be at least 3 characters.', 'error');
+                return;
+            }
 
             const message_mode = document.getElementById('f-message-mode').value;
             const historyOn = document.getElementById('history-toggle').getAttribute('aria-pressed') === 'true';
@@ -749,25 +729,42 @@
             if (type === 'reminder') {
                 const st = document.getElementById('f-scheduled-time').value;
                 if (!st) { showToast('Please set a scheduled time.', 'error'); return; }
+                if (!isFutureLocalDatetime(st)) { showToast('Reminder time must be in the future.', 'error'); return; }
                 body.scheduled_time = st + ':00';
                 // Reset to upcoming if editing a done/disabled reminder with a new time
                 if (id) body.status = 'upcoming';
             } else {
                 const rtype = document.getElementById('f-repeat-type').value;
                 const time = document.getElementById('f-repeat-time').value;
-                if (!time) { showToast('Time is required.', 'error'); return; }
+                if (!time || !isValidTime(time)) { showToast('Time is required in HH:MM format.', 'error'); return; }
                 if (rtype === 'daily') {
                     body.repeat_pattern = { type: 'daily', time };
                 } else if (rtype === 'weekly') {
                     const days = getSelectedDays();
+                    if (!days.every(d => Number.isInteger(d) && d >= 0 && d <= 6)) {
+                        showToast('Weekly days must be in range 0-6.', 'error');
+                        return;
+                    }
                     if (!days.length) { showToast('Select at least one day.', 'error'); return; }
                     body.repeat_pattern = { type: 'weekly', days, time };
                 } else if (rtype === 'monthly') {
                     const day = parseInt(document.getElementById('f-repeat-month-day').value);
+                    if (!Number.isInteger(day) || day < 1 || day > 31) {
+                        showToast('Monthly day must be between 1 and 31.', 'error');
+                        return;
+                    }
                     body.repeat_pattern = { type: 'monthly', day, time };
                 } else if (rtype === 'yearly') {
                     const month = parseInt(document.getElementById('f-repeat-year-month').value);
                     const day = parseInt(document.getElementById('f-repeat-year-day').value);
+                    if (!Number.isInteger(month) || month < 1 || month > 12) {
+                        showToast('Yearly month must be between 1 and 12.', 'error');
+                        return;
+                    }
+                    if (!Number.isInteger(day) || day < 1 || day > 31) {
+                        showToast('Yearly day must be between 1 and 31.', 'error');
+                        return;
+                    }
                     body.repeat_pattern = { type: 'yearly', month, day, time };
                 }
             }
@@ -854,14 +851,6 @@
         });
 
         // --- Toast ---
-        function showToast(msg, type = 'success') {
-            const t = document.createElement('div');
-            t.className = `${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white py-2 px-4 rounded-lg shadow-lg mb-2 text-sm`;
-            t.textContent = msg;
-            toastContainer.appendChild(t);
-            setTimeout(() => t.remove(), 3000);
-        }
-
         // Init
         loadCharacters();
         loadTargetOptions().then(() => fetchTasks());

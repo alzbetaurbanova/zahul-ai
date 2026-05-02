@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter, Body, Path, HTTPException, status
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- Model and Database Imports ---
 from api.models.models import Preset  # This model includes the 'id'
@@ -21,7 +21,7 @@ router = APIRouter(
 # This model is used for creating and updating presets, as the client
 # does not provide the database-generated 'id'.
 class PresetBody(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
     prompt_template: str | None = None
 

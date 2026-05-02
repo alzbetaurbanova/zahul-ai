@@ -17,6 +17,7 @@ class SecurityConfig(BaseModel):
 # This business logic is preserved from your original file.
 PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key','multimodal_ai_api'}
 REQUIRED_FIELDS: Set[str] = {'default_character', 'ai_endpoint', 'base_llm'}
+MIN_PANEL_PASSWORD_LENGTH = 8
 
 db = Database()
 
@@ -58,6 +59,13 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
                     detail=f"Required field '{field}' cannot be empty"
                 )
 
+        panel_password = str(new_config.get("panel_password", "") or "")
+        if panel_password and len(panel_password) < MIN_PANEL_PASSWORD_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"panel_password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters"
+            )
+
         # Preserve existing sensitive values (like keys) if the new value is empty
         for field in PRESERVE_FIELDS:
             if (field in existing_config and
@@ -84,6 +92,11 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
 async def update_security(config: SecurityConfig):
     """Update only the panel password and hint without requiring the full config."""
     try:
+        if config.panel_password and len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Panel password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters."
+            )
         current = db.list_configs()
         changed = []
         if config.panel_password != current.get('panel_password', ''):
@@ -94,5 +107,7 @@ async def update_security(config: SecurityConfig):
         db.set_config("panel_password_hint", config.panel_password_hint)
         db.log_admin('config.security.update', detail=', '.join(changed) if changed else 'no change')
         return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving security config: {e}")

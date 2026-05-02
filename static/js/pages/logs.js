@@ -5,31 +5,7 @@
     let totalItems = 0;
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
-
-    function makeFilterCombobox(inputId, dropdownId, options) {
-        const input = document.getElementById(inputId);
-        const dropdown = document.getElementById(dropdownId);
-        function showDropdown() {
-            const q = input.value.toLowerCase();
-            const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
-            if (!filtered.length) { dropdown.classList.add('hidden'); return; }
-            dropdown.innerHTML = filtered.map(o =>
-                `<div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-800 text-sm text-white" data-val="${esc(o)}">${esc(o)}</div>`
-            ).join('');
-            dropdown.querySelectorAll('.combobox-item').forEach(item => {
-                item.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    input.value = item.dataset.val;
-                    dropdown.classList.add('hidden');
-                    currentPage = 1; fetchLogs();
-                });
-            });
-            dropdown.classList.remove('hidden');
-        }
-        input.addEventListener('focus', showDropdown);
-        input.addEventListener('input', () => { currentPage = 1; fetchLogs(); showDropdown(); });
-        input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
-    }
+    const esc = escapeHtml;
 
     async function loadServerNames() {
         try {
@@ -42,8 +18,20 @@
         try {
             const data = await fetch('/api/logs/meta').then(r => r.json());
             channelMap = data.channels || {};
-            makeFilterCombobox('df-character', 'df-character-dd', data.characters || []);
-            makeFilterCombobox('df-user', 'df-user-dd', data.users || []);
+            setupFilterCombobox(
+                'df-character',
+                'df-character-dd',
+                data.characters || [],
+                () => { currentPage = 1; fetchLogs(); },
+                () => { currentPage = 1; fetchLogs(); }
+            );
+            setupFilterCombobox(
+                'df-user',
+                'df-user-dd',
+                data.users || [],
+                () => { currentPage = 1; fetchLogs(); },
+                () => { currentPage = 1; fetchLogs(); }
+            );
         } catch (e) {}
     }
 
@@ -272,16 +260,14 @@
         const chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
         const statusCls = item.status === 'error' ? 'text-red-400' : 'text-green-400';
 
-        const row = (label, value, cls='text-white') =>
-            `<div class="text-gray-400">${label}</div><div class="${cls}">${value}</div>`;
+        const row = (label, value, cls='') =>
+            `<div class="metadata-label">${label}</div><div class="${cls}">${value}</div>`;
 
         body.innerHTML = `
-            <div class="space-y-4 text-xs">
+            <div class="detail-content">
 
-                <!-- Timestamp -->
-                <div class="text-gray-500">${fmt(item.timestamp)}</div>
+                <div class="log-ts">${fmt(item.timestamp)}</div>
 
-                <!-- Metadata grid -->
                 <div class="metadata-grid">
                     ${row('Character', esc(item.character || ''))}
                     ${row('User', esc(item.user || ''))}
@@ -295,28 +281,27 @@
                     ${row('Status', esc(item.status || ''), statusCls)}
                 </div>
 
-                <!-- Trigger -->
-                <div class="pt-2 border-t border-gray-800">
-                    <div class="text-gray-400 mb-1">Trigger</div>
-                    <pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200 whitespace-pre-wrap break-words">${esc(item.trigger || '')}</pre>
+                <div class="log-section">
+                    <div class="log-section-label">Trigger</div>
+                    <pre class="log-pre">${esc(item.trigger || '')}</pre>
                 </div>
 
-                ${item.error_message ? `<div><p class="text-gray-400 mb-1">Error</p><pre class="bg-red-950 border border-red-900 rounded-lg p-3 text-xs text-red-300 whitespace-pre-wrap">${esc(item.error_message)}</pre></div>` : ''}
+                ${item.error_message ? `<div><p class="log-section-label">Error</p><pre class="log-pre-error">${esc(item.error_message)}</pre></div>` : ''}
 
-                <div><p class="text-gray-400 mb-1">Response</p><pre class="bg-gray-800 rounded-lg p-3 text-xs text-gray-200 whitespace-pre-wrap break-words">${esc(item.response || '')}</pre></div>
+                <div><p class="log-section-label">Response</p><pre class="log-pre">${esc(item.response || '')}</pre></div>
 
                 ${item.conversation_history ? `<div>
-                    <div class="flex items-center justify-between mb-1">
-                        <p class="text-gray-400">Request JSON</p>
-                        <div class="flex items-center gap-3">
-                            <button id="copy-response-btn" class="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors"><i class="fas fa-copy"></i> Copy</button>
-                            <label class="flex items-center gap-2 text-gray-500 cursor-pointer select-none">
+                    <div class="log-json-header">
+                        <p class="log-section-label">Request JSON</p>
+                        <div class="log-json-controls">
+                            <button id="copy-response-btn" class="btn-copy"><i class="fas fa-copy"></i> Copy</button>
+                            <label class="log-prettier-label">
                                 <input type="checkbox" id="req-prettier" class="accent-indigo-500">
-                                <span class="text-xs">Prettier</span>
+                                <span>Prettier</span>
                             </label>
                         </div>
                     </div>
-                    <div id="req-json" class="bg-gray-800 rounded-lg p-3 text-xs text-gray-400 max-h-96 overflow-y-auto whitespace-pre-wrap"></div>
+                    <div id="req-json" class="log-json"></div>
                 </div>` : ''}
 
             </div>
@@ -359,8 +344,6 @@
             cb.addEventListener('change', render);
         }
     }
-
-    function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     Promise.all([loadMeta(), loadServerNames()]).then(() => fetchLogs());
 })();

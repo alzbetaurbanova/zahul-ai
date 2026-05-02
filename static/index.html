@@ -20,35 +20,35 @@
         <main class="flex-grow p-6">
             <div class="max-w-7xl mx-auto">
                 <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-white">Admin Dashboard</h1>
+                    <h1 class="heading-page">Admin Dashboard</h1>
                     <p class="text-gray-400 mt-2">Manage your zahul-ai instance</p>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <!-- Bot Control + Servers -->
                     <div class="lg:col-span-1 flex flex-col gap-4">
-                        <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
-                            <h2 class="text-xl font-semibold mb-4 text-white">Bot Control</h2>
+                        <div class="card-dark">
+                            <h2 class="heading-card mb-4">Bot Control</h2>
                             
-                            <div class="flex items-center justify-between mb-6">
+                            <div class="flex-between mb-6">
                                 <div>
                                     <span class="text-sm text-gray-400">Current Status:</span>
                                     <div class="flex items-center mt-1">
                                         <span id="control-status-indicator" class="status-indicator"></span>
-                                        <span id="control-status-text" class="ml-2 text-white" style="min-width:48px;display:inline-block"></span>
+                                        <span id="control-status-text"></span>
                                     </div>
                                 </div>
-                                <button id="power-btn" class="power-btn bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-lg flex items-center">
+                                <button id="power-btn" class="power-btn">
                                     <i class="fas fa-power-off mr-2"></i> Activate
                                 </button>
                             </div>
                             
                             <div id="invite-container" class="hidden">
                                 <div class="mt-4">
-                                    <label class="block text-sm font-medium text-gray-400 mb-1">Invite Link</label>
+                                    <label class="label-muted">Invite Link</label>
                                     <div class="flex">
-                                        <input id="invite-link" type="text" readonly class="bg-gray-800 border border-gray-700 text-white text-sm rounded-l-lg focus:ring-primary focus:border-primary block w-full p-2.5" placeholder="Bot not active">
-                                        <button id="copy-invite" class="bg-gray-700 hover:bg-gray-600 text-white px-3 rounded-r-lg">
+                                        <input id="invite-link" type="text" readonly class="input-joined" placeholder="Bot not active">
+                                        <button id="copy-invite" class="btn-joined">
                                             <i class="fas fa-copy"></i>
                                         </button>
                                     </div>
@@ -57,29 +57,29 @@
                         </div>
 
                         <!-- Servers -->
-                        <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800">
-                            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Servers</h2>
+                        <div class="card-dark">
+                            <h2 class="heading-sidebar">Servers</h2>
                             <div id="servers-list" class="space-y-2">
-                                <p class="text-gray-500 text-sm">Loading...</p>
+                                <p class="text-muted">Loading...</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Log Stream -->
                     <div class="lg:col-span-2">
-                        <div class="bg-gray-900 rounded-lg shadow-lg p-6 border border-gray-800 h-full">
+                        <div class="card-dark h-full">
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-semibold text-white">Console</h2>
+                                <h2 class="heading-card">Console</h2>
                                 <div class="flex items-center">
                                     <span class="text-xs text-gray-400 mr-2">Auto-scroll</span>
-                                    <label class="relative inline-flex items-center cursor-pointer">
+                                    <label class="toggle-wrap">
                                         <input id="auto-scroll-toggle" type="checkbox" value="" class="sr-only peer" checked>
                                         <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                                     </label>
                                 </div>
                             </div>
                             <div id="log-container" class="log-stream rounded-lg p-4 h-96 overflow-y-auto">
-                                <div class="text-gray-500 text-sm">Waiting for logs...</div>
+                                <div class="text-muted">Waiting for logs...</div>
                             </div>
                             <div class="mt-3 text-right">
                                 <a href="/logs" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View full logs →</a>

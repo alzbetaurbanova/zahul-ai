@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('delete-btn');
     const exportBtn = document.getElementById('export-btn');
     const toastContainer = document.getElementById('toast-container');
-
     // --- Modal Management ---
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
     const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
@@ -54,7 +53,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 channels.forEach(ch => (ch.data.whitelist || []).forEach(n => names.add(n)));
                 serverWhitelists[s.server_id] = names;
             }));
-        } catch(e) {}
+        } catch (e) {
+            showToast('Failed to load server filter.', 'error');
+        }
     }
 
     function applyFilter() {
@@ -74,11 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Core Functions ---
 
-    // REWORKED: Fetch and display all characters efficiently
     async function fetchAndDisplayCharacters() {
         characterGrid.innerHTML = '<p class="text-gray-400 col-span-full">Loading characters...</p>';
         try {
-            const response = await fetch(API_BASE); // Single API call!
+            const response = await fetch(API_BASE);
             if (!response.ok) throw new Error('Failed to fetch character list');
             const characters = await response.json(); // Gets List[CharacterListItem]
 
@@ -108,7 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Load a specific character's data into the modal for editing
     async function loadCharacterForEdit(name) {
         try {
             const response = await fetch(`${API_BASE}/${name}`);
@@ -120,6 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formTitle.textContent = `Editing: ${char.name}`;
             nameInput.value = char.name;
             nameInput.readOnly = true;
+        nameInput.classList.add('input-readonly');
 
             personaInput.value = char.data.persona;
             instructionsInput.value = char.data.instructions;
@@ -144,11 +144,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Reset the form to its default "create" state
-    function resetForm() {
+    const resetForm = () => {
         currentCharacterName = null;
         form.reset();
         nameInput.readOnly = false;
+        nameInput.classList.remove('input-readonly');
         formTitle.textContent = 'Create New Character';
         saveBtn.textContent = 'Create Character';
         deleteBtn.classList.add('hidden');
@@ -157,15 +157,12 @@ document.addEventListener('DOMContentLoaded', function() {
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
-        avatarModeUrl.classList.add('bg-indigo-600', 'text-white');
-        avatarModeUrl.classList.remove('bg-gray-800', 'text-gray-400');
-        avatarModeUpload.classList.add('bg-gray-800', 'text-gray-400');
-        avatarModeUpload.classList.remove('bg-indigo-600', 'text-white');
+        avatarModeUrl.classList.replace('mode-tab-off', 'mode-tab-on');
+        avatarModeUpload.classList.replace('mode-tab-on', 'mode-tab-off');
         avatarUploadInput.classList.add('invisible');
         avatarUploadInput.classList.remove('visible');
     }
 
-    // REWORKED: Handle form submission (both create and update)
     async function handleFormSubmit(event) {
         event.preventDefault();
         
@@ -173,12 +170,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!name) {
             showToast('Character name is required.', 'error'); return;
         }
+        if (personaInput.value.trim().length < 3 || instructionsInput.value.trim().length < 3) {
+            showToast('Persona and instructions must be at least 3 characters.', 'error');
+            return;
+        }
+        const avatarUrl = avatarUrlInput.value.trim();
+        if (avatarUrl && !isValidHttpUrl(avatarUrl) && !avatarUrl.startsWith('/static/')) {
+            showToast('Avatar URL must be a valid http/https URL.', 'error');
+            return;
+        }
 
         // Gather all data from the form
         const characterData = {
             persona: personaInput.value,
             instructions: instructionsInput.value,
-            avatar: avatarUrlInput.value.trim() || null,
+            avatar: avatarUrl || null,
             avatar_source: (currentAvatarMode === 'upload' && _savedExternalUrl) ? _savedExternalUrl : null,
             about: infoInput.value.trim() || null,
             temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
@@ -257,7 +263,6 @@ document.addEventListener('DOMContentLoaded', function() {
         URL.revokeObjectURL(url);
     }
 
-    // Handle character deletion (Unchanged)
     async function handleDelete() {
         if (!currentCharacterName || !confirm(`Are you sure you want to delete '${currentCharacterName}'? This cannot be undone.`)) {
             return;
@@ -286,10 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function setAvatarMode(mode) {
         currentAvatarMode = mode;
         if (mode === 'url') {
-            avatarModeUrl.classList.replace('bg-gray-800', 'bg-indigo-600');
-            avatarModeUrl.classList.replace('text-gray-400', 'text-white');
-            avatarModeUpload.classList.replace('bg-indigo-600', 'bg-gray-800');
-            avatarModeUpload.classList.replace('text-white', 'text-gray-400');
+            avatarModeUrl.classList.replace('mode-tab-off', 'mode-tab-on');
+            avatarModeUpload.classList.replace('mode-tab-on', 'mode-tab-off');
             avatarUploadInput.classList.add('invisible');
             avatarUploadInput.classList.remove('visible');
             avatarUrlInput.placeholder = 'Paste image URL (https://...)';
@@ -298,10 +301,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateAvatarPreview(_savedExternalUrl);
             }
         } else {
-            avatarModeUpload.classList.replace('bg-gray-800', 'bg-indigo-600');
-            avatarModeUpload.classList.replace('text-gray-400', 'text-white');
-            avatarModeUrl.classList.replace('bg-indigo-600', 'bg-gray-800');
-            avatarModeUrl.classList.replace('text-white', 'text-gray-400');
+            avatarModeUpload.classList.replace('mode-tab-off', 'mode-tab-on');
+            avatarModeUrl.classList.replace('mode-tab-on', 'mode-tab-off');
             avatarUploadInput.classList.remove('invisible');
             avatarUploadInput.classList.add('visible');
             avatarUrlInput.placeholder = 'Paste URL to auto-download, or pick a file below';
@@ -442,8 +443,6 @@ document.addEventListener('DOMContentLoaded', function() {
         a.click();
     });
 
-    // Import Functions (Largely Unchanged)
-    // Note: When importing, triggers will be empty. Users can add them before saving.
     function handleFileImport(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -499,7 +498,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         infoInput.value = charData.about || charData.character_version || charData.creator_notes || '';
     }
-    // getCharacterDataFromPng function (Unchanged from original)
     async function getCharacterDataFromPng(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -538,18 +536,6 @@ document.addEventListener('DOMContentLoaded', function() {
             reader.onerror = () => reject(new Error("Failed to read the file."));
             reader.readAsArrayBuffer(file);
         });
-    }
-
-    // Utility Functions (Unchanged)
-    function showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        const icon = type === 'success' ? '<i class="fas fa-check-circle mr-2"></i>' : '<i class="fas fa-exclamation-circle mr-2"></i>';
-        const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
-        toast.className = `${bgColor} text-white py-2 px-4 rounded-lg shadow-lg flex items-center animate-pulse`;
-        toast.innerHTML = `${icon} ${message}`;
-        toastContainer.innerHTML = '';
-        toastContainer.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 4000);
     }
 
     // --- Event Listeners ---

@@ -14,165 +14,166 @@
     
     <div id="navbar-container"></div>
     <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/pages/ai-config.js" defer></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6">
         <div class="max-w-4xl mx-auto">
-            <h1 class="text-3xl font-bold text-white mb-2">AI Configuration</h1>
+            <h1 class="heading-page mb-2">AI Configuration</h1>
             <p class="text-gray-400 mb-8">Manage the core settings for the AI and bot integration.</p>
 
-            <div class="bg-gray-900 rounded-lg shadow-lg p-8 border border-gray-800 space-y-8">
+            <div class="config-panel p-8 space-y-8">
                 <!-- Main Config Form -->
                 <form id="config-form" class="space-y-6">
                     
                     <!-- Core AI Settings -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">Core AI Settings</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <fieldset class="fieldset-section">
+                        <legend class="legend-section">Core AI Settings</legend>
+                        <div class="form-grid">
                             <div>
-                                <label for="ai_endpoint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
-                                <input type="text" id="ai_endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
+                                <label for="ai_endpoint" class="label-tt">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
+                                <input type="url" id="ai_endpoint" class="input-field" required>
                             </div>
                             <div>
-                                <label for="base_llm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Primary Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
-                                <input type="text" id="base_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
+                                <input type="text" id="base_llm" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <div>
-                                <label for="history_limit" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">History Limit <span class="text-gray-500 font-normal">(msgs)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">How many past messages the AI sees as context per response.</span></span></label>
-                                <input type="number" id="history_limit" step="1" min="1" max="50" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 10">
+                                <label for="history_limit" class="label-tt">History Limit <span class="text-unit">(msgs)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context per response.</span></span></label>
+                                <input type="number" id="history_limit" step="1" min="1" max="50" class="input-field" placeholder="e.g. 10">
                             </div>
                             <div>
-                                <label for="max_tokens" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Max Output Tokens <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
-                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. 256">
+                                <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
+                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="input-field" placeholder="e.g. 256">
                             </div>
                             <div>
-                                <label for="temperature" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Temperature <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
-                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label for="temperature" class="label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
+                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="input-field">
                             </div>
                             <div>
-                                <label for="auto_cap" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Chain Limit <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Max bot-to-bot replies per chain before it stops. Also the default value reset by /autocap reset.</span></span></label>
-                                <input type="number" id="auto_cap" step="1" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                <label for="auto_cap" class="label-tt">Chain Limit <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot replies per chain before it stops. Also the default value reset by /autocap reset.</span></span></label>
+                                <input type="number" id="auto_cap" step="1" min="0" class="input-field">
                             </div>
                         </div>
                     </fieldset>
 
                     <!-- Fallback & Rate Limiting -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">Fallback & Rate Limiting</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <fieldset class="fieldset-section">
+                        <legend class="legend-section">Fallback & Rate Limiting</legend>
+                        <div class="form-grid">
                             <div>
-                                <label for="fallback_llm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Fallback Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
-                                <input type="text" id="fallback_llm" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., llama-3.1-8b-instant">
+                                <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
+                                <input type="text" id="fallback_llm" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
                             </div>
                             <div>
-                                <label for="fallback_duration" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Fallback Duration <span class="text-gray-500 font-normal">(seconds)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
-                                <input type="number" id="fallback_duration" step="60" min="60" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 7200">
+                                <label for="fallback_duration" class="label-tt">Fallback Duration <span class="text-unit">(seconds)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
+                                <input type="number" id="fallback_duration" step="60" min="60" class="input-field" placeholder="e.g., 7200">
                             </div>
                             <div>
-                                <label for="token_limit_tpm" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Rate Limit Trigger <span class="text-gray-500 font-normal">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
-                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 12000">
+                                <label for="token_limit_tpm" class="label-tt">Rate Limit Trigger <span class="text-unit">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
+                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="input-field" placeholder="e.g., 12000">
                             </div>
                             <div>
-                                <label for="token_limit_tpd" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Daily Token Budget <span class="text-gray-500 font-normal">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
-                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., 100000">
+                                <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
+                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000">
                             </div>
                         </div>
                     </fieldset>
 
                     <!-- Keys & Integration -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">Keys & Integration</legend>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <fieldset class="fieldset-section">
+                        <legend class="legend-section">Keys & Integration</legend>
+                        <div class="form-grid">
                             <div>
-                                <label for="ai_key" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">AI API Key <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
+                                <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="ai_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
-                                    <button type="button" onclick="toggleVisibility('ai_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                    <input type="password" id="ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                    <button type="button" onclick="toggleVisibility('ai_key', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
                             </div>
                             <div>
-                                <label for="discord_key" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Discord Bot Token <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the token. Leave blank to keep the existing value. Never share this token.</span></span></label>
+                                <label for="discord_key" class="label-tt">Discord Bot Token <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the token. Leave blank to keep the existing value. Never share this token.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="discord_key" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
-                                    <button type="button" onclick="toggleVisibility('discord_key', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                    <input type="password" id="discord_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                    <button type="button" onclick="toggleVisibility('discord_key', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
                             </div>
                             <div>
-                                <label for="public_url" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Public URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Public address of the server. Used to build absolute URLs for Discord webhook avatar images. If empty or set to localhost, Caddy (HTTPS proxy) won't start on deploy.</span></span></label>
-                                <input type="text" id="public_url" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. https://yourdomain.com">
+                                <label for="public_url" class="label-tt">Public URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Public address of the server. Used to build absolute URLs for Discord webhook avatar images. If empty or set to localhost, Caddy (HTTPS proxy) won't start on deploy.</span></span></label>
+                                <input type="url" id="public_url" class="input-field" placeholder="e.g. https://yourdomain.com">
                             </div>
                         </div>
                     </fieldset>
                     
                     <!-- DM Access Control (New Section) -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">DM Access Control</legend>
+                    <fieldset class="fieldset-section">
+                        <legend class="legend-section">DM Access Control</legend>
                         <div class="mt-2 mb-4">
-                            <label for="default_character" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Default Character <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
-                            <input type="text" id="default_character" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" required>
+                            <label for="default_character" class="label-tt">Default Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
+                            <input type="text" id="default_character" class="input-field" required>
                         </div>
-                        <div class="border-t border-gray-700 pt-4 flex items-center justify-between">
+                        <div class="flex-between divider pt-4">
                             <div>
-                                <p class="text-sm font-medium text-gray-300">Allow Direct Messages</p>
-                                <p class="text-xs text-gray-500">Let specific Discord users DM the bot directly. When disabled, the bot ignores all DMs.</p>
+                                <p class="label-inline">Allow Direct Messages</p>
+                                <p class="text-hint">Let specific Discord users DM the bot directly. When disabled, the bot ignores all DMs.</p>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
+                            <label class="toggle-wrap">
                                 <input type="checkbox" id="dm_toggle" class="sr-only peer">
                                 <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                             </label>
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
-                            <label for="dm_list" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Allowed Discord Usernames <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">One username per line. Only these users can DM the bot.</span></span></label>
-                            <textarea id="dm_list" rows="5" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 font-mono" placeholder="username1&#10;username2"></textarea>
+                            <label for="dm_list" class="label-tt">Allowed Discord Usernames <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One username per line. Only these users can DM the bot.</span></span></label>
+                            <textarea id="dm_list" rows="5" class="input-field font-mono" placeholder="username1&#10;username2"></textarea>
                         </div>
                     </fieldset>
 
                     <!-- Advanced Features -->
-                    <fieldset class="border border-gray-700 rounded-lg p-4">
-                        <legend class="text-lg font-semibold text-primary px-2">Advanced Features</legend>
+                    <fieldset class="fieldset-section">
+                        <legend class="legend-section">Advanced Features</legend>
                         <div class="space-y-4 mt-4">
-                            <div class="flex items-center justify-between">
+                            <div class="flex-between">
                                 <div>
-                                    <label for="use_prefill" class="font-medium text-gray-300">Use AI Prefill</label>
-                                    <p class="text-xs text-gray-500">Injects a partial assistant response to guide the AI's output format. May not work with all providers.</p>
+                                    <label for="use_prefill" class="label-inline">Use AI Prefill</label>
+                                    <p class="text-hint">Injects a partial assistant response to guide the AI's output format. May not work with all providers.</p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
+                                <label class="toggle-wrap">
                                     <input id="use_prefill" type="checkbox" class="sr-only peer">
                                     <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
-                            <div class="border-t border-gray-700"></div>
-                            <div class="flex items-center justify-between">
+                            <div class="divider"></div>
+                            <div class="flex-between">
                                 <div>
-                                    <label for="multimodal_enable" class="font-medium text-gray-300">Enable Multimodal (Vision)</label>
-                                    <p class="text-xs text-gray-500">Allows the bot to see and describe images attached to Discord messages. Requires a separate vision-capable model and API key.</p>
+                                    <label for="multimodal_enable" class="label-inline">Enable Multimodal (Vision)</label>
+                                    <p class="text-hint">Allows the bot to see and describe images attached to Discord messages. Requires a separate vision-capable model and API key.</p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
+                                <label class="toggle-wrap">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
                                     <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal Model <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Vision model used for image description. Must support image inputs (e.g. google/gemini-pro-vision).</span></span></label>
-                                    <input type="text" id="multimodal_ai_model" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g., google/gemini-pro-vision">
+                                    <label for="multimodal_ai_model" class="label-tt">Multimodal Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Vision model used for image description. Must support image inputs (e.g. google/gemini-pro-vision).</span></span></label>
+                                    <input type="text" id="multimodal_ai_model" class="input-field" placeholder="e.g., google/gemini-pro-vision">
                                 </div>
                                 <div>
-                                    <label for="multimodal_ai_endpoint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal Endpoint URL <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
-                                    <input type="text" id="multimodal_ai_endpoint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5">
+                                    <label for="multimodal_ai_endpoint" class="label-tt">Multimodal Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
+                                    <input type="url" id="multimodal_ai_endpoint" class="input-field">
                                 </div>
                                 <div>
-                                    <label for="multimodal_ai_api" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Multimodal API Key <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value.</span></span></label>
+                                    <label for="multimodal_ai_api" class="label-tt">Multimodal API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value.</span></span></label>
                                     <div class="relative">
-                                        <input type="password" id="multimodal_ai_api" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Leave blank to keep existing key">
-                                        <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                        <input type="password" id="multimodal_ai_api" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                        <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="btn-eye">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -183,55 +184,55 @@
 
                     <!-- Main Save Button -->
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                        <button type="submit" class="btn-green px-6">
                             Save Config
                         </button>
                     </div>
                 </form>
 
                 <!-- Prompt Template Editor -->
-                <fieldset class="border border-gray-700 rounded-lg p-4">
-                    <legend class="text-lg font-semibold text-primary px-2">Prompt Template Editor (Default)</legend>
+                <fieldset class="fieldset-section">
+                    <legend class="legend-section">Prompt Template Editor (Default)</legend>
                     <div class="mt-4">
-                        <label for="prompt_template" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Prompt Template <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Defines the structure sent to the AI. </span></span></label>
-                        <textarea id="prompt_template" rows="12" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 font-mono" placeholder="Loading prompt template..."></textarea>
+                        <label for="prompt_template" class="label-tt">Prompt Template <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Defines the structure sent to the AI. </span></span></label>
+                        <textarea id="prompt_template" rows="12" class="input-field font-mono" placeholder="Loading prompt template..."></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
-                        <button id="save-prompt-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                        <button id="save-prompt-btn" class="btn-primary px-6">
                             Save Prompt
                         </button>
                     </div>
                 </fieldset>
 
                 <!-- Panel Security -->
-                <fieldset class="border border-gray-700 rounded-lg p-4">
-                    <legend class="text-lg font-semibold text-primary px-2">Panel Security</legend>
-                    <div class="flex items-center justify-between mt-2">
+                <fieldset class="fieldset-section">
+                    <legend class="legend-section">Panel Security</legend>
+                    <div class="flex-between mt-2">
                         <div>
-                            <p class="flex items-center gap-1.5 text-sm font-medium text-gray-300">Enable Panel Password <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Adds a login screen to this admin panel. Recommended on any publicly accessible server.</span></span></p>
+                            <p class="flex items-center gap-1.5 label-inline">Enable Panel Password <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Adds a login screen to this admin panel. Recommended on any publicly accessible server.</span></span></p>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
+                        <label class="toggle-wrap">
                             <input type="checkbox" id="security_toggle" class="sr-only peer">
                             <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                         </label>
                     </div>
                     <div id="security-fields" class="hidden">
                         <div class="mt-4">
-                            <label for="panel_password" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Panel Password <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Leave blank to keep the existing password. Only fill in when setting or changing it.</span></span></label>
+                            <label for="panel_password" class="label-tt">Panel Password <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to keep the existing password. Only fill in when setting or changing it.</span></span></label>
                             <div class="relative">
-                                <input type="password" id="panel_password" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5 pr-10" placeholder="Enter new password">
-                                <button type="button" onclick="toggleVisibility('panel_password', this)" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white transition-colors">
+                                <input type="password" id="panel_password" autocomplete="off" minlength="8" class="input-field pr-10" placeholder="Enter new password">
+                                <button type="button" onclick="toggleVisibility('panel_password', this)" class="btn-eye">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="mt-4">
-                            <label for="panel_password_hint" class="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-300">Password Hint <span class="tt"><i class="fas fa-circle-info text-gray-600 hover:text-indigo-400 cursor-help text-xs"></i><span class="tt-body">Optional reminder shown on the login page. Keep it vague enough that it doesn't give the password away.</span></span></label>
-                            <input type="text" id="panel_password_hint" class="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg w-full p-2.5" placeholder="e.g. Check your notes">
+                            <label for="panel_password_hint" class="label-tt">Password Hint <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Optional reminder shown on the login page. Keep it vague enough that it doesn't give the password away.</span></span></label>
+                            <input type="text" id="panel_password_hint" class="input-field" placeholder="e.g. Check your notes">
                         </div>
                     </div>
                     <div class="flex justify-end pt-4">
-                        <button id="save-security-btn" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                        <button id="save-security-btn" class="btn-red px-6">
                             Save Security
                         </button>
                     </div>

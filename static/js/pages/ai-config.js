@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'public_url'
     ];
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
+    const MIN_PANEL_PASSWORD_LENGTH = 8;
 
     // --- Config Functions ---
     async function loadConfig() {
@@ -84,6 +85,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleConfigSubmit(event) {
         event.preventDefault();
+        const temperatureValue = parseFloat(elements['temperature'].value);
+        if (!Number.isNaN(temperatureValue) && (temperatureValue < 0 || temperatureValue > 2)) {
+            showToast('Temperature must be between 0 and 2.', 'error');
+            return;
+        }
+        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint']) {
+            const raw = elements[urlField]?.value?.trim() || '';
+            if (raw && !isValidHttpUrl(raw)) {
+                showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
+                return;
+            }
+        }
+
         const configData = {};
         for (const key of fieldIds) {
             if (elements[key]) {
@@ -138,6 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSecuritySave() {
         const isEnabled = securityToggle.checked;
+        if (isEnabled && panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
+            showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
+            return;
+        }
         const configData = {
             panel_password: isEnabled ? panelPasswordInput.value : '',
             panel_password_hint: isEnabled ? panelPasswordHintInput.value : ''
@@ -216,16 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             showToast(error.message, 'error');
         }
-    }
-
-    // --- Utility Functions ---
-    function showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-        toast.className = `toast ${bgColor} text-white py-2 px-4 rounded-lg shadow-lg animate-pulse`;
-        toast.textContent = message;
-        toastContainer.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 3000);
     }
 
     // --- Event Listeners ---

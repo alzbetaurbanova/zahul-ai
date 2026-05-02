@@ -1,32 +1,40 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import List, Optional, Dict, Any, Literal
+from pydantic import BaseModel, Field, field_validator
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    return datetime.fromisoformat(normalized)
 
 # ------------------------------------------------------
 # Config (maps to the 'config' table)
 # ------------------------------------------------------
 
 class BotConfig(BaseModel):
-    default_character: str
-    ai_endpoint: str
-    base_llm: str
-    temperature: float = 0.7
-    auto_cap: int = 2
+    default_character: str = Field(..., min_length=1)
+    ai_endpoint: str = Field(..., min_length=1)
+    base_llm: str = Field(..., min_length=1)
+    temperature: float = Field(0.7, ge=0, le=2)
+    auto_cap: int = Field(2, ge=0)
     ai_key: str = Field("", description="Can be empty if not needed by the endpoint")
     discord_key: str = Field("", description="Can be empty for testing, but required to run the bot")
-    history_limit: int = 10
-    max_tokens: int = 256
+    history_limit: int = Field(10, ge=1, le=50)
+    max_tokens: int = Field(256, ge=64, le=4096)
     use_prefill: bool = False
     multimodal_enable: bool = False
     multimodal_ai_endpoint: Optional[str] = None
     multimodal_ai_api: Optional[str] = None # Key, I meant key, this is a fuckin' key
     multimodal_ai_model: Optional[str] = None
     dm_list : Optional[List[str]] = None # List of discord username that the bot is allowed to DM to
-    concurrency : Optional[int] = 1
+    concurrency : Optional[int] = Field(1, ge=1)
     fallback_llm: str = "llama-3.1-8b-instant"
-    fallback_duration: int = 7200
-    token_limit_tpm: int = 12000
-    token_limit_tpd: int = 100000
+    fallback_duration: int = Field(7200, ge=0)
+    token_limit_tpm: int = Field(12000, ge=0)
+    token_limit_tpd: int = Field(100000, ge=0)
     panel_password: str = ""
     panel_password_hint: str = ""
     public_url: str = ""
@@ -39,13 +47,13 @@ class ServerConfig(BaseModel):
     ai_endpoint: Optional[str] = None
     base_llm: Optional[str] = None
     fallback_llm: Optional[str] = None
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    history_limit: Optional[int] = None
-    auto_cap: Optional[int] = None
+    temperature: Optional[float] = Field(None, ge=0, le=2)
+    max_tokens: Optional[int] = Field(None, ge=64, le=4096)
+    history_limit: Optional[int] = Field(None, ge=1, le=50)
+    auto_cap: Optional[int] = Field(None, ge=0)
     use_prefill: Optional[bool] = None
-    token_limit_tpm: Optional[int] = None
-    token_limit_tpd: Optional[int] = None
+    token_limit_tpm: Optional[int] = Field(None, ge=0)
+    token_limit_tpd: Optional[int] = Field(None, ge=0)
 
 class Server(BaseModel):
     """Represents a single row in the 'servers' table."""
@@ -61,7 +69,7 @@ class Server(BaseModel):
 # ------------------------------------------------------
 class ChannelData(BaseModel):
     """Represents the JSON object stored in the 'data' column of the 'channels' table."""
-    name: str
+    name: str = Field(..., min_length=1)
     description: Optional[str] = None
     global_note: Optional[str] = Field(None, alias="global")
     instruction: Optional[str] = None
@@ -83,14 +91,14 @@ class Channel(BaseModel):
 # ------------------------------------------------------
 class CharacterData(BaseModel):
     """Represents the JSON object stored in the 'data' column of the 'characters' table."""
-    persona: str
-    instructions: str
+    persona: str = Field(..., min_length=1)
+    instructions: str = Field(..., min_length=1)
     avatar: Optional[str] = None
     avatar_source: Optional[str] = None
     about: Optional[str] = None
-    temperature: Optional[float] = None
-    history_limit: Optional[int] = None
-    max_tokens: Optional[int] = None
+    temperature: Optional[float] = Field(None, ge=0, le=2)
+    history_limit: Optional[int] = Field(None, ge=1, le=50)
+    max_tokens: Optional[int] = Field(None, ge=64, le=4096)
 
 
 class Character(BaseModel):
@@ -136,29 +144,60 @@ class Preset(BaseModel):
 # Scheduled Tasks
 # ------------------------------------------------------
 class TaskCreate(BaseModel):
-    type: str  # 'schedule' or 'reminder'
-    name: str
-    character: str
-    target_type: str  # 'channel' or 'dm'
-    target_id: str
+    type: Literal['schedule', 'reminder']
+    name: str = Field(..., min_length=1)
+    character: str = Field(..., min_length=1)
+    target_type: Literal['channel', 'dm']
+    target_id: str = Field(..., min_length=1)
     instructions: Optional[str] = None
     scheduled_time: Optional[str] = None  # ISO datetime for reminders
     repeat_pattern: Optional[Dict[str, Any]] = None  # {days:[0..6], time:"HH:MM"} for schedules
     status: Optional[str] = None  # defaults handled by DB
-    message_mode: str = 'exact'  # 'exact' or 'generate'
-    history_limit: Optional[int] = None  # overrides character/server/global default
+    message_mode: Literal['exact', 'generate'] = 'exact'
+    history_limit: Optional[int] = Field(None, ge=1, le=50)
+
+    @field_validator('scheduled_time')
+    @classmethod
+    def validate_scheduled_time(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        try:
+            _parse_iso_datetime(value)
+        except ValueError as exc:
+            raise ValueError("scheduled_time must be a valid ISO datetime") from exc
+        return value
 
 class TaskUpdate(BaseModel):
     name: Optional[str] = None
     character: Optional[str] = None
-    target_type: Optional[str] = None
-    target_id: Optional[str] = None
+    target_type: Optional[Literal['channel', 'dm']] = None
+    target_id: Optional[str] = Field(None, min_length=1)
     instructions: Optional[str] = None
     scheduled_time: Optional[str] = None
     repeat_pattern: Optional[Dict[str, Any]] = None
     status: Optional[str] = None
-    message_mode: Optional[str] = None
-    history_limit: Optional[int] = None
+    message_mode: Optional[Literal['exact', 'generate']] = None
+    history_limit: Optional[int] = Field(None, ge=1, le=50)
+
+    @field_validator('name', 'character')
+    @classmethod
+    def validate_non_empty_strings(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("field cannot be empty")
+        return value
+
+    @field_validator('scheduled_time')
+    @classmethod
+    def validate_scheduled_time(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        try:
+            _parse_iso_datetime(value)
+        except ValueError as exc:
+            raise ValueError("scheduled_time must be a valid ISO datetime") from exc
+        return value
 
 class Task(BaseModel):
     id: int
