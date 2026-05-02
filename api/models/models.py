@@ -44,6 +44,7 @@ class BotConfig(BaseModel):
 # ------------------------------------------------------
 class ServerConfig(BaseModel):
     """Per-server overrides for global AI config. None = use global default."""
+    default_character: Optional[str] = None
     ai_endpoint: Optional[str] = None
     base_llm: Optional[str] = None
     fallback_llm: Optional[str] = None

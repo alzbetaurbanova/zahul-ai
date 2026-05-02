@@ -18,7 +18,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const addChannelModal = document.getElementById('add-channel-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
     const toastContainer = document.getElementById('toast-container');
-    
+    const serverEditModal = document.getElementById('server-edit-modal');
+    const serverEditTitle = document.getElementById('server-edit-title');
+    const srvDefaultCharacterInput = document.getElementById('srv-default-character');
+    const srvDefaultCharacterStatus = document.getElementById('srv-default-character-status');
+
     // Form fields
     const nameInput = document.getElementById('name');
     const defaultCharacterInput = document.getElementById('default-character');
@@ -65,22 +69,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function populateDefaultCharacterSelector(selectedCharacter = '') {
         defaultCharacterInput.innerHTML = '';
-        const inheritedLabel = globalDefaultCharacter
-            ? `Inherit global default (${globalDefaultCharacter})`
-            : 'Inherit global default (not set)';
-
+        const serverDefault = currentServer?.defaultCharacter || '';
+        let inheritedLabel;
+        if (serverDefault) {
+            inheritedLabel = `Inherit server default (${serverDefault})`;
+        } else if (globalDefaultCharacter) {
+            inheritedLabel = `Inherit server default → global (${globalDefaultCharacter})`;
+        } else {
+            inheritedLabel = 'Inherit server default (not set)';
+        }
         const inheritedOption = document.createElement('option');
         inheritedOption.value = '';
         inheritedOption.textContent = inheritedLabel;
         defaultCharacterInput.appendChild(inheritedOption);
-
-        availableCharacters.forEach((characterName) => {
-            const option = document.createElement('option');
-            option.value = characterName;
-            option.textContent = characterName;
-            defaultCharacterInput.appendChild(option);
+        availableCharacters.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            defaultCharacterInput.appendChild(opt);
         });
-
         defaultCharacterInput.value = selectedCharacter || '';
         if (selectedCharacter && !availableCharacters.includes(selectedCharacter)) {
             defaultCharacterInput.value = '';
@@ -90,12 +97,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDefaultCharacterStatus() {
         const selected = defaultCharacterInput.value;
         if (selected) {
-            defaultCharacterStatus.textContent = `Explicit channel character: ${selected} (priority: channel > global default).`;
+            defaultCharacterStatus.textContent = `Channel override: ${selected} (channel > server > global).`;
             defaultCharacterStatus.className = 'mt-2 text-xs text-indigo-300';
             return;
         }
-        const fallback = globalDefaultCharacter || 'None configured';
-        defaultCharacterStatus.textContent = `Inherited from global default: ${fallback} (priority: channel > global default).`;
+        const serverDefault = currentServer?.defaultCharacter;
+        if (serverDefault) {
+            defaultCharacterStatus.textContent = `Inherited from server default: ${serverDefault} (channel > server > global).`;
+        } else {
+            const fallback = globalDefaultCharacter || 'None configured';
+            defaultCharacterStatus.textContent = `Inherited from global default: ${fallback} (channel > server > global).`;
+        }
         defaultCharacterStatus.className = 'mt-2 text-xs text-gray-400';
     }
 
@@ -116,9 +128,74 @@ document.addEventListener('DOMContentLoaded', function() {
             globalDefaultCharacter = globalCfg.default_character || '';
         } catch {
             globalDefaultCharacter = '';
-            showToast('Failed to load global default character.', 'error');
         }
     }
+
+    async function loadServerDefaultCharacter(serverId) {
+        try {
+            const cfg = await fetch(`${API_BASE}/${serverId}/config`).then(r => r.json());
+            return cfg.default_character || '';
+        } catch { return ''; }
+    }
+
+    function populateSrvDefaultCharacterSelector(selectedCharacter = '') {
+        srvDefaultCharacterInput.innerHTML = '';
+        const inheritedLabel = globalDefaultCharacter
+            ? `Inherit global default (${globalDefaultCharacter})`
+            : 'Inherit global default (not set)';
+        const inheritedOption = document.createElement('option');
+        inheritedOption.value = '';
+        inheritedOption.textContent = inheritedLabel;
+        srvDefaultCharacterInput.appendChild(inheritedOption);
+        availableCharacters.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            srvDefaultCharacterInput.appendChild(opt);
+        });
+        srvDefaultCharacterInput.value = selectedCharacter || '';
+    }
+
+    function updateSrvDefaultCharacterStatus() {
+        const selected = srvDefaultCharacterInput.value;
+        if (selected) {
+            srvDefaultCharacterStatus.textContent = `Server default: ${selected}. Channels inherit this unless they override it.`;
+            srvDefaultCharacterStatus.className = 'mt-2 text-xs text-indigo-300';
+        } else {
+            const fallback = globalDefaultCharacter || 'None configured';
+            srvDefaultCharacterStatus.textContent = `Inheriting global default: ${fallback}.`;
+            srvDefaultCharacterStatus.className = 'mt-2 text-xs text-gray-400';
+        }
+    }
+
+    async function openServerEditModal(server) {
+        currentServer = { ...currentServer, id: server.server_id, name: server.server_name };
+        serverEditTitle.textContent = server.server_name;
+        serverEditModal.classList.remove('hidden');
+        await Promise.all([loadGlobalDefaultCharacter(), loadCharactersForServer()]);
+        const serverDefault = await loadServerDefaultCharacter(server.server_id);
+        currentServer.defaultCharacter = serverDefault;
+        populateSrvDefaultCharacterSelector(serverDefault);
+        updateSrvDefaultCharacterStatus();
+        await loadServerConfig(server.server_id);
+    }
+
+    document.getElementById('close-server-edit-modal-btn').addEventListener('click', () => serverEditModal.classList.add('hidden'));
+    srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
+    document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
+        if (!currentServer) return;
+        const value = srvDefaultCharacterInput.value || null;
+        try {
+            const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ default_character: value })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            currentServer.defaultCharacter = value || '';
+            showToast('Server default character saved.');
+        } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
+    });
 
     async function loadServerConfig(serverId) {
         try {
@@ -232,9 +309,24 @@ document.addEventListener('DOMContentLoaded', function() {
             serverList.innerHTML = '';
             servers.forEach(server => {
                 const li = document.createElement('li');
-                li.className = 'list-item px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700';
-                li.textContent = server.server_name;
+                li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
                 li.dataset.serverId = server.server_id;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = server.server_name;
+                nameSpan.className = 'truncate min-w-0 pr-8';
+
+                const editBtn = document.createElement('button');
+                editBtn.innerHTML = '<i class="fas fa-cog"></i>';
+                editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
+                editBtn.title = 'Server settings';
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openServerEditModal(server);
+                });
+
+                li.appendChild(nameSpan);
+                li.appendChild(editBtn);
                 li.addEventListener('click', () => {
                     document.querySelectorAll('#server-list .list-item').forEach(el => el.classList.remove('active'));
                     li.classList.add('active');
@@ -246,11 +338,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function fetchChannels(serverId, serverName) {
-        currentServer = { id: serverId, name: serverName };
         channelEditModal.classList.add('hidden');
         channelListTitle.textContent = serverName;
         channelPanel.classList.remove('hidden');
         await Promise.all([loadGlobalDefaultCharacter(), loadCharactersForServer()]);
+        const serverDefault = await loadServerDefaultCharacter(serverId);
+        currentServer = { id: serverId, name: serverName, defaultCharacter: serverDefault };
         
         try {
             const response = await fetch(`${API_BASE}/${serverId}/channels`);
@@ -303,7 +396,6 @@ document.addEventListener('DOMContentLoaded', function() {
         currentChannel = channel;
         channelEditModal.classList.remove('hidden');
         formTitle.textContent = `Editing #${channel.data.name}`;
-        loadServerConfig(currentServer.id);
 
         const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
         document.getElementById('whitelist-field').classList.toggle('hidden', isDM);

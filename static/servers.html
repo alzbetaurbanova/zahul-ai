@@ -104,7 +104,7 @@
                 <div>
                     <label for="default-character" class="label-form">Default Character</label>
                     <select id="default-character" class="input-field">
-                        <option value="">Inherit global default</option>
+                        <option value="">Inherit server default</option>
                     </select>
                     <p id="default-character-status" class="text-hint mt-2"></p>
                 </div>
@@ -127,7 +127,33 @@
                 </div>
             </form>
 
-            <div id="server-config-panel" class="mt-6 card-dark">
+        </div>
+    </div>
+
+    <!-- "Edit Server" Modal -->
+    <div id="server-edit-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-md p-6 mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex-between mb-6">
+                <h2 id="server-edit-title" class="heading-card">Server Settings</h2>
+                <button id="close-server-edit-modal-btn" type="button" class="btn-icon" aria-label="Close server edit modal">&times;</button>
+            </div>
+
+            <!-- Default Character -->
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label for="srv-default-character" class="label-form">Default Character</label>
+                    <select id="srv-default-character" class="input-field">
+                        <option value="">Inherit global default</option>
+                    </select>
+                    <p id="srv-default-character-status" class="text-hint mt-2"></p>
+                </div>
+                <div class="flex justify-end">
+                    <button id="srv-save-character-btn" type="button" class="btn-green">Save Character</button>
+                </div>
+            </div>
+
+            <!-- Server AI Overrides -->
+            <div class="divider pt-6">
                 <div class="flex-between mb-4">
                     <div>
                         <h2 class="heading-section">Server Overrides</h2>
@@ -196,6 +222,5 @@
     </div>
 
 
-    
 </body>
 </html>
