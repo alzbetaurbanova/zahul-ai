@@ -491,12 +491,6 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     margin-bottom: 0.25rem;
 }
 
-.heading-page {
-    font-size: 1.875rem;
-    font-weight: 700;
-    color: white;
-}
-
 .heading-card {
     font-size: 1.25rem;
     font-weight: 600;
@@ -1452,4 +1446,31 @@ body[data-page="logs"] #detail-modal .modal-box {
     flex-grow: 1;
     padding: 0.5rem;
     cursor: pointer;
+}
+
+.main-content{
+    width: 56rem;
+    margin: 0 auto;
+}
+
+.page{
+    display: flex;
+    flex-grow: 1;
+    padding: 1.5rem;
+}
+
+.page-heading{
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    color: var(--text-dim);
 }

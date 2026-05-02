@@ -18,10 +18,13 @@
     <script src="/static/js/pages/characters.js" defer></script>
 
     <!-- Main Content -->
-    <main class="flex-grow p-6 sm:p-8">
-        <div class="max-w-7xl mx-auto">
-            <h1 class="heading-page mb-6">Character Management</h1>
-            <div class="flex items-center gap-3 mb-8">
+    <main class="page sm:p-8">
+        <div class="main-content">
+            <div class="page-heading">
+                <h1 class="page-title">Character Management</h1>
+                <p class="page-subtitle">Manage your characters and their settings.</p>
+            </div>
+            <div class="card-dark flex items-center gap-3 mb-6">
                 <button id="new-char-btn" class="btn-dashed">
                     <i class="fas fa-plus"></i> New Character
                 </button>
@@ -35,7 +38,7 @@
                     </select>
                 </div>
             </div>
-            <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            <div id="character-grid" class="card-dark grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 <p class="text-dim col-span-full">Loading characters...</p>
             </div>
         </div>
