@@ -18,8 +18,8 @@ temp.jpg
 *.log
 
 # User-uploaded images (generated at runtime)
-static/avatars/
-!static/avatars/default_avatar.png #Exclude default avatar
+static/avatars/*
+!static/avatars/default_avatar.png
 static/uploads/
 
 # Data directory (contains database and secrets)
