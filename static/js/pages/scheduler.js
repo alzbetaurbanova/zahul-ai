@@ -863,6 +863,7 @@
                 try {
                     const res = await fetch(`${API}/${openId}`);
                     if (res.ok) openDetail(await res.json());
+                    else if (res.status === 404) showToast('This task no longer exists.', 'error');
                 } catch {}
             }
         });

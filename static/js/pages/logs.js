@@ -166,9 +166,10 @@
             totalItems = data.total;
             renderLogs(data.items);
             updatePagination();
-            if (_initialAutoOpen && data.total === 1 && data.items[0]) {
+            if (_initialAutoOpen) {
                 _initialAutoOpen = false;
-                openDetail(data.items[0].id);
+                if (data.total === 1 && data.items[0]) openDetail(data.items[0].id);
+                else if (data.total === 0) showToast('No logs found for this task.', 'error');
             }
         } catch (e) {
             list.innerHTML = '<div class="text-red-400 text-center py-12">Failed to load logs.</div>';
