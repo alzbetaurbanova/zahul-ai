@@ -46,19 +46,46 @@ fi
 
 echo "Deploying $PREV_SHA -> $NEW_SHA"
 
-# 3) Build nového image — odstráň starý tag kvôli docker-compose 1.29.2 bugu (AlreadyExists)
-docker rmi zahul-ai_zahul:latest 2>/dev/null || true
-if ! $DC build; then
-    echo "BUILD FAILED — reverting git, production untouched."
-    git reset --hard "$PREV_SHA"
-    exit 1
+# 3) Build — len ak sa zmenili závislosti alebo Docker konfig
+NEEDS_BUILD=false
+if git diff "$PREV_SHA" "$NEW_SHA" -- pyproject.toml uv.lock Dockerfile | grep -q .; then
+    NEEDS_BUILD=true
 fi
 
-# 4) Atomický swap (krátky výpadok ~2s, nutné kvôli docker-compose 1.29.2 ContainerConfig bugu)
+if $NEEDS_BUILD; then
+    echo "Dependency/Docker changes detected — rebuilding image."
+    docker rmi zahul-ai_zahul:latest 2>/dev/null || true
+    if ! $DC build; then
+        echo "BUILD FAILED — reverting git, production untouched."
+        git reset --hard "$PREV_SHA"
+        exit 1
+    fi
+else
+    echo "No build needed (only static/code/config changes)."
+fi
+
+# 4) Zisti či treba reštart
+NEEDS_RESTART=false
+while IFS= read -r file; do
+    if [[ "$file" != static/* && "$file" != *.md && "$file" != *.txt && \
+          "$file" != .gitignore && "$file" != .dockerignore && \
+          "$file" != webhook/* && "$file" != deploy.sh ]]; then
+        NEEDS_RESTART=true
+        break
+    fi
+done <<< "$(git diff --name-only "$PREV_SHA" "$NEW_SHA")"
+
+if ! $NEEDS_RESTART; then
+    echo "Static/docs only — skipping restart."
+    echo "Deploy OK (no restart): $NEW_SHA"
+    exit 0
+fi
+
+# 5) Atomický swap (krátky výpadok ~2s, nutné kvôli docker-compose 1.29.2 ContainerConfig bugu)
 docker rm -f $(docker ps -aq) 2>/dev/null || true
 $DC up -d
 
-# 5) Health check — max 15s
+# 6) Health check — max 15s
 HEALTHY=false
 for i in 1 2 3; do
     sleep 5

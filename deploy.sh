@@ -22,7 +22,13 @@ if [[ -n "$CLEAN_URL" && "$CLEAN_URL" == *.* && "$CLEAN_URL" != *"localhost"* ]]
         echo "PUBLIC_URL=$CLEAN_URL" >> .env
     fi
 
-    docker-compose up -d "$@"
-else
-    docker-compose up -d "$@"
 fi
+
+# Build len ak sa zmenili závislosti alebo Dockerfile
+if git diff HEAD~1 HEAD -- pyproject.toml uv.lock Dockerfile 2>/dev/null | grep -q .; then
+    echo "Rebuilding image..."
+    docker-compose build
+fi
+
+docker rm -f $(docker ps -aq) 2>/dev/null || true
+docker-compose up -d "$@"
