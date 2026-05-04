@@ -19,6 +19,7 @@ temp.jpg
 
 # User-uploaded images (generated at runtime)
 static/avatars/
+!static/avatars/default_avatar.png #Exclude default avatar
 static/uploads/
 
 # Data directory (contains database and secrets)
@@ -27,6 +28,9 @@ data/token_usage.txt
 
 #Documents
 docs/
+
+# Dummy test scripts
+dummies/
 
 # Claude Code
 .claude/

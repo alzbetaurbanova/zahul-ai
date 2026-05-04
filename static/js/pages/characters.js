@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
     let currentCharacterName = null;
+    let currentCharacterId = null;
 
     // --- DOM Elements ---
     const characterGrid = document.getElementById('character-grid');
@@ -91,12 +92,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const card = document.createElement('div');
                 card.className = 'group relative aspect-square bg-gray-900 rounded-lg cursor-pointer overflow-hidden shadow-lg transition-transform transform hover:scale-105 border border-gray-800';
                 card.dataset.charName = char.name;
+                card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || 'https://via.placeholder.com/200'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
+                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
                 `;
-                card.addEventListener('click', () => loadCharacterForEdit(char.name));
+                card.addEventListener('click', () => loadCharacterForEdit(char.id));
                 characterGrid.appendChild(card);
             });
             applyFilter();
@@ -108,18 +110,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function loadCharacterForEdit(name) {
+    async function loadCharacterForEdit(id) {
         try {
-            const response = await fetch(`${API_BASE}/${name}`);
+            const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
-            
+
             resetForm();
-            currentCharacterName = name;
+            currentCharacterId = char.id;
+            currentCharacterName = char.name;
 
             formTitle.textContent = `Editing: ${char.name}`;
             nameInput.value = char.name;
-            nameInput.readOnly = true;
-        nameInput.classList.add('input-readonly');
 
             personaInput.value = char.data.persona;
             instructionsInput.value = char.data.instructions;
@@ -146,6 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const resetForm = () => {
         currentCharacterName = null;
+        currentCharacterId = null;
         form.reset();
         nameInput.readOnly = false;
         nameInput.classList.remove('input-readonly');
@@ -153,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.textContent = 'Create Character';
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
-        updateAvatarPreview('https://via.placeholder.com/96');
+        updateAvatarPreview('/static/avatars/default_avatar.png');
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
@@ -199,11 +201,12 @@ document.addEventListener('DOMContentLoaded', function() {
             let method;
             let body;
 
-            if (currentCharacterName) {
+            if (currentCharacterId) {
                 // --- UPDATE existing character ---
-                url = `${API_BASE}/${currentCharacterName}`;
+                url = `${API_BASE}/${currentCharacterId}`;
                 method = 'PUT';
                 body = JSON.stringify({
+                    name: name,
                     data: characterData,
                     triggers: triggers
                 });
@@ -240,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleExport() {
-        if (!currentCharacterName) return;
+        if (!currentCharacterId) return;
         const characterData = {
             name: nameInput.value,
             data: {
@@ -264,16 +267,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleDelete() {
-        if (!currentCharacterName || !confirm(`Are you sure you want to delete '${currentCharacterName}'? This cannot be undone.`)) {
+        if (!currentCharacterId || !confirm(`Are you sure you want to delete '${nameInput.value}'? This cannot be undone.`)) {
             return;
         }
         try {
-            const response = await fetch(`${API_BASE}/${currentCharacterName}`, { method: 'DELETE' });
+            const response = await fetch(`${API_BASE}/${currentCharacterId}`, { method: 'DELETE' });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'An unknown error occurred.');
             }
-            showToast(`Character '${currentCharacterName}' deleted.`);
+            showToast(`Character '${nameInput.value}' deleted.`);
             closeModal();
             await fetchAndDisplayCharacters();
         } catch (error) {
@@ -378,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const updateAvatarPreview = (url) => { avatarPreview.src = url || 'https://via.placeholder.com/96'; };
+    const updateAvatarPreview = (url) => { avatarPreview.src = url || '/static/avatars/default_avatar.png'; };
 
     // --- Import Info Modal ---
     const importInfoModal = document.getElementById('import-info-modal');

@@ -114,6 +114,7 @@ class Character(BaseModel):
 
 class CharacterListItem(BaseModel):
     """A lightweight model for listing characters in the UI."""
+    id: int
     name: str
     avatar: str
     about: str
@@ -126,6 +127,7 @@ class CharacterCreate(BaseModel):
 
 class CharacterUpdate(BaseModel):
     """Model for updating an existing character's data and triggers."""
+    name: str
     data: CharacterData
     triggers: List[str]
 

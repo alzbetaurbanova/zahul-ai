@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
-TRASH_DB_PATH = os.getenv("TRASH_DB_URL", "trash.db")
+TRASH_DB_PATH = os.getenv("TRASH_DB_URL", "data/trash.db")
 
 
 class TrashDB:

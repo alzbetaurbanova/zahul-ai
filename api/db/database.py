@@ -7,7 +7,7 @@ def _get_trash_db():
     from api.db.trash import TrashDB
     return TrashDB()
 
-DB_PATH = os.getenv("DATABASE_URL", "bot.db")
+DB_PATH = os.getenv("DATABASE_URL", "data/bot.db")
 
 
 class Database:
@@ -361,6 +361,33 @@ class Database:
                 char['triggers'] = triggers
         return chars
     
+    def get_character_by_id(self, char_id: int) -> Optional[Dict[str, Any]]:
+        """Read a character's data and triggers by ID."""
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT id, name, data FROM characters WHERE id = ?", (char_id,)).fetchone()
+            if not row: return None
+            triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
+            return {"id": char_id, "name": row["name"], "data": json.loads(row["data"]), "triggers": triggers}
+
+    def update_character_by_id(self, char_id: int, name: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
+        """Update a character by ID. Optionally update name and/or data."""
+        kwargs = {}
+        if name is not None:
+            kwargs['name'] = name
+        if data is not None:
+            kwargs['data'] = data
+        if kwargs:
+            self._update_record("characters", "id", char_id, **kwargs)
+
+    def delete_character_by_id(self, char_id: int):
+        """Delete a character by ID."""
+        char = self.get_character_by_id(char_id)
+        if char:
+            _get_trash_db().move_to_trash("characters", str(char_id), char)
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM characters WHERE id = ?", (char_id,))
+            conn.commit()
+
     def update_character_triggers(self, character_id: int, triggers: List[str]):
         """
         Replaces all triggers for a given character.
