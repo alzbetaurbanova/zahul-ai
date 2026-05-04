@@ -24,12 +24,14 @@ def list_discord_logs(
     model: Optional[str] = None,
     source: List[str] = Query(default=[]),
     status: List[str] = Query(default=[]),
+    task_id: Optional[int] = None,
 ):
     return db.list_discord_logs(
         page=page, limit=limit,
         from_date=from_date, to_date=to_date,
         character=character, channel_id=channel_id,
         user=user, model=model, source=source, status=status,
+        task_id=task_id,
     )
 
 

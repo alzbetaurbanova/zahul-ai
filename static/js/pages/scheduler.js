@@ -567,6 +567,9 @@
             toggleBtn.onclick = () => { detailModal.classList.add('hidden'); handleAction('toggle', task.id); };
             document.getElementById('detail-edit').onclick = () => { detailModal.classList.add('hidden'); openModal(task); };
             document.getElementById('detail-delete').onclick = () => { detailModal.classList.add('hidden'); handleAction('delete', task.id); };
+            document.getElementById('detail-logs').onclick = () => {
+                window.location.href = `/logs?tab=discord&task_id=${task.id}&character=${encodeURIComponent(task.character)}&source=scheduler`;
+            };
 
             detailModal.classList.remove('hidden');
         }
@@ -853,5 +856,14 @@
         // --- Toast ---
         // Init
         loadCharacters();
-        loadTargetOptions().then(() => fetchTasks());
+        loadTargetOptions().then(async () => {
+            await fetchTasks();
+            const openId = new URLSearchParams(location.search).get('open');
+            if (openId) {
+                try {
+                    const res = await fetch(`${API}/${openId}`);
+                    if (res.ok) openDetail(await res.json());
+                } catch {}
+            }
+        });
     })();

@@ -117,13 +117,14 @@ class Database:
                     conversation_history TEXT,
                     source TEXT DEFAULT 'chat',
                     status TEXT DEFAULT 'ok',
-                    error_message TEXT
+                    error_message TEXT,
+                    task_id INTEGER DEFAULT NULL
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
             # Migrations for existing DBs
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -588,7 +589,7 @@ class Database:
     def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
-                    temperature: float = None, history_count: int = 0):
+                    temperature: float = None, history_count: int = 0, task_id: int = None):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
@@ -598,11 +599,11 @@ class Database:
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count))
+                  temperature, history_count, task_id))
             conn.commit()
 
     def log_admin(self, action: str, target: str = None, detail: str = None):
@@ -630,12 +631,13 @@ class Database:
         if filters.get('status'):
             vals = filters['status'] if isinstance(filters['status'], list) else [filters['status']]
             conditions.append(f"status IN ({','.join('?'*len(vals))})"); params.extend(vals)
+        if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:
             total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count,task_id FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}

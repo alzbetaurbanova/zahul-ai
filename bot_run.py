@@ -480,7 +480,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                 conversation_history=request_messages, temperature=temperature,
                 source='scheduler', status='error', error_message=text_suffix,
-                history_count=history_count,
+                history_count=history_count, task_id=task['id'],
             )
             return
         text_suffix = text_suffix.strip()
@@ -542,7 +542,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                     model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                     conversation_history=request_messages, temperature=temperature,
                     source='scheduler', status='error', error_message='DM target not found',
-                    history_count=history_count,
+                    history_count=history_count, task_id=task['id'],
                 )
                 return
 
@@ -552,7 +552,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
             conversation_history=request_messages, temperature=temperature,
             source='scheduler', status='ok', error_message=None,
-            history_count=history_count,
+            history_count=history_count, task_id=task['id'],
         )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
@@ -583,6 +583,7 @@ async def _run_scheduler(bot: 'Zahul'):
                         user='system', trigger=task.get('instructions') or '', response='',
                         model='', input_tokens=0, output_tokens=0, conversation_history=None,
                         source='scheduler', status='error', error_message=err, history_count=0,
+                        task_id=task['id'],
                     )
 
             # Fire active schedules whose time matches now
@@ -618,6 +619,7 @@ async def _run_scheduler(bot: 'Zahul'):
                             user='system', trigger=task.get('instructions') or '', response='',
                             model='', input_tokens=0, output_tokens=0, conversation_history=None,
                             source='scheduler', status='error', error_message=err, history_count=0,
+                            task_id=task['id'],
                         )
                     _last_schedule_fire[task['id']] = today_str
         except Exception:
