@@ -451,7 +451,7 @@
             const char = _charCache[t.character] || {};
             const avatar = char.avatar;
             const avatarHtml = avatar
-                ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}">`
+                ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}" onerror="this.src='/static/avatars/default_avatar.png'">`
                 : `<div class="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot text-gray-400 text-xs"></i></div>`;
             const titleHtml = t.type === 'schedule'
                 ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
@@ -525,7 +525,7 @@
             const char = _charCache[task.character] || {};
             const avatar = char.avatar;
             document.getElementById('detail-avatar').innerHTML = avatar
-                ? `<img src="${esc(avatar)}" class="w-11 h-11 rounded-full object-cover">`
+                ? `<img src="${esc(avatar)}" class="w-11 h-11 rounded-full object-cover" onerror="this.src='/static/avatars/default_avatar.png'">`
                 : `<div class="w-11 h-11 rounded-full bg-gray-700 flex items-center justify-center"><i class="fas fa-robot text-gray-400"></i></div>`;
             document.getElementById('detail-badges').innerHTML = typeBadge(task.type) + ' ' + modeBadge(task.message_mode || 'exact');
             document.getElementById('detail-name').textContent = task.type === 'reminder' ? task.character : normalizeTaskName(task.name);
