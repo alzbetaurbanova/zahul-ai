@@ -258,9 +258,13 @@ async def zahul_logo():
 
 # --- Auth Endpoints ---
 
-@app.get("/login", response_class=FileResponse, include_in_schema=False)
+@app.get("/login", include_in_schema=False)
 async def get_login():
-    return "static/login.html"
+    db = Database()
+    panel_password = db.get_config("panel_password") or ""
+    if not panel_password:
+        return RedirectResponse(url="/", status_code=302)
+    return FileResponse("static/login.html")
 
 @app.post("/login", include_in_schema=False)
 async def post_login(password: str = Form(...)):

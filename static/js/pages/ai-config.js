@@ -152,9 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSecuritySave() {
         const isEnabled = securityToggle.checked;
-        if (isEnabled && panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
-            showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
-            return;
+        if (isEnabled) {
+            if (!panelPasswordInput.value) {
+                showToast('Password is required when protection is enabled.', 'error');
+                return;
+            }
+            if (panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
+                showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
+                return;
+            }
         }
         const configData = {
             panel_password: isEnabled ? panelPasswordInput.value : '',
@@ -173,8 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 'Failed to save security config.';
                 throw new Error(msg);
             }
-            showToast(isEnabled ? 'Panel password saved!' : 'Panel password disabled!');
-            panelPasswordInput.value = '';
+            if (isEnabled) {
+                showToast('Password saved. Redirecting to login...');
+                setTimeout(() => { window.location.href = '/logout'; }, 1200);
+            } else {
+                showToast('Panel password disabled!');
+                panelPasswordInput.value = '';
+            }
         } catch (error) {
             showToast(error.message, 'error');
         }
