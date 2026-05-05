@@ -4,18 +4,29 @@
 from fastapi import APIRouter, Body, HTTPException
 from typing import Set
 from pydantic import BaseModel
+import bcrypt
 # Assumes your db class is at api/db/database.py
 from api.db.database import Database
 from api.models.models import BotConfig
 
 
 class SecurityConfig(BaseModel):
+    username: str = ""
     panel_password: str = ""
-    panel_password_hint: str = ""
+
+
+class AuthMethodsConfig(BaseModel):
+    panel_auth_enabled: bool
+    discord_login_enabled: bool
+    local_login_enabled: bool
+    discord_oauth_client_id: str = ""
+    discord_oauth_client_secret: str = ""
+    discord_oauth_redirect_uri: str = ""
+    discord_allowed_usernames: list[str] = []
 
 # --- Constants and DB Initialization ---
 # This business logic is preserved from your original file.
-PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key','multimodal_ai_api'}
+PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key', 'multimodal_ai_api', 'discord_oauth_client_secret'}
 REQUIRED_FIELDS: Set[str] = {'default_character', 'ai_endpoint', 'base_llm'}
 MIN_PANEL_PASSWORD_LENGTH = 8
 
@@ -25,6 +36,15 @@ router = APIRouter(
     prefix="/api/config",
     tags=["Bot Configuration"]
 )
+
+def _validate_panel_auth_prerequisites(panel_auth_enabled: bool, discord_login_enabled: bool, local_login_enabled: bool):
+    if not panel_auth_enabled:
+        return
+    if not (discord_login_enabled or local_login_enabled):
+        raise HTTPException(status_code=400, detail="Enable at least one login method before enabling panel protection.")
+    if not discord_login_enabled and not db.get_owner_account():
+        raise HTTPException(status_code=400, detail="Create an admin account before enabling panel protection.")
+
 
 @router.get("/", response_model=BotConfig)
 async def get_config():
@@ -59,21 +79,20 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
                     detail=f"Required field '{field}' cannot be empty"
                 )
 
-        panel_password = str(new_config.get("panel_password", "") or "")
-        if panel_password and len(panel_password) < MIN_PANEL_PASSWORD_LENGTH:
-            raise HTTPException(
-                status_code=400,
-                detail=f"panel_password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters"
-            )
-
         # Preserve existing sensitive values (like keys) if the new value is empty
         for field in PRESERVE_FIELDS:
             if (field in existing_config and
                 not str(new_config.get(field, '')).strip()):
                 new_config[field] = existing_config[field]
 
+        _validate_panel_auth_prerequisites(
+            bool(new_config.get("panel_auth_enabled")),
+            bool(new_config.get("discord_login_enabled")),
+            bool(new_config.get("local_login_enabled")),
+        )
+
         # Write each key-value pair from the final, merged config to the database
-        changed = [k for k, v in new_config.items() if str(existing_config.get(k)) != str(v) and k not in ('ai_key', 'discord_key', 'panel_password')]
+        changed = [k for k, v in new_config.items() if str(existing_config.get(k)) != str(v) and k not in ('ai_key', 'discord_key', 'discord_oauth_client_secret')]
         for key, value in new_config.items():
             if value is not None:
                 db.set_config(key, value)
@@ -90,24 +109,76 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
 
 @router.patch("/security")
 async def update_security(config: SecurityConfig):
-    """Update only the panel password and hint without requiring the full config."""
+    """Create/update owner credentials."""
     try:
-        if config.panel_password and len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
+        if len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
             raise HTTPException(
                 status_code=400,
                 detail=f"Panel password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters."
             )
-        current = db.list_configs()
-        changed = []
-        if config.panel_password != current.get('panel_password', ''):
-            changed.append('password')
-        if config.panel_password_hint != current.get('panel_password_hint', ''):
-            changed.append('hint')
-        db.set_config("panel_password", config.panel_password)
-        db.set_config("panel_password_hint", config.panel_password_hint)
-        db.log_admin('config.security.update', detail=', '.join(changed) if changed else 'no change')
+
+        username = config.username.strip()
+        if not username:
+            raise HTTPException(status_code=400, detail="Username is required.")
+
+        current_owner = db.get_owner_account()
+        if current_owner:
+            existing_user = db.get_user_by_username(username)
+            if existing_user and int(existing_user["id"]) != int(current_owner["id"]):
+                raise HTTPException(status_code=409, detail="Username already exists.")
+            password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db._update_record(
+                "users",
+                "id",
+                int(current_owner["id"]),
+                username=username,
+                password_hash=password_hash,
+                updated_at=db._utcnow_iso(),
+            )
+            changed = ["owner_credentials"]
+        else:
+            if db.get_user_by_username(username):
+                raise HTTPException(status_code=409, detail="Username already exists.")
+            password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db.create_local_user(username=username, password_hash=password_hash, role="owner")
+            changed = ["owner_created"]
+
+        db.log_admin('config.security.update', detail=', '.join(changed))
         return {"ok": True}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving security config: {e}")
+
+
+@router.patch("/security/methods")
+async def update_security_methods(config: AuthMethodsConfig):
+    try:
+        _validate_panel_auth_prerequisites(
+            config.panel_auth_enabled,
+            config.discord_login_enabled,
+            config.local_login_enabled,
+        )
+        db.set_config("panel_auth_enabled", config.panel_auth_enabled)
+        db.set_config("discord_login_enabled", config.discord_login_enabled)
+        db.set_config("local_login_enabled", config.local_login_enabled)
+        if config.discord_oauth_client_id:
+            db.set_config("discord_oauth_client_id", config.discord_oauth_client_id)
+        if config.discord_oauth_client_secret:
+            db.set_config("discord_oauth_client_secret", config.discord_oauth_client_secret)
+        if config.discord_oauth_redirect_uri:
+            db.set_config("discord_oauth_redirect_uri", config.discord_oauth_redirect_uri)
+        db.set_config("discord_allowed_usernames", config.discord_allowed_usernames)
+        db.log_admin(
+            "config.security.methods.update",
+            detail=(
+                f"panel_auth_enabled={config.panel_auth_enabled}, "
+                f"discord_login_enabled={config.discord_login_enabled}, "
+                f"local_login_enabled={config.local_login_enabled}"
+            ),
+        )
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving security methods: {e}")

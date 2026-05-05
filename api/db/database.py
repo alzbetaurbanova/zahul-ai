@@ -2,6 +2,7 @@ import sqlite3
 import json
 from typing import Any, Optional, Dict, List, Tuple
 import os
+from datetime import datetime, timezone
 
 def _get_trash_db():
     from api.db.trash import TrashDB
@@ -139,6 +140,30 @@ class Database:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(timestamp)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT,
+                    role TEXT NOT NULL DEFAULT 'user',
+                    discord_id TEXT UNIQUE,
+                    discord_username TEXT,
+                    auth_provider TEXT NOT NULL DEFAULT 'local',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS auth_sessions (
+                    token TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)")
             conn.commit()
 
     # ------------------------------------------------------
@@ -148,6 +173,14 @@ class Database:
         """Generic helper to update any record in any table."""
         if not kwargs:
             return # Nothing to update
+        if table_name == "users" and "role" in kwargs:
+            with self._get_connection() as conn:
+                existing = conn.execute(
+                    f"SELECT role FROM {table_name} WHERE {identifier_col} = ?",
+                    (identifier_val,),
+                ).fetchone()
+                if existing and str(existing["role"]) == "owner" and str(kwargs["role"]) != "owner":
+                    raise ValueError("Owner account cannot be demoted.")
         
         # JSON fields need to be dumped to string
         for key, value in kwargs.items():
@@ -703,3 +736,113 @@ class Database:
                     'channel_name': data.get('name', d['channel_id'])
                 }
         return {"characters": characters, "users": users, "channels": channels}
+
+    # ------------------------------------------------------
+    # Panel auth users & sessions
+    # ------------------------------------------------------
+    def _utcnow_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def get_owner_account(self) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE role = 'owner' ORDER BY id ASC LIMIT 1").fetchone()
+            return dict(row) if row else None
+
+    def create_local_user(self, username: str, password_hash: str, role: str = "user") -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO users (username, password_hash, role, auth_provider, created_at, updated_at)
+                VALUES (?, ?, ?, 'local', ?, ?)
+                """,
+                (username, password_hash, role, now, now),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_discord_id(self, discord_id: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
+            return dict(row) if row else None
+
+    def create_or_update_discord_user(self, discord_id: str, discord_username: str) -> int:
+        now = self._utcnow_iso()
+        username = f"discord_{discord_username}".lower()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            existing = cur.execute("SELECT id FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
+            if existing:
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET discord_username = ?, updated_at = ?, auth_provider = 'discord'
+                    WHERE discord_id = ?
+                    """,
+                    (discord_username, now, discord_id),
+                )
+                conn.commit()
+                return int(existing["id"])
+
+            candidate = username
+            suffix = 1
+            while cur.execute("SELECT id FROM users WHERE username = ?", (candidate,)).fetchone():
+                suffix += 1
+                candidate = f"{username}_{suffix}"
+
+            cur.execute(
+                """
+                INSERT INTO users (username, role, discord_id, discord_username, auth_provider, created_at, updated_at)
+                VALUES (?, 'user', ?, ?, 'discord', ?, ?)
+                """,
+                (candidate, discord_id, discord_username, now, now),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def create_session(self, token: str, user_id: int, expires_at: str):
+        created_at = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute(
+                "REPLACE INTO auth_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (token, user_id, created_at, expires_at),
+            )
+            conn.commit()
+
+    def get_session(self, token: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT token, user_id, created_at, expires_at FROM auth_sessions WHERE token = ?",
+                (token,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def delete_session(self, token: str):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
+            conn.commit()
+
+    def purge_expired_sessions(self):
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (now,))
+            conn.commit()
+
+    def delete_user_by_id(self, user_id: int):
+        with self._get_connection() as conn:
+            existing = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+            if existing and str(existing["role"]) == "owner":
+                raise ValueError("Owner account cannot be deleted.")
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()

@@ -14,11 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPresetDescription = null;
 
     // Security Elements
-    const securityToggle = document.getElementById('security_toggle');
-    const securityFields = document.getElementById('security-fields');
+    const panelAuthToggle = document.getElementById('panel_auth_enabled');
+    const discordLoginToggle = document.getElementById('discord_login_enabled');
+    const localLoginToggle = document.getElementById('local_login_enabled');
+    const panelAuthMasterWrap = document.getElementById('panel-auth-master-wrap');
+    const panelAuthMasterNote = document.getElementById('panel-auth-master-note');
+    const currentOwnerUsername = document.getElementById('current-owner-username');
+    const discordOauthWarning = document.getElementById('discord-oauth-warning');
+    const discordOauthFields = document.getElementById('discord-oauth-fields');
+    const ownerAccountSection = document.getElementById('owner-account-section');
     const saveSecurityBtn = document.getElementById('save-security-btn');
+    const saveAdminBtn = document.getElementById('save-admin-btn');
     const panelPasswordInput = document.getElementById('panel_password');
-    const panelPasswordHintInput = document.getElementById('panel_password_hint');
+    const ownerUsernameInput = document.getElementById('owner_username');
+    let authStatus = null;
+    let discordOauthConfiguredOnServer = false;
 
     // DM Access Control Elements
     const dmToggle = document.getElementById('dm_toggle');
@@ -31,7 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
         'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api',
-        'public_url'
+        'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
+        'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
     ];
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
     const MIN_PANEL_PASSWORD_LENGTH = 8;
@@ -66,20 +77,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSecurityStatus() {
         try {
-            const response = await fetch('/api/auth-enabled');
+            const response = await fetch('/api/auth-status');
             if (!response.ok) return;
-            const data = await response.json();
-            securityToggle.checked = data.enabled;
-            toggleSecurityFields();
-            if (data.enabled) {
-                const hintRes = await fetch('/api/panel-hint');
-                if (hintRes.ok) {
-                    const hintData = await hintRes.json();
-                    panelPasswordHintInput.value = hintData.hint || '';
-                }
+            authStatus = await response.json();
+            discordOauthConfiguredOnServer = !!authStatus.discord_oauth_configured;
+            panelAuthToggle.checked = !!authStatus.panel_auth_enabled;
+            discordLoginToggle.checked = !!authStatus.discord_login_enabled;
+            localLoginToggle.checked = !!authStatus.local_login_enabled;
+            const allowedTextarea = document.getElementById('discord_allowed_usernames');
+            if (allowedTextarea && Array.isArray(authStatus.discord_allowed_usernames)) {
+                allowedTextarea.value = authStatus.discord_allowed_usernames.join('\n');
             }
+            await loadOwner();
+            updateMethodVisibility();
         } catch (error) {
             // Silently ignore
+        }
+    }
+
+    async function loadOwner() {
+        const ownerRes = await fetch('/api/auth-owner');
+        if (!ownerRes.ok) return;
+        const ownerData = await ownerRes.json();
+        const username = (ownerData.username || '').trim();
+        currentOwnerUsername.textContent = username || 'Not set';
+        if (username) {
+            ownerUsernameInput.value = username;
         }
     }
 
@@ -90,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
-        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint']) {
+        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
@@ -135,30 +158,54 @@ document.addEventListener('DOMContentLoaded', () => {
             elements['ai_key'].value = '';
             elements['discord_key'].value = '';
             elements['multimodal_ai_api'].value = '';
+            elements['discord_oauth_client_secret'].value = '';
+            await loadSecurityStatus();
         } catch (error) {
             showToast(error.message, 'error');
         }
     }
 
-    function toggleSecurityFields() {
-        if (securityToggle.checked) {
-            securityFields.classList.remove('hidden');
-        } else {
-            securityFields.classList.add('hidden');
-            panelPasswordInput.value = '';
-            panelPasswordHintInput.value = '';
+    function updateMasterToggleState() {
+        const anyMethodEnabled = discordLoginToggle.checked || localLoginToggle.checked;
+        panelAuthToggle.disabled = !anyMethodEnabled;
+        panelAuthMasterWrap.classList.toggle('opacity-60', !anyMethodEnabled);
+        panelAuthMasterNote.classList.toggle('hidden', anyMethodEnabled);
+        if (!anyMethodEnabled) panelAuthToggle.checked = false;
+    }
+
+    function updateDiscordOauthWarning() {
+        const configuredInForm = !!(elements.discord_oauth_client_id.value.trim()
+            && elements.discord_oauth_redirect_uri.value.trim());
+        const configured = discordOauthConfiguredOnServer || configuredInForm;
+        discordOauthWarning.classList.toggle('hidden', configured || !discordLoginToggle.checked);
+    }
+
+    function updateMethodVisibility() {
+        discordOauthFields.classList.toggle('hidden', !discordLoginToggle.checked);
+        ownerAccountSection.classList.toggle('hidden', !localLoginToggle.checked);
+        updateDiscordOauthWarning();
+        updateMasterToggleState();
+        if (discordLoginToggle.checked || localLoginToggle.checked) {
+            panelAuthToggle.checked = true;
         }
     }
 
-    async function handleSecuritySave() {
-        const isEnabled = securityToggle.checked;
-        if (isEnabled && panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
+    async function handleAdminSave() {
+        if (panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
             showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
             return;
         }
+        if (!ownerUsernameInput.value.trim()) {
+            showToast('Owner username is required.', 'error');
+            return;
+        }
+        if (!panelPasswordInput.value) {
+            showToast('Owner password is required.', 'error');
+            return;
+        }
         const configData = {
-            panel_password: isEnabled ? panelPasswordInput.value : '',
-            panel_password_hint: isEnabled ? panelPasswordHintInput.value : ''
+            username: ownerUsernameInput.value.trim(),
+            panel_password: panelPasswordInput.value
         };
         try {
             const response = await fetch('/api/config/security', {
@@ -173,10 +220,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 'Failed to save security config.';
                 throw new Error(msg);
             }
-            showToast(isEnabled ? 'Panel password saved!' : 'Panel password disabled!');
+            showToast('Owner account saved.');
             panelPasswordInput.value = '';
+            await loadOwner();
+            updateMasterToggleState();
         } catch (error) {
             showToast(error.message, 'error');
+        }
+    }
+
+    async function handleSecuritySave() {
+        if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
+            showToast('At least one login method must be enabled.', 'error');
+            return;
+        }
+        const allowedRaw = document.getElementById('discord_allowed_usernames')?.value || "";
+        const payload = {
+            panel_auth_enabled: panelAuthToggle.checked,
+            discord_login_enabled: discordLoginToggle.checked,
+            local_login_enabled: localLoginToggle.checked,
+            discord_oauth_client_id: elements.discord_oauth_client_id?.value?.trim() || "",
+            discord_oauth_client_secret: elements.discord_oauth_client_secret?.value?.trim() || "",
+            discord_oauth_redirect_uri: elements.discord_oauth_redirect_uri?.value?.trim() || "",
+            discord_allowed_usernames: allowedRaw.split('\n').map(s => s.trim()).filter(s => s),
+        };
+        try {
+            const response = await fetch('/api/config/security/methods', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to save security settings.');
+            }
+            showToast('Security settings saved.');
+        } catch (error) {
+            showToast(error.message, 'error');
+            await loadSecurityStatus();
         }
     }
 
@@ -240,8 +321,46 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', handleConfigSubmit);
     multimodalToggle.addEventListener('change', toggleMultimodalOptions);
     savePromptBtn.addEventListener('click', savePrompt);
-    securityToggle.addEventListener('change', toggleSecurityFields);
     saveSecurityBtn.addEventListener('click', handleSecuritySave);
+    saveAdminBtn.addEventListener('click', handleAdminSave);
+    discordLoginToggle.addEventListener('change', () => {
+        if (!discordLoginToggle.checked) {
+            const modal = document.getElementById('confirm-disable-discord-modal');
+            const msg = document.getElementById('confirm-disable-discord-msg');
+            msg.textContent = localLoginToggle.checked
+                ? 'Discord OAuth login will be disabled. You can still log in with your username and password.'
+                : 'Discord OAuth login will be disabled. You have no other login method enabled - panel protection will be turned off.';
+            modal.classList.remove('hidden');
+            document.getElementById('confirm-disable-discord-cancel').onclick = () => {
+                discordLoginToggle.checked = true;
+                modal.classList.add('hidden');
+            };
+            document.getElementById('confirm-disable-discord-confirm').onclick = () => {
+                modal.classList.add('hidden');
+                updateMethodVisibility();
+            };
+            return;
+        }
+        updateMethodVisibility();
+    });
+    localLoginToggle.addEventListener('change', () => {
+        if (!localLoginToggle.checked) {
+            const modal = document.getElementById('confirm-disable-local-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('confirm-disable-local-cancel').onclick = () => {
+                localLoginToggle.checked = true;
+                modal.classList.add('hidden');
+            };
+            document.getElementById('confirm-disable-local-confirm').onclick = () => {
+                modal.classList.add('hidden');
+                updateMethodVisibility();
+            };
+            return;
+        }
+        updateMethodVisibility();
+    });
+    elements.discord_oauth_client_id.addEventListener('input', updateDiscordOauthWarning);
+    elements.discord_oauth_redirect_uri.addEventListener('input', updateDiscordOauthWarning);
     dmToggle.addEventListener('change', toggleDmFields);
 
     // --- Initial Load ---
