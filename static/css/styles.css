@@ -642,6 +642,25 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     color: white;
 }
 
+/* ========================================================================== */
+/* Role Badges                                                                 */
+/* ========================================================================== */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.role-owner  { background: rgba(234,179,8,0.15);  color: #fbbf24; }
+.role-admin  { background: rgba(239,68,68,0.15);  color: #f87171; }
+.role-mod    { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+.role-guest  { background: rgba(107,114,128,0.15);color: #9ca3af; }
+
 .legend-section {
     font-size: 1.125rem;
     font-weight: 600;

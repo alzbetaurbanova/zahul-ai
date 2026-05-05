@@ -1,9 +1,10 @@
 # routers/presets.py
 """Preset-related API endpoints, powered by the database."""
 
-from fastapi import APIRouter, Body, Path, HTTPException, status
+from fastapi import APIRouter, Body, Path, HTTPException, status, Depends
 from typing import List
 from pydantic import BaseModel, Field
+from api.auth import require_role
 
 # --- Model and Database Imports ---
 from api.models.models import Preset  # This model includes the 'id'
@@ -36,7 +37,7 @@ async def list_presets():
 
 
 @router.post("/", response_model=Preset, status_code=status.HTTP_201_CREATED)
-async def create_preset(preset_data: PresetBody = Body(..., description="The new preset's data")):
+async def create_preset(preset_data: PresetBody = Body(..., description="The new preset's data"), _: dict = Depends(require_role("admin"))):
     """Create a new preset in the database."""
     # Check for conflicts first
     if db.get_preset(name=preset_data.name):
@@ -76,7 +77,8 @@ async def get_preset(preset_name: str = Path(..., description="The unique name o
 @router.put("/{preset_name}", response_model=Preset)
 async def update_preset(
     preset_name: str = Path(..., description="The name of the preset to update"),
-    preset_data: PresetBody = Body(..., description="The updated preset data")
+    preset_data: PresetBody = Body(..., description="The updated preset data"),
+    _: dict = Depends(require_role("admin"))
 ):
     """Update an existing preset's data, ignoring any name changes."""
     # Ensure the preset to be updated exists
@@ -105,7 +107,7 @@ async def update_preset(
 
 
 @router.delete("/{preset_name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_preset(preset_name: str = Path(..., description="The name of the preset to delete")):
+async def delete_preset(preset_name: str = Path(..., description="The name of the preset to delete"), _: dict = Depends(require_role("admin"))):
     """Delete a preset from the database."""
     # Check if the preset exists before trying to delete
     if not db.get_preset(name=preset_name):

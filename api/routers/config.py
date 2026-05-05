@@ -1,13 +1,13 @@
 # routers/config.py
 """Bot configuration API endpoints, powered by the database."""
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Depends, Request
 from typing import Set
 from pydantic import BaseModel
 import bcrypt
-# Assumes your db class is at api/db/database.py
 from api.db.database import Database
 from api.models.models import BotConfig
+from api.auth import get_current_user, require_role, strip_sensitive, ROLE_LEVEL
 
 
 class SecurityConfig(BaseModel):
@@ -47,19 +47,18 @@ def _validate_panel_auth_prerequisites(panel_auth_enabled: bool, discord_login_e
 
 
 @router.get("/", response_model=BotConfig)
-async def get_config():
-    """Get the bot configuration from the database."""
+async def get_config(current_user=Depends(get_current_user)):
     try:
-        # Fetch all key-value pairs from the config table
         all_db_configs = db.list_configs()
-        # Pydantic will use default values for any keys not found in the DB
+        if current_user and ROLE_LEVEL.get(current_user.get("role"), 0) < ROLE_LEVEL["admin"]:
+            all_db_configs = strip_sensitive(all_db_configs)
         return BotConfig(**all_db_configs)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error while fetching config: {e}")
 
 
 @router.put("/", response_model=BotConfig)
-async def update_config(config: BotConfig = Body(..., description="Updated bot configuration")):
+async def update_config(config: BotConfig = Body(...), _: dict = Depends(require_role("admin"))):
     """
     Update the bot configuration in the database with smart field preservation.
     Each field in the model is saved as a separate key-value pair.
@@ -108,7 +107,7 @@ async def update_config(config: BotConfig = Body(..., description="Updated bot c
 
 
 @router.patch("/security")
-async def update_security(config: SecurityConfig):
+async def update_security(config: SecurityConfig, _: dict = Depends(require_role("owner"))):
     """Create/update owner credentials."""
     try:
         if len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:

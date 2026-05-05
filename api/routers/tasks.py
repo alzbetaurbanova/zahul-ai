@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Any, Dict, List, Optional
 from api.db.database import Database
 from api.models.models import Task, TaskCreate, TaskUpdate
+from api.auth import require_role
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 db = Database()
@@ -136,7 +137,7 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
 
 
 @router.get("/")
-def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])):
+def list_tasks(_: dict = Depends(require_role("mod")), type: Optional[str] = None, status: List[str] = Query(default=[])):
     try:
         tasks = db.list_tasks(type=type, status=status)
         # Validate each task against the Task model to ensure data integrity
@@ -157,7 +158,7 @@ def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])
 
 
 @router.post("/", response_model=Task, status_code=201)
-def create_task(body: TaskCreate):
+def create_task(body: TaskCreate, _: dict = Depends(require_role("admin"))):
     _validate_task_dependencies(body.type, body.character, body.target_type, body.target_id)
     if body.type == "reminder":
         if not body.scheduled_time:
@@ -201,7 +202,7 @@ def create_task(body: TaskCreate):
 
 
 @router.get("/{task_id}", response_model=Task)
-def get_task(task_id: int):
+def get_task(task_id: int, _: dict = Depends(require_role("mod"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -215,7 +216,7 @@ def get_task(task_id: int):
 
 
 @router.put("/{task_id}", response_model=Task)
-def update_task(task_id: int, body: TaskUpdate):
+def update_task(task_id: int, body: TaskUpdate, _: dict = Depends(require_role("admin"))):
     if not db.get_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     existing = db.get_task(task_id)
@@ -253,7 +254,7 @@ def update_task(task_id: int, body: TaskUpdate):
 
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: int):
+def delete_task(task_id: int, _: dict = Depends(require_role("admin"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

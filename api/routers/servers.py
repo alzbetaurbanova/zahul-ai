@@ -1,12 +1,13 @@
 # routers/servers.py
 """Server and channel-related API endpoints, powered by the database."""
 
-from fastapi import APIRouter, Body, Path, HTTPException, status
+from fastapi import APIRouter, Body, Path, HTTPException, status, Depends
 from typing import List
 
 # --- Model and Database Imports ---
 from api.models.models import Server, ServerConfig, Channel, ChannelData
 from api.db.database import Database
+from api.auth import require_role
 from pydantic import BaseModel
 
 # --- Initialize Database Client ---
@@ -20,7 +21,7 @@ router = APIRouter(
 # --- Server Endpoints ---
 
 @router.get("/", response_model=List[Server])
-async def list_servers():
+async def list_servers(_: dict = Depends(require_role("mod"))):
     """List all servers available in the database."""
     try:
         return db.list_servers()
@@ -28,7 +29,7 @@ async def list_servers():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Server, status_code=status.HTTP_201_CREATED)
-async def create_server(server: Server = Body(..., description="Server data to create")):
+async def create_server(server: Server = Body(..., description="Server data to create"), _: dict = Depends(require_role("admin"))):
     """Create a new server record in the database."""
     if db.get_server(server.server_id):
         raise HTTPException(
@@ -48,7 +49,7 @@ async def create_server(server: Server = Body(..., description="Server data to c
         raise HTTPException(status_code=500, detail=f"Failed to create server: {e}")
 
 @router.get("/{server_id}", response_model=Server)
-async def get_server(server_id: str = Path(..., description="The unique ID of the server")):
+async def get_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("mod"))):
     """Get a specific server's configuration."""
     server = db.get_server(server_id)
     if not server:
@@ -56,14 +57,14 @@ async def get_server(server_id: str = Path(..., description="The unique ID of th
     return server
 
 @router.get("/{server_id}/config", response_model=ServerConfig)
-async def get_server_config(server_id: str = Path(...)):
+async def get_server_config(server_id: str = Path(...), _: dict = Depends(require_role("mod"))):
     """Get per-server config overrides."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     return db.get_server_config(server_id)
 
 @router.patch("/{server_id}/config", response_model=ServerConfig)
-async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...)):
+async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), _: dict = Depends(require_role("admin"))):
     """Set per-server config overrides. Only provided (non-null) fields are saved."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
@@ -75,7 +76,7 @@ async def update_server_config(server_id: str = Path(...), body: ServerConfig = 
     return current
 
 @router.delete("/{server_id}/config", status_code=status.HTTP_204_NO_CONTENT)
-async def reset_server_config(server_id: str = Path(...)):
+async def reset_server_config(server_id: str = Path(...), _: dict = Depends(require_role("admin"))):
     """Reset all per-server config overrides back to global defaults."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
@@ -84,7 +85,7 @@ async def reset_server_config(server_id: str = Path(...)):
     return None
 
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_server(server_id: str = Path(..., description="The unique ID of the server")):
+async def delete_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("admin"))):
     """
     Delete a server and all its associated channels from the database.
     This action is irreversible due to cascading deletes.
@@ -109,7 +110,8 @@ class CreateChannelRequest(BaseModel):
 @router.post("/{server_id}/channels", response_model=Channel, status_code=status.HTTP_201_CREATED)
 async def create_channel(
     server_id: str = Path(..., description="The server ID to add the channel to"),
-    request: CreateChannelRequest = Body(..., description="The new channel's ID and configuration")
+    request: CreateChannelRequest = Body(..., description="The new channel's ID and configuration"),
+    _: dict = Depends(require_role("admin"))
 ):
     """Create a new channel configuration within a specific server."""
     server = db.get_server(server_id)
@@ -136,7 +138,7 @@ async def create_channel(
         raise HTTPException(status_code=500, detail=f"Failed to create channel: {e}")
 
 @router.get("/{server_id}/channels", response_model=List[Channel])
-async def list_channels_in_server(server_id: str = Path(..., description="The unique ID of the server")):
+async def list_channels_in_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("mod"))):
     """List all channels in a specific server."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
@@ -145,7 +147,8 @@ async def list_channels_in_server(server_id: str = Path(..., description="The un
 @router.get("/{server_id}/channels/{channel_id}", response_model=Channel)
 async def get_channel(
     server_id: str = Path(..., description="The server ID"),
-    channel_id: str = Path(..., description="The unique channel ID")
+    channel_id: str = Path(..., description="The unique channel ID"),
+    _: dict = Depends(require_role("mod"))
 ):
     """Get a specific channel's configuration."""
     channel = db.get_channel(channel_id)
@@ -157,7 +160,8 @@ async def get_channel(
 async def update_channel(
     server_id: str = Path(..., description="The server ID"),
     channel_id: str = Path(..., description="The unique channel ID"),
-    channel_data: ChannelData = Body(..., description="The updated channel data")
+    channel_data: ChannelData = Body(..., description="The updated channel data"),
+    _: dict = Depends(require_role("admin"))
 ):
     """Update an existing channel's configuration."""
     existing_channel = db.get_channel(channel_id)
@@ -176,7 +180,8 @@ async def update_channel(
 @router.delete("/{server_id}/channels/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_channel(
     server_id: str = Path(..., description="The server ID"),
-    channel_id: str = Path(..., description="The unique channel ID")
+    channel_id: str = Path(..., description="The unique channel ID"),
+    _: dict = Depends(require_role("admin"))
 ):
     """Delete a channel's configuration."""
     existing_channel = db.get_channel(channel_id)

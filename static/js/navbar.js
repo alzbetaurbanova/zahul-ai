@@ -35,10 +35,39 @@
         if (desktopLogout) desktopLogout.style.visibility = visible ? 'visible' : 'hidden';
         if (mobileLogout) mobileLogout.classList.toggle('hidden', !visible);
     }
-    if (localStorage.getItem('auth-enabled') === '1') setLogoutVisible(true);
-    fetch('/api/auth-enabled').then(r => r.json()).then(d => {
-        localStorage.setItem('auth-enabled', d.enabled ? '1' : '0');
-        setLogoutVisible(d.enabled);
+
+    function applyNavVisibility(authEnabled, role) {
+        const usersLink = container.querySelector('a.nav-users-link');
+        const usersMobileLink = container.querySelector('a.nav-users-mobile-link');
+        const adminLink = container.querySelector('a.nav-admin-link');
+        const adminMobileLink = container.querySelector('a.nav-admin-mobile-link');
+        const showUsers = !authEnabled || role === 'owner' || role === 'admin';
+        const showAdmin = !authEnabled || role === 'owner';
+        if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
+        if (usersMobileLink) usersMobileLink.classList.toggle('hidden', !showUsers);
+        if (adminLink) adminLink.classList.toggle('hidden', !showAdmin);
+        if (adminMobileLink) adminMobileLink.classList.toggle('hidden', !showAdmin);
+    }
+
+    // Pre-apply from cache to avoid flash
+    const _cachedAuth = localStorage.getItem('auth-enabled') === '1';
+    const _cachedRole = localStorage.getItem('user-role') || '';
+    if (_cachedAuth) setLogoutVisible(true);
+    applyNavVisibility(_cachedAuth, _cachedRole);
+
+    // Auth status: resolve actual state
+    fetch('/api/auth-status').then(r => r.json()).then(d => {
+        const authEnabled = d.panel_auth_enabled;
+        const role = d.current_user?.role || '';
+        setLogoutVisible(authEnabled);
+        localStorage.setItem('auth-enabled', authEnabled ? '1' : '0');
+        localStorage.setItem('user-role', role);
+        applyNavVisibility(authEnabled, role);
+    }).catch(() => {
+        fetch('/api/auth-enabled').then(r => r.json()).then(d => {
+            localStorage.setItem('auth-enabled', d.enabled ? '1' : '0');
+            setLogoutVisible(d.enabled);
+        });
     });
 
     // Bot status polling

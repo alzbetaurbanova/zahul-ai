@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/auth-status').then(r => r.json()).then(d => {
+        const role = d.current_user?.role;
+        if (d.panel_auth_enabled && role !== 'owner') {
+            window.location.href = '/';
+        }
+    }).catch(() => {});
+
     const CONFIG_API_BASE = '/api/config';
     const PRESET_API_BASE = '/api/presets';
 

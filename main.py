@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # --- Local Imports ---
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
+from api.routers import users as users_router
 from api.db.database import Database
 from src.plugins.manager import PluginManager
 
@@ -134,7 +135,6 @@ def _cookie_secure(request: Request) -> bool:
 
 
 def _is_panel_auth_enabled(db: Database) -> bool:
-    # Missing key should be treated as disabled.
     return bool(db.get_config("panel_auth_enabled"))
 
 
@@ -152,7 +152,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        # Always allow login page and static assets
         if path.startswith("/login") or path.startswith("/static") or path in (
             "/favicon.ico",
             "/zahul",
@@ -167,7 +166,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         db.purge_expired_sessions()
         if _owner_setup_required(db):
-            # Force owner account bootstrap before protecting routes.
             if path.startswith("/api"):
                 return JSONResponse({"detail": "Owner account setup required"}, status_code=403)
             return RedirectResponse(url="/login?setup=1", status_code=302)
@@ -182,7 +180,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     return await call_next(request)
                 db.delete_session(token)
 
-        # Not authenticated - redirect HTML pages, return 401 for API
         if path.startswith("/api"):
             return JSONResponse({"detail": "Not authenticated"}, status_code=401)
         return RedirectResponse(url="/login", status_code=302)
@@ -229,6 +226,7 @@ app.include_router(preset.router)
 app.include_router(tasks_router.router)
 app.include_router(logs_router.router)
 app.include_router(trash_router.router)
+app.include_router(users_router.router)
 
 # Set up CORS
 app.add_middleware(
@@ -361,13 +359,21 @@ async def setup_owner(payload: dict):
 
 
 @app.get("/api/auth-status", include_in_schema=False)
-async def auth_status():
+async def auth_status(request: Request):
     db = Database()
     oauth_configured = bool(
         (db.get_config("discord_oauth_client_id") or "").strip()
         and (db.get_config("discord_oauth_client_secret") or "").strip()
         and (db.get_config("discord_oauth_redirect_uri") or "").strip()
     )
+    token = request.cookies.get("zahul_session")
+    user = None
+    if token:
+        session = db.get_session(token)
+        if session:
+            from datetime import datetime, timezone
+            if datetime.fromisoformat(session["expires_at"]) > datetime.now(timezone.utc):
+                user = db.get_user_by_id(int(session["user_id"]))
     return {
         "owner_setup_required": _owner_setup_required(db),
         "discord_login_enabled": bool(db.get_config("discord_login_enabled")),
@@ -375,6 +381,11 @@ async def auth_status():
         "panel_auth_enabled": bool(db.get_config("panel_auth_enabled")),
         "discord_oauth_configured": oauth_configured,
         "discord_allowed_usernames": db.get_config("discord_allowed_usernames") or [],
+        "current_user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+        } if user else None,
     }
 
 
@@ -482,6 +493,10 @@ async def logout(request: Request):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("zahul_session")
     return response
+
+@app.get("/users", response_class=FileResponse, include_in_schema=False)
+async def get_users_html():
+    return "static/users.html"
 
 @app.get("/api/auth-enabled", include_in_schema=False)
 async def auth_enabled():

@@ -164,6 +164,14 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_server_access (
+                    user_id INTEGER NOT NULL,
+                    server_id TEXT NOT NULL,
+                    PRIMARY KEY (user_id, server_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
             conn.commit()
 
     # ------------------------------------------------------
@@ -748,6 +756,9 @@ class Database:
             row = conn.execute("SELECT * FROM users WHERE role = 'owner' ORDER BY id ASC LIMIT 1").fetchone()
             return dict(row) if row else None
 
+    def get_owner_user(self) -> Optional[Dict[str, Any]]:
+        return self.get_owner_account()
+
     def create_local_user(self, username: str, password_hash: str, role: str = "user") -> int:
         now = self._utcnow_iso()
         with self._get_connection() as conn:
@@ -758,6 +769,19 @@ class Database:
                 VALUES (?, ?, ?, 'local', ?, ?)
                 """,
                 (username, password_hash, role, now, now),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def create_user(self, username: str, password_hash: Optional[str], role: str,
+                    auth_provider: str = "local", discord_id: Optional[str] = None,
+                    discord_username: Optional[str] = None) -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (username, password_hash, role, auth_provider, discord_id, discord_username, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                (username, password_hash, role, auth_provider, discord_id, discord_username, now, now)
             )
             conn.commit()
             return cur.lastrowid
@@ -779,7 +803,7 @@ class Database:
 
     def create_or_update_discord_user(self, discord_id: str, discord_username: str) -> int:
         now = self._utcnow_iso()
-        username = f"discord_{discord_username}".lower()
+        username = discord_username.lower()
         with self._get_connection() as conn:
             cur = conn.cursor()
             existing = cur.execute("SELECT id FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
@@ -828,6 +852,47 @@ class Database:
             ).fetchone()
             return dict(row) if row else None
 
+    def get_session_user(self, token: str) -> Optional[Dict[str, Any]]:
+        session = self.get_session(token)
+        if not session:
+            return None
+        return self.get_user_by_id(int(session["user_id"]))
+
+    def list_users(self) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+            return [dict(r) for r in rows]
+
+    def update_user(self, user_id: int, **kwargs):
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return
+        if user.get("role") == "owner" and kwargs.get("role") and kwargs["role"] != "owner":
+            raise ValueError("Cannot demote the owner account.")
+        self._update_record("users", "id", user_id, updated_at=self._utcnow_iso(), **kwargs)
+
+    def delete_user(self, user_id: int):
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return
+        if user.get("role") == "owner":
+            raise ValueError("Cannot delete the owner account.")
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+
+    def get_user_server_access(self, user_id: int) -> List[str]:
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT server_id FROM user_server_access WHERE user_id = ?", (user_id,)).fetchall()
+            return [r["server_id"] for r in rows]
+
+    def set_user_server_access(self, user_id: int, server_ids: List[str]):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM user_server_access WHERE user_id = ?", (user_id,))
+            for sid in server_ids:
+                conn.execute("INSERT OR IGNORE INTO user_server_access (user_id, server_id) VALUES (?,?)", (user_id, sid))
+            conn.commit()
+
     def delete_session(self, token: str):
         with self._get_connection() as conn:
             conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
@@ -837,12 +902,4 @@ class Database:
         now = self._utcnow_iso()
         with self._get_connection() as conn:
             conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (now,))
-            conn.commit()
-
-    def delete_user_by_id(self, user_id: int):
-        with self._get_connection() as conn:
-            existing = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
-            if existing and str(existing["role"]) == "owner":
-                raise ValueError("Owner account cannot be deleted.")
-            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()

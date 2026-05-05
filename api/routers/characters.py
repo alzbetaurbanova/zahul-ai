@@ -16,9 +16,10 @@ import asyncio
 import os
 import httpx
 from urllib.parse import urlparse
-from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query
+from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
 from typing import List, Annotated
+from api.auth import require_role
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -142,6 +143,7 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
 @router.post("/save_avatar")
 async def save_avatar(
+    _: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
     image: Annotated[UploadFile, File(description="Avatar image file")] = None
 ):
@@ -165,6 +167,7 @@ async def save_avatar(
 
 @router.post("/mirror_avatar")
 async def mirror_avatar_endpoint(
+    _: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
     url: str = Query(..., description="Image URL to download")
 ):
@@ -220,7 +223,8 @@ async def list_characters():
 
 @router.post("/", response_model=Character, status_code=status.HTTP_201_CREATED)
 async def create_character(
-    character: CharacterCreate = Body(..., description="The character to create, including name, data, and triggers.")
+    character: CharacterCreate = Body(...),
+    _: dict = Depends(require_role("admin"))
 ):
     """
     Create a new character from a structured JSON object.
@@ -263,8 +267,9 @@ async def get_character(character_id: int = Path(..., description="ID of the cha
 
 @router.put("/{character_id}", response_model=Character)
 async def update_character(
-    character_id: int = Path(..., description="ID of the character to update"),
-    character_update: CharacterUpdate = Body(..., description="The full character data, optional new name, and triggers to update")
+    character_id: int = Path(...),
+    character_update: CharacterUpdate = Body(...),
+    _: dict = Depends(require_role("admin"))
 ):
     """Update an existing character's data, name, and triggers in the database."""
     existing_char = db.get_character_by_id(character_id)
@@ -304,7 +309,7 @@ async def update_character(
 
 
 @router.delete("/{character_id}")
-async def delete_character(character_id: int = Path(..., description="ID of the character")):
+async def delete_character(character_id: int = Path(...), _: dict = Depends(require_role("admin"))):
     """Delete a character from the database."""
     char = db.get_character_by_id(character_id)
     if not char:
@@ -320,7 +325,7 @@ async def delete_character(character_id: int = Path(..., description="ID of the 
 # --- Utility and Import Endpoints ---
 
 @router.post("/import", response_model=Character, status_code=status.HTTP_201_CREATED)
-async def create_character_from_import(request: Request):
+async def create_character_from_import(request: Request, _: dict = Depends(require_role("admin"))):
     """
     Create a new character by importing from a raw JSON character card file.
     This is a secondary creation method, used by the 'Import Card' button.
@@ -349,7 +354,8 @@ async def create_character_from_import(request: Request):
 
 @router.post("/upload_image", response_model=dict)
 async def upload_image(
-    image: Annotated[UploadFile, File(description="The image file to upload.")]
+    image: Annotated[UploadFile, File()],
+    _: dict = Depends(require_role("admin"))
 ):
     """
     Accepts an image file, uploads it via the Discord bot, and returns the permanent Discord CDN link.

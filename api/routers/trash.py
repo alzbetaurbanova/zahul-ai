@@ -1,6 +1,7 @@
 import json
 import sqlite3
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from api.auth import require_role
 
 router = APIRouter(prefix="/api/trash", tags=["Trash"])
 
@@ -16,12 +17,12 @@ def _get_trash_db():
 
 
 @router.get("")
-def list_trash():
+def list_trash(_: dict = Depends(require_role("admin"))):
     return _get_trash_db().list_all()
 
 
 @router.get("/{trash_id}")
-def get_trash_item(trash_id: int):
+def get_trash_item(trash_id: int, _: dict = Depends(require_role("admin"))):
     item = _get_trash_db().get(trash_id)
     if not item:
         raise HTTPException(status_code=404, detail="Trash item not found")
@@ -29,7 +30,7 @@ def get_trash_item(trash_id: int):
 
 
 @router.post("/{trash_id}/restore")
-def restore(trash_id: int):
+def restore(trash_id: int, _: dict = Depends(require_role("admin"))):
     trash_db = _get_trash_db()
     item = trash_db.get(trash_id)
     if not item:

@@ -7,8 +7,9 @@ import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
+from api.auth import require_role
 
 # Adjust import paths to match your project structure
 from bot_run import Zahul
@@ -64,7 +65,7 @@ def _run_bot_in_thread():
 
 
 @router.post("/activate")
-async def activate_bot():
+async def activate_bot(_: dict = Depends(require_role("admin"))):
     # Check the shared state object
     if (bot_state.bot_instance and bot_state.bot_instance.is_ready()) or (bot_state.bot_thread and bot_state.bot_thread.is_alive()):
         raise HTTPException(status_code=400, detail="Bot is already active or starting.")
@@ -78,7 +79,7 @@ async def activate_bot():
 
 
 @router.post("/deactivate")
-async def deactivate_bot():
+async def deactivate_bot(_: dict = Depends(require_role("admin"))):
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
@@ -115,7 +116,7 @@ async def get_discord_invite():
 
 
 @router.get("/stream-logs")
-async def stream_logs(request: Request):
+async def stream_logs(request: Request, _: dict = Depends(require_role("admin"))):
     """
     Streams the bot's log file using Server-Sent Events.
     Starts with the last 10 lines of the file and then continues to
