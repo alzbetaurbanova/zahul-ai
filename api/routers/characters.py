@@ -5,9 +5,9 @@ Character-related API endpoints, powered by the database.
 This file manages the full lifecycle of characters via RESTful endpoints:
 - GET /: Lists all characters in a lightweight format for grids/UIs.
 - POST /: Creates a new character from a structured JSON object (the primary creation method).
-- GET /{name}: Retrieves the full details of a single character.
-- PUT /{name}: Updates an existing character's data and triggers.
-- DELETE /{name}: Removes a character.
+- GET /{id}: Retrieves the full details of a single character.
+- PUT /{id}: Updates an existing character's data, name, and triggers.
+- DELETE /{id}: Removes a character.
 - POST /import: A secondary creation method for importing from raw character card files.
 - POST /upload_image: A utility endpoint to upload avatars via the Discord bot.
 """
@@ -61,7 +61,7 @@ async def _mirror_avatar(name: str, url: str) -> str:
 # These Pydantic models define the structure of data for requests and responses.
 from api.models.models import (
     Character,          # The full character object (DB row + data + triggers)
-    CharacterData,      # The core character definition (persona, examples, etc.)
+    CharacterData,      # The core character definition (persona, instructions, etc.)
     CharacterCreate,    # The required structure for POST / requests
     CharacterUpdate,    # The required structure for PUT /{name} requests
     CharacterListItem   # The lightweight structure for GET / responses
@@ -101,7 +101,6 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
                 raise ValueError("Character name is missing from the card.")
 
             description = raw_data.get("description", "")
-            examples_str = raw_data.get("mes_example", "")
             personality = raw_data.get("personality", "")
             system_prompt = raw_data.get("system_prompt", "")
             post_history = raw_data.get("post_history_instructions", "")
@@ -109,7 +108,6 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
             # Replace placeholders
             description = description.replace("{{user}}", "User").replace("{{char}}", name)
-            examples_str = examples_str.replace("{{user}}", "User").replace("{{char}}", name)
 
             # Assemble the data into the CharacterData structure
             character_data = {
@@ -209,6 +207,7 @@ async def list_characters():
             char_data = char.get("data", {})
             result.append(
                 CharacterListItem(
+                    id=char.get("id"),
                     name=char.get("name", ""),
                     avatar=char_data.get("avatar") or "",
                     about=char_data.get("about") or ""
@@ -253,56 +252,67 @@ async def create_character(
     return new_character
 
 
-@router.get("/{character_name}", response_model=Character)
-async def get_character(character_name: str = Path(..., description="Name of the character")):
+@router.get("/{character_id}", response_model=Character)
+async def get_character(character_id: int = Path(..., description="ID of the character")):
     """Get a character's full configuration from the database."""
-    character = db.get_character(name=character_name)
+    character = db.get_character_by_id(character_id)
     if not character:
-        raise HTTPException(status_code=404, detail=f"Character '{character_name}' not found")
+        raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
     return character
 
 
-@router.put("/{character_name}", response_model=Character)
+@router.put("/{character_id}", response_model=Character)
 async def update_character(
-    character_name: str = Path(..., description="Name of the character to update"),
-    character_update: CharacterUpdate = Body(..., description="The full character data and triggers to update")
+    character_id: int = Path(..., description="ID of the character to update"),
+    character_update: CharacterUpdate = Body(..., description="The full character data, optional new name, and triggers to update")
 ):
-    """Update an existing character's data and triggers in the database."""
-    existing_char = db.get_character(name=character_name)
+    """Update an existing character's data, name, and triggers in the database."""
+    existing_char = db.get_character_by_id(character_id)
     if not existing_char:
-        raise HTTPException(status_code=404, detail=f"Character '{character_name}' not found")
+        raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
 
     try:
-        # Step 1: Update the main character data (persona, examples, etc.)
         char_data = character_update.data.model_dump()
-        db.update_character(name=character_name, data=char_data)
-        
-        # Step 2: Update the triggers by replacing them completely
-        # This requires the character's database ID.
-        db.update_character_triggers(character_id=existing_char['id'], triggers=character_update.triggers)
+        new_name = character_update.name
+
+        if new_name != existing_char['name']:
+            if db.get_character(name=new_name):
+                raise HTTPException(status_code=409, detail=f"Character '{new_name}' already exists.")
+
+        db.update_character_by_id(
+            char_id=character_id,
+            name=new_name if new_name != existing_char['name'] else None,
+            data=char_data
+        )
+        db.update_character_triggers(character_id=character_id, triggers=character_update.triggers)
+
         old_data = existing_char.get('data', {})
         changed = [k for k, v in char_data.items() if str(old_data.get(k)) != str(v)]
+        if new_name != existing_char['name']:
+            changed.append('name')
         old_triggers = sorted(existing_char.get('triggers') or [])
         new_triggers = sorted(character_update.triggers or [])
         if old_triggers != new_triggers:
             changed.append('triggers')
-        db.log_admin('character.update', target=character_name, detail=', '.join(changed) if changed else None)
-        updated_character = db.get_character(name=character_name)
-        return updated_character
+        db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None)
+
+        return db.get_character_by_id(character_id)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update character: {e}")
 
 
-@router.delete("/{character_name}")
-async def delete_character(character_name: str = Path(..., description="Name of the character")):
+@router.delete("/{character_id}")
+async def delete_character(character_id: int = Path(..., description="ID of the character")):
     """Delete a character from the database."""
-    if not db.get_character(name=character_name):
-        raise HTTPException(status_code=404, detail=f"Character '{character_name}' not found")
-    
+    char = db.get_character_by_id(character_id)
+    if not char:
+        raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
     try:
-        db.delete_character(name=character_name)
-        db.log_admin('character.delete', target=character_name)
-        return {"message": f"Character '{character_name}' deleted successfully"}
+        db.delete_character_by_id(char_id=character_id)
+        db.log_admin('character.delete', target=char['name'])
+        return {"message": f"Character '{char['name']}' deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete character: {e}")
     

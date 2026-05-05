@@ -4,6 +4,10 @@ import json
 import subprocess
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 
 SECRET = os.environ.get("WEBHOOK_SECRET", "")
 BRANCH = os.environ.get("WEBHOOK_BRANCH", "refs/heads/main")
@@ -52,4 +56,4 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     port = int(os.environ.get("WEBHOOK_PORT", "9000"))
     print(f"Webhook server running on port {port}...")
-    HTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    ThreadedHTTPServer(("0.0.0.0", port), Handler).serve_forever()

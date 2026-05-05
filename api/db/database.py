@@ -7,7 +7,16 @@ def _get_trash_db():
     from api.db.trash import TrashDB
     return TrashDB()
 
-DB_PATH = os.getenv("DATABASE_URL", "bot.db")
+DB_PATH = os.getenv("DATABASE_URL", "data/bot.db")
+
+
+def _ensure_db_directory(path: str) -> None:
+    if path in (":memory:", "") or path.startswith("file:"):
+        return
+
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
 
 
 class Database:
@@ -34,6 +43,7 @@ class Database:
 
     def _get_connection(self):
         """Returns a new database connection."""
+        _ensure_db_directory(self.db_path)
         conn = sqlite3.connect(self.db_path)
         conn.execute("PRAGMA foreign_keys = ON;") # Ensure foreign key constraints are enforced
         conn.row_factory = sqlite3.Row
@@ -117,13 +127,14 @@ class Database:
                     conversation_history TEXT,
                     source TEXT DEFAULT 'chat',
                     status TEXT DEFAULT 'ok',
-                    error_message TEXT
+                    error_message TEXT,
+                    task_id INTEGER DEFAULT NULL
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
             # Migrations for existing DBs
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -361,6 +372,33 @@ class Database:
                 char['triggers'] = triggers
         return chars
     
+    def get_character_by_id(self, char_id: int) -> Optional[Dict[str, Any]]:
+        """Read a character's data and triggers by ID."""
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT id, name, data FROM characters WHERE id = ?", (char_id,)).fetchone()
+            if not row: return None
+            triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
+            return {"id": char_id, "name": row["name"], "data": json.loads(row["data"]), "triggers": triggers}
+
+    def update_character_by_id(self, char_id: int, name: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
+        """Update a character by ID. Optionally update name and/or data."""
+        kwargs = {}
+        if name is not None:
+            kwargs['name'] = name
+        if data is not None:
+            kwargs['data'] = data
+        if kwargs:
+            self._update_record("characters", "id", char_id, **kwargs)
+
+    def delete_character_by_id(self, char_id: int):
+        """Delete a character by ID."""
+        char = self.get_character_by_id(char_id)
+        if char:
+            _get_trash_db().move_to_trash("characters", str(char_id), char)
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM characters WHERE id = ?", (char_id,))
+            conn.commit()
+
     def update_character_triggers(self, character_id: int, triggers: List[str]):
         """
         Replaces all triggers for a given character.
@@ -561,7 +599,7 @@ class Database:
     def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
-                    temperature: float = None, history_count: int = 0):
+                    temperature: float = None, history_count: int = 0, task_id: int = None):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
@@ -571,11 +609,11 @@ class Database:
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count))
+                  temperature, history_count, task_id))
             conn.commit()
 
     def log_admin(self, action: str, target: str = None, detail: str = None):
@@ -603,12 +641,13 @@ class Database:
         if filters.get('status'):
             vals = filters['status'] if isinstance(filters['status'], list) else [filters['status']]
             conditions.append(f"status IN ({','.join('?'*len(vals))})"); params.extend(vals)
+        if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:
             total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count,task_id FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}

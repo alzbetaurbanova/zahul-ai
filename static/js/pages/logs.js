@@ -3,6 +3,7 @@
     let currentTab = new URLSearchParams(location.search).get('tab') === 'admin' ? 'admin' : 'discord';
     let currentPage = 1;
     let totalItems = 0;
+    let _initialAutoOpen = !!new URLSearchParams(location.search).get('task_id');
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
     const esc = escapeHtml;
@@ -143,6 +144,8 @@
             if (v('df-to')) p.set('to_date', v('df-to'));
             if (v('df-character')) p.set('character', v('df-character'));
             if (v('df-user')) p.set('user', v('df-user'));
+            const taskIdParam = new URLSearchParams(location.search).get('task_id');
+            if (taskIdParam) p.set('task_id', taskIdParam);
             getChecked('df-source-cb').forEach(s => p.append('source', s));
             getChecked('df-status-cb').forEach(s => p.append('status', s));
         } else {
@@ -163,6 +166,11 @@
             totalItems = data.total;
             renderLogs(data.items);
             updatePagination();
+            if (_initialAutoOpen) {
+                _initialAutoOpen = false;
+                if (data.total === 1 && data.items[0]) openDetail(data.items[0].id);
+                else if (data.total === 0) showToast('No logs found for this task.', 'error');
+            }
         } catch (e) {
             list.innerHTML = '<div class="text-red-400 text-center py-12">Failed to load logs.</div>';
         }
@@ -244,8 +252,13 @@
     }
 
     // --- Detail modal ---
-    document.getElementById('detail-close').addEventListener('click', () => document.getElementById('detail-modal').classList.add('hidden'));
-    document.getElementById('detail-modal').addEventListener('click', e => { if (e.target === document.getElementById('detail-modal')) document.getElementById('detail-modal').classList.add('hidden'); });
+    function closeDetailModal() {
+        document.getElementById('detail-modal').classList.add('hidden');
+        const p = new URLSearchParams(location.search);
+        if (p.has('task_id')) { p.delete('task_id'); history.replaceState(null, '', `?${p.toString()}`); }
+    }
+    document.getElementById('detail-close').addEventListener('click', closeDetailModal);
+    document.getElementById('detail-modal').addEventListener('click', e => { if (e.target === document.getElementById('detail-modal')) closeDetailModal(); });
 
     async function openDetail(id) {
         const res = await fetch(`/api/logs/discord/${id}`);
@@ -279,6 +292,7 @@
                     ${row('Temperature', item.temperature != null ? item.temperature : '—')}
                     ${row('Source', esc(item.source || ''))}
                     ${row('Status', esc(item.status || ''), statusCls)}
+                    ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
                 </div>
 
                 <div class="log-section">
@@ -345,5 +359,18 @@
         }
     }
 
-    Promise.all([loadMeta(), loadServerNames()]).then(() => fetchLogs());
+    Promise.all([loadMeta(), loadServerNames()]).then(() => {
+        const urlParams = new URLSearchParams(location.search);
+        const paramChar = urlParams.get('character');
+        const paramSource = urlParams.get('source');
+        if (paramChar) document.getElementById('df-character').value = paramChar;
+        if (paramSource) {
+            const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
+            if (cb) {
+                cb.checked = true;
+                document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
+            }
+        }
+        fetchLogs();
+    });
 })();
