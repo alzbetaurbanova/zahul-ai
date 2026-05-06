@@ -656,7 +656,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
-.role-owner  { background: rgba(234,179,8,0.15);  color: #fbbf24; }
+.role-super_admin  { background: rgba(234,179,8,0.15);  color: #fbbf24; }
 .role-admin  { background: rgba(239,68,68,0.15);  color: #f87171; }
 .role-mod    { background: rgba(99,102,241,0.15); color: #a5b4fc; }
 .role-guest  { background: rgba(107,114,128,0.15);color: #9ca3af; }
@@ -745,6 +745,12 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     padding: 0.25rem 0;
 }
 
+.cb-dd-scrollable {
+    max-height: min(20rem, 50vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 .cb-dd-item {
     display: flex;
     align-items: center;
@@ -776,6 +782,19 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 .tab-btn:hover {
     color: white;
+}
+
+.tab-count-badge {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    text-align: center;
+    background-color: #dc2626;
+    color: #fff;
 }
 
 /* ========================================================================== */
@@ -1339,6 +1358,21 @@ body[data-page="logs"] #detail-modal .modal-box {
     border-radius: 0.5rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border: 1px solid var(--surface);
+}
+
+/* ========================================================================== */
+/* Shared List Cards (refactor-style)                                         */
+/* ========================================================================== */
+.list-card {
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: border-color 0.15s;
+}
+
+.list-card:hover {
+    border-color: #4b5563;
 }
 
 /* ========================================================================== */

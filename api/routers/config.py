@@ -38,11 +38,16 @@ router = APIRouter(
 )
 
 def _validate_panel_auth_prerequisites(panel_auth_enabled: bool, discord_login_enabled: bool, local_login_enabled: bool):
+    if local_login_enabled and db.count_local_super_admins() < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Local login requires at least one local super admin account."
+        )
     if not panel_auth_enabled:
         return
     if not (discord_login_enabled or local_login_enabled):
         raise HTTPException(status_code=400, detail="Enable at least one login method before enabling panel protection.")
-    if not discord_login_enabled and not db.get_owner_account():
+    if not discord_login_enabled and not db.get_super_admin_account():
         raise HTTPException(status_code=400, detail="Create an admin account before enabling panel protection.")
 
 
@@ -107,8 +112,8 @@ async def update_config(config: BotConfig = Body(...), _: dict = Depends(require
 
 
 @router.patch("/security")
-async def update_security(config: SecurityConfig, _: dict = Depends(require_role("owner"))):
-    """Create/update owner credentials."""
+async def update_security(config: SecurityConfig, _: dict = Depends(require_role("super_admin"))):
+    """Create/update super admin credentials."""
     try:
         if len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
             raise HTTPException(
@@ -120,27 +125,27 @@ async def update_security(config: SecurityConfig, _: dict = Depends(require_role
         if not username:
             raise HTTPException(status_code=400, detail="Username is required.")
 
-        current_owner = db.get_owner_account()
-        if current_owner:
+        current_super_admin = db.get_super_admin_account()
+        if current_super_admin:
             existing_user = db.get_user_by_username(username)
-            if existing_user and int(existing_user["id"]) != int(current_owner["id"]):
+            if existing_user and int(existing_user["id"]) != int(current_super_admin["id"]):
                 raise HTTPException(status_code=409, detail="Username already exists.")
             password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             db._update_record(
                 "users",
                 "id",
-                int(current_owner["id"]),
+                int(current_super_admin["id"]),
                 username=username,
                 password_hash=password_hash,
                 updated_at=db._utcnow_iso(),
             )
-            changed = ["owner_credentials"]
+            changed = ["super_admin_credentials"]
         else:
             if db.get_user_by_username(username):
                 raise HTTPException(status_code=409, detail="Username already exists.")
             password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-            db.create_local_user(username=username, password_hash=password_hash, role="owner")
-            changed = ["owner_created"]
+            db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
+            changed = ["super_admin_created"]
 
         db.log_admin('config.security.update', detail=', '.join(changed))
         return {"ok": True}
@@ -151,7 +156,7 @@ async def update_security(config: SecurityConfig, _: dict = Depends(require_role
 
 
 @router.patch("/security/methods")
-async def update_security_methods(config: AuthMethodsConfig):
+async def update_security_methods(config: AuthMethodsConfig, _: dict = Depends(require_role("super_admin"))):
     try:
         _validate_panel_auth_prerequisites(
             config.panel_auth_enabled,

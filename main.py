@@ -138,8 +138,8 @@ def _is_panel_auth_enabled(db: Database) -> bool:
     return bool(db.get_config("panel_auth_enabled"))
 
 
-def _owner_setup_required(db: Database) -> bool:
-    return _is_panel_auth_enabled(db) and db.get_owner_account() is None
+def _super_admin_setup_required(db: Database) -> bool:
+    return _is_panel_auth_enabled(db) and db.get_super_admin_account() is None
 
 
 # --- Auth Middleware ---
@@ -155,19 +155,20 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/login") or path.startswith("/static") or path in (
             "/favicon.ico",
             "/zahul",
+            "/no-access",
             "/api/panel-hint",
             "/api/auth-enabled",
             "/api/auth-status",
-            "/api/auth/setup-owner",
+            "/api/auth/setup-super-admin",
             "/auth/discord/start",
             "/auth/discord/callback",
         ):
             return await call_next(request)
 
         db.purge_expired_sessions()
-        if _owner_setup_required(db):
+        if _super_admin_setup_required(db):
             if path.startswith("/api"):
-                return JSONResponse({"detail": "Owner account setup required"}, status_code=403)
+                return JSONResponse({"detail": "Super admin account setup required"}, status_code=403)
             return RedirectResponse(url="/login?setup=1", status_code=302)
 
         token = request.cookies.get("zahul_session")
@@ -177,6 +178,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 expires_at = datetime.fromisoformat(session["expires_at"])
                 if expires_at > _utc_now():
                     request.state.auth_user = db.get_user_by_id(int(session["user_id"]))
+                    user = request.state.auth_user
+                    if user and user.get("auth_provider") == "discord" and user.get("role") not in {
+                        "super_admin", "admin", "mod", "guest"
+                    }:
+                        allowed_paths = {
+                            "/no-access",
+                            "/logout",
+                            "/api/auth-status",
+                            "/api/users/requests",
+                            "/api/users/requests/me",
+                        }
+                        if path not in allowed_paths:
+                            if path.startswith("/api"):
+                                return JSONResponse({"detail": "Access request required"}, status_code=403)
+                            return RedirectResponse(url="/no-access", status_code=302)
                     return await call_next(request)
                 db.delete_session(token)
 
@@ -337,8 +353,8 @@ async def post_login(request: Request, username: str = Form(...), password: str 
     return RedirectResponse(url="/login?error=1", status_code=302)
 
 
-@app.post("/api/auth/setup-owner", include_in_schema=False)
-async def setup_owner(payload: dict):
+@app.post("/api/auth/setup-super-admin", include_in_schema=False)
+async def setup_super_admin(payload: dict):
     db = Database()
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", "")).strip()
@@ -347,14 +363,14 @@ async def setup_owner(payload: dict):
         raise HTTPException(status_code=400, detail="username and password are required")
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="password must be at least 8 characters")
-    if db.get_owner_account():
-        raise HTTPException(status_code=409, detail="owner account already exists")
+    if db.get_super_admin_account():
+        raise HTTPException(status_code=409, detail="super admin account already exists")
     if db.get_user_by_username(username):
         raise HTTPException(status_code=409, detail="username already exists")
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    db.create_local_user(username=username, password_hash=password_hash, role="owner")
-    db.log_admin("auth.owner.created", target=username)
+    db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
+    db.log_admin("auth.super_admin.created", target=username)
     return {"ok": True}
 
 
@@ -375,7 +391,7 @@ async def auth_status(request: Request):
             if datetime.fromisoformat(session["expires_at"]) > datetime.now(timezone.utc):
                 user = db.get_user_by_id(int(session["user_id"]))
     return {
-        "owner_setup_required": _owner_setup_required(db),
+        "super_admin_setup_required": _super_admin_setup_required(db),
         "discord_login_enabled": bool(db.get_config("discord_login_enabled")),
         "local_login_enabled": bool(db.get_config("local_login_enabled")),
         "panel_auth_enabled": bool(db.get_config("panel_auth_enabled")),
@@ -389,10 +405,16 @@ async def auth_status(request: Request):
     }
 
 
-@app.get("/api/auth-owner", include_in_schema=False)
-async def auth_owner():
-    owner = Database().get_owner_account()
-    return {"username": owner["username"] if owner else ""}
+@app.get("/api/auth-super-admin", include_in_schema=False)
+async def auth_super_admin():
+    super_admin = Database().get_super_admin_account()
+    db = Database()
+    return {
+        "username": super_admin["username"] if super_admin else "",
+        "auth_provider": super_admin["auth_provider"] if super_admin else "",
+        "has_local_super_admin": db.count_local_super_admins() > 0,
+        "local_super_admin_count": db.count_local_super_admins(),
+    }
 
 
 @app.get("/auth/discord/start", include_in_schema=False)
@@ -470,11 +492,15 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
         return RedirectResponse(url="/login?oauth_error=unauthorized", status_code=302)
 
     user_id = db.create_or_update_discord_user(discord_id=discord_id, discord_username=discord_username)
-    if db.get_owner_account() is None:
-        db._update_record("users", "id", user_id, role="owner", updated_at=db._utcnow_iso())
+    if db.get_super_admin_account() is None:
+        db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
     token = secrets.token_hex(32)
     db.create_session(token, user_id, _make_session_expiry().isoformat())
-    response = RedirectResponse(url="/", status_code=302)
+    user = db.get_user_by_id(user_id)
+    target_url = "/"
+    if user and user.get("auth_provider") == "discord" and user.get("role") not in {"super_admin", "admin", "mod", "guest"}:
+        target_url = "/no-access"
+    response = RedirectResponse(url=target_url, status_code=302)
     response.set_cookie(
         "zahul_session",
         token,
@@ -497,6 +523,11 @@ async def logout(request: Request):
 @app.get("/users", response_class=FileResponse, include_in_schema=False)
 async def get_users_html():
     return "static/users.html"
+
+
+@app.get("/no-access", response_class=FileResponse, include_in_schema=False)
+async def get_no_access_html():
+    return "static/no-access.html"
 
 @app.get("/api/auth-enabled", include_in_schema=False)
 async def auth_enabled():

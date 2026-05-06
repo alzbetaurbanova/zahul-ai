@@ -153,6 +153,11 @@ class Database:
                     updated_at TEXT NOT NULL
                 )
             """)
+            # Role rename migration: owner -> super_admin
+            try:
+                conn.execute("UPDATE users SET role = 'super_admin' WHERE role = 'owner'")
+            except Exception:
+                pass
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS auth_sessions (
                     token TEXT PRIMARY KEY,
@@ -172,6 +177,22 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS access_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    discord_username TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    requested_at TEXT NOT NULL,
+                    reviewed_at TEXT,
+                    reviewed_by INTEGER,
+                    note TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_requested_at ON access_requests(requested_at DESC)")
             conn.commit()
 
     # ------------------------------------------------------
@@ -181,15 +202,6 @@ class Database:
         """Generic helper to update any record in any table."""
         if not kwargs:
             return # Nothing to update
-        if table_name == "users" and "role" in kwargs:
-            with self._get_connection() as conn:
-                existing = conn.execute(
-                    f"SELECT role FROM {table_name} WHERE {identifier_col} = ?",
-                    (identifier_val,),
-                ).fetchone()
-                if existing and str(existing["role"]) == "owner" and str(kwargs["role"]) != "owner":
-                    raise ValueError("Owner account cannot be demoted.")
-        
         # JSON fields need to be dumped to string
         for key, value in kwargs.items():
             if isinstance(value, (dict, list)):
@@ -751,13 +763,37 @@ class Database:
     def _utcnow_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def get_owner_account(self) -> Optional[Dict[str, Any]]:
+    def get_super_admin_account(self) -> Optional[Dict[str, Any]]:
         with self._get_connection() as conn:
-            row = conn.execute("SELECT * FROM users WHERE role = 'owner' ORDER BY id ASC LIMIT 1").fetchone()
+            row = conn.execute("SELECT * FROM users WHERE role = 'super_admin' ORDER BY id ASC LIMIT 1").fetchone()
             return dict(row) if row else None
 
-    def get_owner_user(self) -> Optional[Dict[str, Any]]:
-        return self.get_owner_account()
+    def get_super_admin_user(self) -> Optional[Dict[str, Any]]:
+        return self.get_super_admin_account()
+
+    def count_super_admins(self) -> int:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").fetchone()
+            return int(row["c"]) if row else 0
+
+    def count_local_super_admins(self) -> int:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND auth_provider = 'local'"
+            ).fetchone()
+            return int(row["c"]) if row else 0
+
+    def list_discord_super_admins(self) -> List[Dict[str, Any]]:
+        """Super admin accounts linked to Discord (have discord_id). Local-only super admins are excluded."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """SELECT * FROM users
+                   WHERE role = 'super_admin'
+                   AND auth_provider = 'discord'
+                   AND discord_id IS NOT NULL
+                   AND TRIM(discord_id) != ''"""
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def create_local_user(self, username: str, password_hash: str, role: str = "user") -> int:
         now = self._utcnow_iso()
@@ -867,18 +903,63 @@ class Database:
         user = self.get_user_by_id(user_id)
         if not user:
             return
-        if user.get("role") == "owner" and kwargs.get("role") and kwargs["role"] != "owner":
-            raise ValueError("Cannot demote the owner account.")
         self._update_record("users", "id", user_id, updated_at=self._utcnow_iso(), **kwargs)
 
     def delete_user(self, user_id: int):
         user = self.get_user_by_id(user_id)
         if not user:
             return
-        if user.get("role") == "owner":
-            raise ValueError("Cannot delete the owner account.")
         with self._get_connection() as conn:
             conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+
+    def get_pending_access_request(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM access_requests WHERE user_id = ? AND status = 'pending' ORDER BY requested_at DESC LIMIT 1",
+                (user_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_access_request(self, user_id: int, discord_username: str) -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO access_requests (user_id, discord_username, status, requested_at) VALUES (?, ?, 'pending', ?)",
+                (user_id, discord_username, now),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def list_access_requests(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            if status:
+                rows = conn.execute(
+                    "SELECT * FROM access_requests WHERE status = ? ORDER BY requested_at DESC",
+                    (status,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM access_requests ORDER BY requested_at DESC"
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_access_request(self, request_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM access_requests WHERE id = ?",
+                (request_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def resolve_access_request(self, request_id: int, status: str, reviewed_by: int, note: Optional[str] = None):
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE access_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, note = ? WHERE id = ?",
+                (status, now, reviewed_by, note, request_id),
+            )
             conn.commit()
 
     def get_user_server_access(self, user_id: int) -> List[str]:

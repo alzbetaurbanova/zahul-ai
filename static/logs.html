@@ -71,19 +71,43 @@
                     <button class="cb-dd-btn min-w-[10rem]" data-dd="dd-action">
                         <span class="cb-dd-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
                     </button>
-                    <div id="dd-action" class="cb-dd hidden min-w-[11rem]">
+                    <div id="dd-action" class="cb-dd cb-dd-scrollable hidden min-w-[12rem] max-w-[20rem]">
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.approve" class="af-action-cb accent-indigo-500"> access.request.approve</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.create" class="af-action-cb accent-indigo-500"> access.request.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.deny" class="af-action-cb accent-indigo-500"> access.request.deny</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="auth.super_admin.created" class="af-action-cb accent-indigo-500"> auth.super_admin.created</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.create" class="af-action-cb accent-indigo-500"> channel.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.delete" class="af-action-cb accent-indigo-500"> channel.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.update" class="af-action-cb accent-indigo-500"> channel.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.mirror" class="af-action-cb accent-indigo-500"> character.avatar.mirror</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.upload" class="af-action-cb accent-indigo-500"> character.avatar.upload</label>
                         <label class="cb-dd-item"><input type="checkbox" value="character.create" class="af-action-cb accent-indigo-500"> character.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.update" class="af-action-cb accent-indigo-500"> character.update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="character.delete" class="af-action-cb accent-indigo-500"> character.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.create" class="af-action-cb accent-indigo-500"> task.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.update" class="af-action-cb accent-indigo-500"> task.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.delete" class="af-action-cb accent-indigo-500"> task.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="config.update" class="af-action-cb accent-indigo-500"> config.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.image.upload" class="af-action-cb accent-indigo-500"> character.image.upload</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.import" class="af-action-cb accent-indigo-500"> character.import</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.update" class="af-action-cb accent-indigo-500"> character.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="config.security.methods.update" class="af-action-cb accent-indigo-500"> config.security.methods.update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="config.security.update" class="af-action-cb accent-indigo-500"> config.security.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.on" class="af-action-cb accent-indigo-500"> servers.override.on</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.off" class="af-action-cb accent-indigo-500"> servers.override.off</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="config.update" class="af-action-cb accent-indigo-500"> config.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="log.delete" class="af-action-cb accent-indigo-500"> log.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="plugins.reload" class="af-action-cb accent-indigo-500"> plugins.reload</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.create" class="af-action-cb accent-indigo-500"> preset.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.delete" class="af-action-cb accent-indigo-500"> preset.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.update" class="af-action-cb accent-indigo-500"> preset.update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="server.activate" class="af-action-cb accent-indigo-500"> server.activate</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.create" class="af-action-cb accent-indigo-500"> server.create</label>
                         <label class="cb-dd-item"><input type="checkbox" value="server.deactivate" class="af-action-cb accent-indigo-500"> server.deactivate</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.delete" class="af-action-cb accent-indigo-500"> server.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.off" class="af-action-cb accent-indigo-500"> servers.override.off</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.on" class="af-action-cb accent-indigo-500"> servers.override.on</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.create" class="af-action-cb accent-indigo-500"> task.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.delete" class="af-action-cb accent-indigo-500"> task.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.update" class="af-action-cb accent-indigo-500"> task.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="trash.restore" class="af-action-cb accent-indigo-500"> trash.restore</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.create" class="af-action-cb accent-indigo-500"> user.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.delete" class="af-action-cb accent-indigo-500"> user.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.password_update" class="af-action-cb accent-indigo-500"> user.password_update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.role_update" class="af-action-cb accent-indigo-500"> user.role_update</label>
                     </div>
                 </div>
                 <button id="admin-clear-btn" class="btn-clear-filter">Clear filters</button>

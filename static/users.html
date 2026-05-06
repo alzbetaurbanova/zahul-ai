@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body class="bg-darker text-light" data-page="users">
+<body class="bg-darker text-light min-h-screen" data-page="users">
     <div id="toast-container" class="toast z-50"></div>
 
     <div id="navbar-container"></div>
@@ -17,12 +17,51 @@
     <script src="/static/js/pages/users.js" defer></script>
 
     <main class="p-6">
-        <div class="max-w-3xl mx-auto">
+        <div class="max-w-4xl mx-auto">
             <div class="flex-between mb-6">
                 <h1 class="heading-page">Users</h1>
                 <button id="new-user-btn" class="btn-primary text-sm"><i class="fas fa-user-plus mr-2"></i>New User</button>
             </div>
-            <div id="user-list" class="space-y-2"></div>
+            <div class="flex gap-6 border-b border-gray-800 mb-6">
+                <button data-tab="users" class="tab-btn tab-active">Users</button>
+                <button data-tab="requests" type="button" class="tab-btn inline-flex items-center gap-2">
+                    Requests
+                    <span id="requests-tab-badge" class="tab-count-badge hidden" aria-live="polite"></span>
+                </button>
+            </div>
+            <div class="config-panel p-5 md:p-6">
+                <div id="users-filters" class="filter-panel mb-5">
+                    <div class="relative">
+                        <label class="label-xs">Search user</label>
+                        <input type="text" id="filter-user" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                        <button id="filter-user-clear" class="icon-clear-btn" title="Clear user search">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div id="filter-user-dd" class="autocomplete-dd hidden"></div>
+                    </div>
+                    <div>
+                        <label class="label-xs">Role</label>
+                        <select id="filter-role" class="input-field">
+                            <option value="">All</option>
+                            <option value="super_admin">Super admin</option>
+                            <option value="admin">Admin</option>
+                            <option value="mod">Mod</option>
+                            <option value="guest">Guest</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-xs">Type</label>
+                        <select id="filter-auth" class="input-field">
+                            <option value="">All</option>
+                            <option value="local">Local</option>
+                            <option value="discord">Discord</option>
+                        </select>
+                    </div>
+                    <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
+                </div>
+                <div id="user-list" class="space-y-2"></div>
+                <div id="request-list" class="space-y-2 hidden"></div>
+            </div>
         </div>
     </main>
 
@@ -48,7 +87,12 @@
                     </div>
                     <div>
                         <label class="label-form">Password</label>
-                        <input type="password" id="new-password" class="input-field" placeholder="Min 8 characters" autocomplete="new-password">
+                        <div class="relative">
+                            <input type="password" id="new-password" class="input-field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                            <button type="button" id="new-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div id="discord-fields" class="hidden">
@@ -58,6 +102,7 @@
                 <div>
                     <label class="label-form">Role</label>
                     <select id="new-role" class="input-field">
+                        <option value="super_admin">Super admin - full panel control</option>
                         <option value="guest">Guest – read only</option>
                         <option value="mod" selected>Mod – assigned servers</option>
                         <option value="admin">Admin – full control</option>
@@ -87,6 +132,7 @@
                 <div id="edit-role-field">
                     <label class="label-form">Role</label>
                     <select id="edit-role" class="input-field">
+                        <option value="super_admin">Super admin - full panel control</option>
                         <option value="guest">Guest – read only</option>
                         <option value="mod">Mod – assigned servers</option>
                         <option value="admin">Admin – full control</option>
@@ -98,7 +144,12 @@
                 </div>
                 <div id="edit-pw-field">
                     <label class="label-form">New password <span class="text-hint">(leave empty to keep)</span></label>
-                    <input type="password" id="edit-password" class="input-field" placeholder="Min 8 characters" autocomplete="new-password">
+                    <div class="relative">
+                        <input type="password" id="edit-password" class="input-field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                        <button type="button" id="edit-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <p id="edit-modal-error" class="text-red-400 text-xs hidden"></p>
             </div>
@@ -118,7 +169,12 @@
                 <button class="btn-icon modal-close" data-modal="delete-modal"><i class="fas fa-times fa-lg"></i></button>
             </div>
             <div class="p-5">
-                <p class="text-secondary text-sm">Delete <strong id="delete-modal-name" class="text-light"></strong>? This cannot be undone.</p>
+                <p id="delete-modal-message" class="text-secondary text-sm">
+                    <span id="delete-modal-prefix">Delete</span>
+                    <strong id="delete-modal-name" class="text-light"></strong>
+                    <span id="delete-modal-suffix">? This cannot be undone.</span>
+                </p>
+                <p id="delete-modal-error" class="text-red-400 text-xs mt-3 hidden"></p>
             </div>
             <div class="modal-footer">
                 <button class="btn-gray text-sm modal-close" data-modal="delete-modal">Cancel</button>

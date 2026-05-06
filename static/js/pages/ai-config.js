@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetch('/api/auth-status').then(r => r.json()).then(d => {
         const role = d.current_user?.role;
-        if (d.panel_auth_enabled && role !== 'owner') {
+        if (d.panel_auth_enabled && role !== 'super_admin') {
             window.location.href = '/';
         }
     }).catch(() => {});
@@ -26,14 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const localLoginToggle = document.getElementById('local_login_enabled');
     const panelAuthMasterWrap = document.getElementById('panel-auth-master-wrap');
     const panelAuthMasterNote = document.getElementById('panel-auth-master-note');
-    const currentOwnerUsername = document.getElementById('current-owner-username');
+    const currentSuperAdminUsername = document.getElementById('current-super-admin-username');
     const discordOauthWarning = document.getElementById('discord-oauth-warning');
     const discordOauthFields = document.getElementById('discord-oauth-fields');
-    const ownerAccountSection = document.getElementById('owner-account-section');
+    const superAdminAccountSection = document.getElementById('super-admin-account-section');
     const saveSecurityBtn = document.getElementById('save-security-btn');
     const saveAdminBtn = document.getElementById('save-admin-btn');
     const panelPasswordInput = document.getElementById('panel_password');
-    const ownerUsernameInput = document.getElementById('owner_username');
+    const superAdminUsernameInput = document.getElementById('super_admin_username');
+    let hasLocalSuperAdmin = false;
     let authStatus = null;
     let discordOauthConfiguredOnServer = false;
 
@@ -95,21 +96,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (allowedTextarea && Array.isArray(authStatus.discord_allowed_usernames)) {
                 allowedTextarea.value = authStatus.discord_allowed_usernames.join('\n');
             }
-            await loadOwner();
+            await loadSuperAdmin();
             updateMethodVisibility();
         } catch (error) {
             // Silently ignore
         }
     }
 
-    async function loadOwner() {
-        const ownerRes = await fetch('/api/auth-owner');
-        if (!ownerRes.ok) return;
-        const ownerData = await ownerRes.json();
-        const username = (ownerData.username || '').trim();
-        currentOwnerUsername.textContent = username || 'Not set';
+    async function loadSuperAdmin() {
+        const superAdminRes = await fetch('/api/auth-super-admin');
+        if (!superAdminRes.ok) return;
+        const superAdminData = await superAdminRes.json();
+        const username = (superAdminData.username || '').trim();
+        hasLocalSuperAdmin = !!superAdminData.has_local_super_admin;
+        currentSuperAdminUsername.textContent = username || 'Not set';
         if (username) {
-            ownerUsernameInput.value = username;
+            superAdminUsernameInput.value = username;
         }
     }
 
@@ -189,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateMethodVisibility() {
         discordOauthFields.classList.toggle('hidden', !discordLoginToggle.checked);
-        ownerAccountSection.classList.toggle('hidden', !localLoginToggle.checked);
+        superAdminAccountSection.classList.toggle('hidden', !localLoginToggle.checked);
         updateDiscordOauthWarning();
         updateMasterToggleState();
         if (discordLoginToggle.checked || localLoginToggle.checked) {
@@ -202,16 +204,16 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
             return;
         }
-        if (!ownerUsernameInput.value.trim()) {
-            showToast('Owner username is required.', 'error');
+        if (!superAdminUsernameInput.value.trim()) {
+            showToast('Super admin username is required.', 'error');
             return;
         }
         if (!panelPasswordInput.value) {
-            showToast('Owner password is required.', 'error');
+            showToast('Super admin password is required.', 'error');
             return;
         }
         const configData = {
-            username: ownerUsernameInput.value.trim(),
+            username: superAdminUsernameInput.value.trim(),
             panel_password: panelPasswordInput.value
         };
         try {
@@ -227,9 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 'Failed to save security config.';
                 throw new Error(msg);
             }
-            showToast('Owner account saved.');
+            showToast('Super admin account saved.');
             panelPasswordInput.value = '';
-            await loadOwner();
+            await loadSuperAdmin();
             updateMasterToggleState();
         } catch (error) {
             showToast(error.message, 'error');
@@ -351,6 +353,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMethodVisibility();
     });
     localLoginToggle.addEventListener('change', () => {
+        if (localLoginToggle.checked && !hasLocalSuperAdmin) {
+            showToast('Local login requires at least one local super admin account. Create one first.', 'error');
+            superAdminAccountSection.classList.remove('hidden');
+            superAdminUsernameInput.focus();
+        }
         if (!localLoginToggle.checked) {
             const modal = document.getElementById('confirm-disable-local-modal');
             modal.classList.remove('hidden');
