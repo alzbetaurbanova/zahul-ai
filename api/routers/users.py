@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import os
+import time
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, Coroutine, Any
 import asyncio
@@ -11,6 +13,10 @@ from api.bot_state import bot_state
 router = APIRouter(prefix="/api/users", tags=["User Management"])
 MIN_PASSWORD_LENGTH = 8
 _log = logging.getLogger(__name__)
+_DEFAULT_USER_AVATAR_URL = "/static/avatars/default_user_avatar.png"
+_USERS_AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
+_USER_AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
+_ALLOWED_AVATAR_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
 
 
 class CreateUserRequest(BaseModel):
@@ -40,6 +46,25 @@ class ApproveAccessRequestBody(BaseModel):
 
 def _safe_user(user: dict) -> dict:
     return {k: v for k, v in user.items() if k != "password_hash"}
+
+
+def _discord_avatar_url(user: dict) -> Optional[str]:
+    discord_id = str(user.get("discord_id") or "").strip()
+    avatar_hash = str(user.get("discord_avatar_hash") or "").strip()
+    if not discord_id or not avatar_hash:
+        return None
+    ext = "gif" if avatar_hash.startswith("a_") else "png"
+    return f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.{ext}?size=256"
+
+
+def _resolved_avatar_url(user: dict) -> str:
+    uploaded = str(user.get("uploaded_avatar_url") or "").strip()
+    if uploaded:
+        return uploaded
+    discord_avatar = _discord_avatar_url(user)
+    if discord_avatar:
+        return discord_avatar
+    return _DEFAULT_USER_AVATAR_URL
 
 
 async def _await_bot_coro(coro: Coroutine[Any, Any, Any]) -> Any:
@@ -145,6 +170,7 @@ async def list_users(_: dict = Depends(require_role("admin"))):
     result = []
     for u in users:
         safe = _safe_user(u)
+        safe["avatar_url"] = _resolved_avatar_url(u)
         safe["server_ids"] = db.get_user_server_access(u["id"]) if u.get("id") else []
         result.append(safe)
     return result
@@ -156,7 +182,40 @@ async def get_me(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not authenticated")
     db = Database()
     server_ids = db.get_user_server_access(current_user["id"]) if current_user.get("id") else []
-    return {**_safe_user(current_user), "server_ids": server_ids}
+    return {**_safe_user(current_user), "avatar_url": _resolved_avatar_url(current_user), "server_ids": server_ids}
+
+
+@router.post("/{user_id}/avatar")
+async def upload_user_avatar(
+    user_id: int,
+    image: UploadFile = File(..., description="Profile avatar image"),
+    _: dict = Depends(require_role("admin")),
+):
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if user.get("auth_provider") != "local":
+        raise HTTPException(status_code=400, detail="Only local accounts support uploaded avatars.")
+
+    content_type = (image.content_type or "").lower()
+    if content_type not in _ALLOWED_AVATAR_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported avatar file type.")
+
+    contents = await image.read()
+    if len(contents) > _USER_AVATAR_MAX_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Avatar file too large (max 5MB).")
+
+    os.makedirs(_USERS_AVATARS_DIR, exist_ok=True)
+    avatar_filename = f"user_{user_id}_avatar.png"
+    file_path = os.path.join(_USERS_AVATARS_DIR, avatar_filename)
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    avatar_url = f"/static/avatars/{avatar_filename}"
+    db.update_user(user_id, uploaded_avatar_url=avatar_url)
+    db.log_admin("user.avatar.upload", detail=f"user_id={user_id}")
+    return {"ok": True, "avatar_url": f"{avatar_url}?v={int(time.time())}"}
 
 
 @router.post("/", status_code=201)

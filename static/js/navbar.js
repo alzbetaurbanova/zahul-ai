@@ -41,7 +41,7 @@
         const usersMobileLink = container.querySelector('a.nav-users-mobile-link');
         const adminLink = container.querySelector('a.nav-admin-link');
         const adminMobileLink = container.querySelector('a.nav-admin-mobile-link');
-        const showUsers = !authEnabled || role === 'super_admin' || role === 'admin';
+        const showUsers = authEnabled && (role === 'super_admin' || role === 'admin');
         const showAdmin = !authEnabled || role === 'super_admin';
         if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
         if (usersMobileLink) usersMobileLink.classList.toggle('hidden', !showUsers);
@@ -65,8 +65,10 @@
         applyNavVisibility(authEnabled, role);
     }).catch(() => {
         fetch('/api/auth-enabled').then(r => r.json()).then(d => {
-            localStorage.setItem('auth-enabled', d.enabled ? '1' : '0');
-            setLogoutVisible(d.enabled);
+            const authEnabled = !!d.enabled;
+            localStorage.setItem('auth-enabled', authEnabled ? '1' : '0');
+            setLogoutVisible(authEnabled);
+            applyNavVisibility(authEnabled, localStorage.getItem('user-role') || '');
         });
     });
 

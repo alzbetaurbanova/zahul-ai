@@ -179,21 +179,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 if expires_at > _utc_now():
                     request.state.auth_user = db.get_user_by_id(int(session["user_id"]))
                     user = request.state.auth_user
-                    if user and user.get("auth_provider") == "discord" and user.get("role") not in {
-                        "super_admin", "admin", "mod", "guest"
-                    }:
-                        allowed_paths = {
-                            "/no-access",
-                            "/logout",
-                            "/api/auth-status",
-                            "/api/users/requests",
-                            "/api/users/requests/me",
-                        }
-                        if path not in allowed_paths:
-                            if path.startswith("/api"):
-                                return JSONResponse({"detail": "Access request required"}, status_code=403)
-                            return RedirectResponse(url="/no-access", status_code=302)
-                    return await call_next(request)
+                    if not user:
+                        # Session points to a removed or invalid user.
+                        # Clear it and force normal unauthenticated flow.
+                        db.delete_session(token)
+                    else:
+                        if user.get("auth_provider") == "discord" and user.get("role") not in {
+                            "super_admin", "admin", "mod", "guest"
+                        }:
+                            allowed_paths = {
+                                "/no-access",
+                                "/logout",
+                                "/api/auth-status",
+                                "/api/users/requests",
+                                "/api/users/requests/me",
+                            }
+                            if path not in allowed_paths:
+                                if path.startswith("/api"):
+                                    return JSONResponse({"detail": "Access request required"}, status_code=403)
+                                return RedirectResponse(url="/no-access", status_code=302)
+                        return await call_next(request)
                 db.delete_session(token)
 
         if path.startswith("/api"):
@@ -484,6 +489,7 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
 
     discord_id = str(discord_user.get("id") or "")
     discord_username = str(discord_user.get("username") or "").strip()
+    discord_avatar_hash = str(discord_user.get("avatar") or "").strip() or None
     if not discord_id or not discord_username:
         return RedirectResponse(url="/login?oauth_error=profile", status_code=302)
 
@@ -491,7 +497,11 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
     if allowed and discord_username.lower() not in [u.lower() for u in allowed]:
         return RedirectResponse(url="/login?oauth_error=unauthorized", status_code=302)
 
-    user_id = db.create_or_update_discord_user(discord_id=discord_id, discord_username=discord_username)
+    user_id = db.create_or_update_discord_user(
+        discord_id=discord_id,
+        discord_username=discord_username,
+        discord_avatar_hash=discord_avatar_hash,
+    )
     if db.get_super_admin_account() is None:
         db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
     token = secrets.token_hex(32)

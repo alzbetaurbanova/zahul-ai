@@ -148,11 +148,21 @@ class Database:
                     role TEXT NOT NULL DEFAULT 'user',
                     discord_id TEXT UNIQUE,
                     discord_username TEXT,
+                    discord_avatar_hash TEXT,
+                    uploaded_avatar_url TEXT,
                     auth_provider TEXT NOT NULL DEFAULT 'local',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
             """)
+            for col, typedef in [
+                ("discord_avatar_hash", "TEXT"),
+                ("uploaded_avatar_url", "TEXT"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
+                except Exception:
+                    pass
             # Role rename migration: owner -> super_admin
             try:
                 conn.execute("UPDATE users SET role = 'super_admin' WHERE role = 'owner'")
@@ -811,13 +821,14 @@ class Database:
 
     def create_user(self, username: str, password_hash: Optional[str], role: str,
                     auth_provider: str = "local", discord_id: Optional[str] = None,
-                    discord_username: Optional[str] = None) -> int:
+                    discord_username: Optional[str] = None, discord_avatar_hash: Optional[str] = None,
+                    uploaded_avatar_url: Optional[str] = None) -> int:
         now = self._utcnow_iso()
         with self._get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (username, password_hash, role, auth_provider, discord_id, discord_username, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
-                (username, password_hash, role, auth_provider, discord_id, discord_username, now, now)
+                "INSERT INTO users (username, password_hash, role, auth_provider, discord_id, discord_username, discord_avatar_hash, uploaded_avatar_url, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (username, password_hash, role, auth_provider, discord_id, discord_username, discord_avatar_hash, uploaded_avatar_url, now, now)
             )
             conn.commit()
             return cur.lastrowid
@@ -837,7 +848,7 @@ class Database:
             row = conn.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
             return dict(row) if row else None
 
-    def create_or_update_discord_user(self, discord_id: str, discord_username: str) -> int:
+    def create_or_update_discord_user(self, discord_id: str, discord_username: str, discord_avatar_hash: Optional[str] = None) -> int:
         now = self._utcnow_iso()
         username = discord_username.lower()
         with self._get_connection() as conn:
@@ -847,10 +858,10 @@ class Database:
                 cur.execute(
                     """
                     UPDATE users
-                    SET discord_username = ?, updated_at = ?, auth_provider = 'discord'
+                    SET discord_username = ?, discord_avatar_hash = ?, updated_at = ?, auth_provider = 'discord'
                     WHERE discord_id = ?
                     """,
-                    (discord_username, now, discord_id),
+                    (discord_username, discord_avatar_hash, now, discord_id),
                 )
                 conn.commit()
                 return int(existing["id"])
@@ -863,10 +874,10 @@ class Database:
 
             cur.execute(
                 """
-                INSERT INTO users (username, role, discord_id, discord_username, auth_provider, created_at, updated_at)
-                VALUES (?, 'user', ?, ?, 'discord', ?, ?)
+                INSERT INTO users (username, role, discord_id, discord_username, discord_avatar_hash, auth_provider, created_at, updated_at)
+                VALUES (?, 'user', ?, ?, ?, 'discord', ?, ?)
                 """,
-                (candidate, discord_id, discord_username, now, now),
+                (candidate, discord_id, discord_username, discord_avatar_hash, now, now),
             )
             conn.commit()
             return int(cur.lastrowid)

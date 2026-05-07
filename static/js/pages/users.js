@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROLE_ICONS = { super_admin: 'fa-crown', admin: 'fa-shield-halved', mod: 'fa-user-shield', guest: 'fa-user' };
     const ROLE_LABELS = { super_admin: 'super admin', admin: 'admin', mod: 'mod', guest: 'guest' };
     const ROLE_SORT_ORDER = { super_admin: 1, admin: 2, mod: 3, guest: 4 };
+    const DEFAULT_USER_AVATAR = '/static/avatars/default_user_avatar.png';
     let _currentUserRole = '';
     let _allUsers = [];
     let _requests = [];
@@ -50,8 +51,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function setSecurityOffWarning(visible) {
+        const warning = document.getElementById('security-off-warning');
+        if (!warning) return;
+        warning.classList.toggle('hidden', !visible);
+    }
+
     // Guard: only super admin/admin
     fetch('/api/auth-status').then(r => r.json()).then(d => {
+        if (!d.panel_auth_enabled) {
+            setSecurityOffWarning(true);
+            _currentUserRole = d.current_user?.role || 'super_admin';
+            syncSuperAdminRoleOptions();
+            loadUsers();
+            refreshRequestsBadge();
+            return;
+        }
+        setSecurityOffWarning(false);
         if (!d.current_user || (d.current_user.role !== 'super_admin' && d.current_user.role !== 'admin')) {
             window.location.href = '/';
             return;
@@ -60,7 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
         syncSuperAdminRoleOptions();
         loadUsers();
         refreshRequestsBadge();
-    }).catch(() => { window.location.href = '/'; });
+    }).catch(() => {
+        setSecurityOffWarning(true);
+        _currentUserRole = 'super_admin';
+        syncSuperAdminRoleOptions();
+        loadUsers();
+        refreshRequestsBadge();
+    });
 
     // Close buttons wired by data-modal attribute
     document.querySelectorAll('.modal-close').forEach(btn => {
@@ -225,8 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? '<i class="fab fa-discord text-indigo-400 text-xs" title="Discord"></i>'
             : '<i class="fas fa-key text-gray-500 text-xs" title="Local"></i>';
         const created = u.created_at ? u.created_at.slice(0, 10) : '';
+        const avatarUrl = u.avatar_url || DEFAULT_USER_AVATAR;
+        const safeAvatarUrl = esc(avatarUrl);
+        const safeDefaultAvatar = esc(DEFAULT_USER_AVATAR);
         return `<div data-user-id="${u.id}" class="list-card cursor-pointer flex items-center justify-between gap-4">
             <div class="flex items-center gap-3 min-w-0">
+                <img src="${safeAvatarUrl}" onerror="this.onerror=null;this.src='${safeDefaultAvatar}'" alt="${esc(name)} avatar" class="w-8 h-8 rounded-full object-cover border border-gray-700 bg-gray-900 flex-shrink-0">
                 ${authIcon}
                 <span class="font-medium text-sm text-white truncate">${esc(name)}</span>
             </div>
@@ -388,6 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isOwner = u.role === 'super_admin';
         const isDiscord = u.auth_provider === 'discord';
         const canChangePassword = !isOwner && !isDiscord;
+        const canUploadAvatar = !isDiscord;
 
         document.getElementById('edit-modal-title').innerHTML =
             `<span class="role-badge role-${esc(u.role)} mr-2">${roleIcon(u.role)}${esc(roleLabel(u.role))}</span>${esc(name)}`;
@@ -401,6 +428,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const serversField = document.getElementById('edit-servers-field');
         serversField.classList.toggle('hidden', u.role !== 'mod');
         document.getElementById('edit-server-ids').value = (u.server_ids || []).join(', ');
+
+        // Avatar field — local accounts can upload profile picture
+        const avatarField = document.getElementById('edit-avatar-field');
+        const avatarPreview = document.getElementById('edit-avatar-preview');
+        const avatarFileInput = document.getElementById('edit-avatar-file');
+        avatarField.classList.toggle('hidden', !canUploadAvatar);
+        avatarPreview.src = u.avatar_url || DEFAULT_USER_AVATAR;
+        avatarFileInput.value = '';
 
         // Password field — hidden for super admin and discord accounts
         document.getElementById('edit-pw-field').classList.toggle('hidden', !canChangePassword);
@@ -424,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errEl.classList.add('hidden');
         const u = _editUser;
         const canChangePassword = u.role !== 'super_admin' && u.auth_provider !== 'discord';
+        const canUploadAvatar = u.auth_provider === 'local';
 
         try {
             // Update role
@@ -456,6 +492,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ new_password: pw })
                 });
                 if (!res.ok) throw new Error(parseApiError(await res.json(), 'Password update failed'));
+            }
+
+            // Upload profile avatar (local accounts)
+            if (canUploadAvatar) {
+                const avatarFileInput = document.getElementById('edit-avatar-file');
+                const file = avatarFileInput?.files?.[0];
+                if (file) {
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    const res = await fetch(`/api/users/${u.id}/avatar`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(parseApiError(data, 'Avatar upload failed'));
+                }
             }
 
             closeModal('edit-modal');

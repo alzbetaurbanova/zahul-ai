@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
+                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
                 `;
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.textContent = 'Create Character';
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
-        updateAvatarPreview('/static/avatars/default_avatar.png');
+        updateAvatarPreview('/static/avatars/default_character_avatar.png');
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const updateAvatarPreview = (url) => { avatarPreview.src = url || '/static/avatars/default_avatar.png'; };
+    const updateAvatarPreview = (url) => { avatarPreview.src = url || '/static/avatars/default_character_avatar.png'; };
 
     // --- Import Info Modal ---
     const importInfoModal = document.getElementById('import-info-modal');
