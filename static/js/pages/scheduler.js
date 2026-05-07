@@ -836,9 +836,11 @@
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';
-            document.getElementById('filter-status').value = '';
+            document.getElementById('filter-character').value = '';
             document.getElementById('filter-from').value = '';
             document.getElementById('filter-to').value = '';
+            document.querySelectorAll('.filter-status-cb').forEach(cb => { cb.checked = false; });
+            updateStatusDdLabel();
             currentPage = 1;
             fetchTasks();
         });

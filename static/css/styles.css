@@ -105,6 +105,7 @@ body {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 9999;
 }
 
 .status-indicator {
@@ -399,6 +400,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     font-size: 0.875rem;
     width: 100%;
     padding: 0.625rem;
+    line-height: normal;
 }
 
 .input-field:focus {
