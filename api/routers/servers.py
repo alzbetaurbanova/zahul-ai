@@ -45,7 +45,7 @@ async def list_servers(user: dict = Depends(require_role("mod"))):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Server, status_code=status.HTTP_201_CREATED)
-async def create_server(server: Server = Body(..., description="Server data to create"), _: dict = Depends(require_role("admin"))):
+async def create_server(server: Server = Body(..., description="Server data to create"), current_user: dict = Depends(require_role("admin"))):
     """Create a new server record in the database."""
     if db.get_server(server.server_id):
         raise HTTPException(
@@ -59,7 +59,7 @@ async def create_server(server: Server = Body(..., description="Server data to c
             description=server.description,
             instruction=server.instruction
         )
-        db.log_admin('server.create', target=f"{server.server_name} ({server.server_id})")
+        db.log_admin('server.create', target=f"{server.server_name} ({server.server_id})", actor=current_user)
         return server
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create server: {e}")
@@ -82,7 +82,7 @@ async def get_server_config(server_id: str = Path(...), user: dict = Depends(req
     return db.get_server_config(server_id)
 
 @router.patch("/{server_id}/config", response_model=ServerConfig)
-async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), _: dict = Depends(require_role("admin"))):
+async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), current_user: dict = Depends(require_role("admin"))):
     """Set per-server config overrides. Only provided (non-null) fields are saved."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
@@ -90,20 +90,20 @@ async def update_server_config(server_id: str = Path(...), body: ServerConfig = 
     updates = body.model_dump(exclude_none=True)
     current.update(updates)
     db.set_server_config(server_id, current)
-    db.log_admin('servers.override.on', target=server_id, detail=str(updates))
+    db.log_admin('servers.override.on', target=server_id, detail=str(updates), actor=current_user)
     return current
 
 @router.delete("/{server_id}/config", status_code=status.HTTP_204_NO_CONTENT)
-async def reset_server_config(server_id: str = Path(...), _: dict = Depends(require_role("admin"))):
+async def reset_server_config(server_id: str = Path(...), current_user: dict = Depends(require_role("admin"))):
     """Reset all per-server config overrides back to global defaults."""
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     db.clear_server_config(server_id)
-    db.log_admin('servers.override.off', target=server_id)
+    db.log_admin('servers.override.off', target=server_id, actor=current_user)
     return None
 
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("admin"))):
+async def delete_server(server_id: str = Path(..., description="The unique ID of the server"), current_user: dict = Depends(require_role("admin"))):
     """
     Delete a server and all its associated channels from the database.
     This action is irreversible due to cascading deletes.
@@ -112,7 +112,7 @@ async def delete_server(server_id: str = Path(..., description="The unique ID of
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
     try:
         db.delete_server(server_id)
-        db.log_admin('server.delete', target=server_id)
+        db.log_admin('server.delete', target=server_id, actor=current_user)
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete server: {e}")
@@ -129,7 +129,7 @@ class CreateChannelRequest(BaseModel):
 async def create_channel(
     server_id: str = Path(..., description="The server ID to add the channel to"),
     request: CreateChannelRequest = Body(..., description="The new channel's ID and configuration"),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Create a new channel configuration within a specific server."""
     server = db.get_server(server_id)
@@ -150,7 +150,7 @@ async def create_channel(
             server_name=server["server_name"],
             data=channel_data_dict
         )
-        db.log_admin('channel.create', target=f"{request.data.name} ({request.channel_id})")
+        db.log_admin('channel.create', target=f"{request.data.name} ({request.channel_id})", actor=current_user)
         return db.get_channel(request.channel_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create channel: {e}")
@@ -181,7 +181,7 @@ async def update_channel(
     server_id: str = Path(..., description="The server ID"),
     channel_id: str = Path(..., description="The unique channel ID"),
     channel_data: ChannelData = Body(..., description="The updated channel data"),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Update an existing channel's configuration."""
     existing_channel = db.get_channel(channel_id)
@@ -192,7 +192,7 @@ async def update_channel(
         # Use by_alias=True to correctly handle the 'global' field name
         channel_data_dict = channel_data.model_dump(by_alias=True)
         db.update_channel(channel_id, data=channel_data_dict)
-        db.log_admin('channel.update', target=f"{channel_data.name} ({channel_id})")
+        db.log_admin('channel.update', target=f"{channel_data.name} ({channel_id})", actor=current_user)
         return db.get_channel(channel_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update channel: {e}")
@@ -201,7 +201,7 @@ async def update_channel(
 async def delete_channel(
     server_id: str = Path(..., description="The server ID"),
     channel_id: str = Path(..., description="The unique channel ID"),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Delete a channel's configuration."""
     existing_channel = db.get_channel(channel_id)
@@ -210,7 +210,7 @@ async def delete_channel(
 
     try:
         db.delete_channel(channel_id)
-        db.log_admin('channel.delete', target=f"{existing_channel.get('data', {}).get('name', channel_id)} ({channel_id})")
+        db.log_admin('channel.delete', target=f"{existing_channel.get('data', {}).get('name', channel_id)} ({channel_id})", actor=current_user)
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete channel: {e}")

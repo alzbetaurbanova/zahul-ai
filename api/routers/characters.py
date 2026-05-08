@@ -143,7 +143,7 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
 @router.post("/save_avatar")
 async def save_avatar(
-    _: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
     image: Annotated[UploadFile, File(description="Avatar image file")] = None
 ):
@@ -161,13 +161,13 @@ async def save_avatar(
         raise HTTPException(status_code=400, detail="Avatar file too large (max 5MB).")
     with open(file_path, "wb") as f:
         f.write(contents)
-    db.log_admin('character.avatar.upload', target=safe_name)
+    db.log_admin('character.avatar.upload', target=safe_name, actor=current_user)
     return {"url": f"/static/avatars/{safe_name}.png"}
 
 
 @router.post("/mirror_avatar")
 async def mirror_avatar_endpoint(
-    _: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
     url: str = Query(..., description="Image URL to download")
 ):
@@ -177,7 +177,7 @@ async def mirror_avatar_endpoint(
     local_path = await _mirror_avatar(name, url)
     if local_path == url:
         raise HTTPException(status_code=400, detail="Failed to download image from URL.")
-    db.log_admin('character.avatar.mirror', target=name)
+    db.log_admin('character.avatar.mirror', target=name, actor=current_user)
     return {"url": local_path}
 
 
@@ -224,7 +224,7 @@ async def list_characters():
 @router.post("/", response_model=Character, status_code=status.HTTP_201_CREATED)
 async def create_character(
     character: CharacterCreate = Body(...),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """
     Create a new character from a structured JSON object.
@@ -242,7 +242,7 @@ async def create_character(
             data=char_data,
             triggers=character.triggers
         )
-        db.log_admin('character.create', target=character.name)
+        db.log_admin('character.create', target=character.name, actor=current_user)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -269,7 +269,7 @@ async def get_character(character_id: int = Path(..., description="ID of the cha
 async def update_character(
     character_id: int = Path(...),
     character_update: CharacterUpdate = Body(...),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Update an existing character's data, name, and triggers in the database."""
     existing_char = db.get_character_by_id(character_id)
@@ -299,7 +299,7 @@ async def update_character(
         new_triggers = sorted(character_update.triggers or [])
         if old_triggers != new_triggers:
             changed.append('triggers')
-        db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None)
+        db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None, actor=current_user)
 
         return db.get_character_by_id(character_id)
     except HTTPException:
@@ -309,14 +309,14 @@ async def update_character(
 
 
 @router.delete("/{character_id}")
-async def delete_character(character_id: int = Path(...), _: dict = Depends(require_role("admin"))):
+async def delete_character(character_id: int = Path(...), current_user: dict = Depends(require_role("admin"))):
     """Delete a character from the database."""
     char = db.get_character_by_id(character_id)
     if not char:
         raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
     try:
         db.delete_character_by_id(char_id=character_id)
-        db.log_admin('character.delete', target=char['name'])
+        db.log_admin('character.delete', target=char['name'], actor=current_user)
         return {"message": f"Character '{char['name']}' deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete character: {e}")
@@ -325,7 +325,7 @@ async def delete_character(character_id: int = Path(...), _: dict = Depends(requ
 # --- Utility and Import Endpoints ---
 
 @router.post("/import", response_model=Character, status_code=status.HTTP_201_CREATED)
-async def create_character_from_import(request: Request, _: dict = Depends(require_role("admin"))):
+async def create_character_from_import(request: Request, current_user: dict = Depends(require_role("admin"))):
     """
     Create a new character by importing from a raw JSON character card file.
     This is a secondary creation method, used by the 'Import Card' button.
@@ -339,7 +339,7 @@ async def create_character_from_import(request: Request, _: dict = Depends(requi
             
         # Card imports don't have triggers, so an empty list is passed
         db.create_character(name=name, data=data_dict, triggers=[])
-        db.log_admin('character.import', target=name)
+        db.log_admin('character.import', target=name, actor=current_user)
 
         new_character = db.get_character(name=name)
         if not new_character:
@@ -355,7 +355,7 @@ async def create_character_from_import(request: Request, _: dict = Depends(requi
 @router.post("/upload_image", response_model=dict)
 async def upload_image(
     image: Annotated[UploadFile, File()],
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """
     Accepts an image file, uploads it via the Discord bot, and returns the permanent Discord CDN link.
@@ -381,5 +381,5 @@ async def upload_image(
             detail="Failed to upload image. Check server logs for Discord API errors or misconfigurations."
         )
 
-    db.log_admin('character.image.upload', target=image.filename)
+    db.log_admin('character.image.upload', target=image.filename, actor=current_user)
     return {"filename": image.filename, "cdn_url": cdn_url}

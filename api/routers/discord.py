@@ -65,21 +65,21 @@ def _run_bot_in_thread():
 
 
 @router.post("/activate")
-async def activate_bot(_: dict = Depends(require_role("admin"))):
+async def activate_bot(current_user: dict = Depends(require_role("admin"))):
     # Check the shared state object
     if (bot_state.bot_instance and bot_state.bot_instance.is_ready()) or (bot_state.bot_thread and bot_state.bot_thread.is_alive()):
         raise HTTPException(status_code=400, detail="Bot is already active or starting.")
     
     logging.info("Bot activation requested via API.")
     db = Database()
-    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.")
+    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.", actor=current_user)
     bot_state.bot_thread = threading.Thread(target=_run_bot_in_thread, daemon=True)
     bot_state.bot_thread.start()
     return {"success": True, "message": "Bot activation initiated."}
 
 
 @router.post("/deactivate")
-async def deactivate_bot(_: dict = Depends(require_role("admin"))):
+async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
@@ -88,7 +88,7 @@ async def deactivate_bot(_: dict = Depends(require_role("admin"))):
         future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), bot_state.bot_instance.loop)
         future.result(timeout=10)
         db = Database()
-        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.")
+        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.", actor=current_user)
         return {"success": True, "message": "Bot deactivation initiated."}
     except Exception as e:
         logging.error(f"Error during bot deactivation: {e}", exc_info=True)

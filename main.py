@@ -390,8 +390,8 @@ async def setup_super_admin(payload: dict):
         raise HTTPException(status_code=409, detail="username already exists")
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
-    db.log_admin("auth.super_admin.created", target=username)
+    created_user_id = db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
+    db.log_admin("auth.super_admin.created", target=username, actor_user_id=created_user_id, actor_username=username)
     return {"ok": True}
 
 

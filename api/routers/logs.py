@@ -70,12 +70,12 @@ def get_discord_log(log_id: int, _: dict = Depends(require_role("admin"))):
 
 
 @router.delete("/discord/{log_id}", status_code=204)
-def delete_discord_log(log_id: int, _: dict = Depends(require_role("admin"))):
+def delete_discord_log(log_id: int, current_user: dict = Depends(require_role("admin"))):
     log = db.get_discord_log(log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
     db.delete_discord_log(log_id)
-    db.log_admin('log.delete', target=f"{log.get('character', '?')} @ {log.get('timestamp', '?')}")
+    db.log_admin('log.delete', target=f"{log.get('character', '?')} @ {log.get('timestamp', '?')}", actor=current_user)
 
 
 @router.get("/admin/{log_id}")
@@ -87,12 +87,12 @@ def get_admin_log(log_id: int, _: dict = Depends(require_role("admin"))):
 
 
 @router.delete("/admin/{log_id}", status_code=204)
-def delete_admin_log(log_id: int, _: dict = Depends(require_role("admin"))):
+def delete_admin_log(log_id: int, current_user: dict = Depends(require_role("admin"))):
     log = db.get_admin_log(log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
     db.delete_admin_log(log_id)
-    db.log_admin('log.delete', target=f"admin/{log_id} ({log.get('action', '?')} @ {log.get('timestamp', '?')})")
+    db.log_admin('log.delete', target=f"admin/{log_id} ({log.get('action', '?')} @ {log.get('timestamp', '?')})", actor=current_user)
 
 
 @router.get("/admin")

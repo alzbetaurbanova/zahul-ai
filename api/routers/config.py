@@ -63,7 +63,7 @@ async def get_config(current_user=Depends(get_current_user)):
 
 
 @router.put("/", response_model=BotConfig)
-async def update_config(config: BotConfig = Body(...), _: dict = Depends(require_role("admin"))):
+async def update_config(config: BotConfig = Body(...), current_user: dict = Depends(require_role("admin"))):
     """
     Update the bot configuration in the database with smart field preservation.
     Each field in the model is saved as a separate key-value pair.
@@ -101,7 +101,7 @@ async def update_config(config: BotConfig = Body(...), _: dict = Depends(require
             if value is not None:
                 db.set_config(key, value)
         if changed:
-            db.log_admin('config.update', detail=', '.join(changed))
+            db.log_admin('config.update', detail=', '.join(changed), actor=current_user)
 
         return new_config
     except HTTPException:
@@ -112,7 +112,7 @@ async def update_config(config: BotConfig = Body(...), _: dict = Depends(require
 
 
 @router.patch("/security")
-async def update_security(config: SecurityConfig, _: dict = Depends(require_role("super_admin"))):
+async def update_security(config: SecurityConfig, current_user: dict = Depends(require_role("super_admin"))):
     """Create/update super admin credentials."""
     try:
         if len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
@@ -148,7 +148,7 @@ async def update_security(config: SecurityConfig, _: dict = Depends(require_role
             changed = ["super_admin_created"]
 
         db.delete_all_sessions()
-        db.log_admin('config.security.update', detail=', '.join(changed))
+        db.log_admin('config.security.update', detail=', '.join(changed), actor=current_user)
         return {"ok": True}
     except HTTPException:
         raise
@@ -157,7 +157,7 @@ async def update_security(config: SecurityConfig, _: dict = Depends(require_role
 
 
 @router.patch("/security/methods")
-async def update_security_methods(config: AuthMethodsConfig, _: dict = Depends(require_role("super_admin"))):
+async def update_security_methods(config: AuthMethodsConfig, current_user: dict = Depends(require_role("super_admin"))):
     try:
         _validate_panel_auth_prerequisites(
             config.panel_auth_enabled,
@@ -182,6 +182,7 @@ async def update_security_methods(config: AuthMethodsConfig, _: dict = Depends(r
                 f"discord_login_enabled={config.discord_login_enabled}, "
                 f"local_login_enabled={config.local_login_enabled}"
             ),
+            actor=current_user,
         )
         return {"ok": True}
     except HTTPException:

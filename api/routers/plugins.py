@@ -42,7 +42,7 @@ async def list_plugins(request: Request, _: dict = Depends(require_role("admin")
     }
 
 @router.post("/reload")
-async def reload_plugins(request: Request, _: dict = Depends(require_role("admin"))):
+async def reload_plugins(request: Request, current_user: dict = Depends(require_role("admin"))):
     """
     Hot-reload plugins from the disk without restarting the server.
     """
@@ -56,7 +56,7 @@ async def reload_plugins(request: Request, _: dict = Depends(require_role("admin
             for p in manager.plugins
         ]
         
-        _db.log_admin('plugins.reload', detail=f"{len(info_list)} plugins loaded")
+        _db.log_admin('plugins.reload', detail=f"{len(info_list)} plugins loaded", actor=current_user)
         return {
             "status": "reloaded",
             "count": len(manager.plugins),

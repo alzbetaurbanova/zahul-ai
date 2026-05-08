@@ -136,10 +136,23 @@ class Database:
                     timestamp TEXT NOT NULL,
                     action TEXT NOT NULL,
                     target TEXT,
-                    detail TEXT
+                    detail TEXT,
+                    actor_user_id INTEGER,
+                    actor_username TEXT NOT NULL DEFAULT 'system'
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(timestamp)")
+            for col, typedef in [
+                ("actor_user_id", "INTEGER"),
+                ("actor_username", "TEXT NOT NULL DEFAULT 'system'"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE admin_logs ADD COLUMN {col} {typedef}")
+                except Exception:
+                    pass
+            conn.execute(
+                "UPDATE admin_logs SET actor_username = 'system' WHERE actor_username IS NULL OR TRIM(actor_username) = ''"
+            )
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -682,14 +695,37 @@ class Database:
                   temperature, history_count, task_id))
             conn.commit()
 
-    def log_admin(self, action: str, target: str = None, detail: str = None):
+    def log_admin(
+        self,
+        action: str,
+        target: str = None,
+        detail: str = None,
+        *,
+        actor: Optional[Dict[str, Any]] = None,
+        actor_user_id: Optional[int] = None,
+        actor_username: Optional[str] = None,
+    ):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
+        resolved_actor_id = actor_user_id
+        resolved_actor_username = (actor_username or "").strip()
+        if actor:
+            if resolved_actor_id is None:
+                actor_id = actor.get("id")
+                if actor_id is not None:
+                    try:
+                        resolved_actor_id = int(actor_id)
+                    except (TypeError, ValueError):
+                        resolved_actor_id = None
+            if not resolved_actor_username:
+                resolved_actor_username = str(actor.get("username") or "").strip()
+        if not resolved_actor_username:
+            resolved_actor_username = "system"
         with self._get_connection() as conn:
             conn.execute(
-                "INSERT INTO admin_logs (timestamp, action, target, detail) VALUES (?,?,?,?)",
-                (ts, action, target, detail)
+                "INSERT INTO admin_logs (timestamp, action, target, detail, actor_user_id, actor_username) VALUES (?,?,?,?,?,?)",
+                (ts, action, target, detail, resolved_actor_id, resolved_actor_username)
             )
             conn.commit()
 

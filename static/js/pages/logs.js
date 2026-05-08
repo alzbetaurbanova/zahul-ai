@@ -64,8 +64,6 @@
         document.getElementById('admin-filters').classList.toggle('hidden', tab !== 'admin');
     }
 
-    activateTab(currentTab);
-
     const adminActionSearch = typeof initSearchableCheckboxDropdown === 'function'
         ? initSearchableCheckboxDropdown({ searchInputId: 'af-action-search', dropdownId: 'dd-action' })
         : null;
@@ -289,6 +287,9 @@
         const overrideLabel = overrideOn.includes(item.action) ? 'override on' : overrideOff.includes(item.action) ? 'override off' : null;
         const color = colors[item.action] || 'bg-gray-800 text-gray-300';
         const label = labels[item.action] ?? item.action;
+        const actorName = String(item.actor_username || 'system');
+        const actorId = item.actor_user_id != null ? `#${item.actor_user_id}` : null;
+        const actorDisplay = actorId ? `${actorName} (${actorId})` : actorName;
         const targetDisplay = isServerOverride
             ? (serverNames[item.target] || item.target || '')
             : (item.target || '');
@@ -299,7 +300,10 @@
                 ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
                 ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}
             </div>
-            <span class="text-xs text-gray-500 flex-shrink-0">${fmt(item.timestamp)}</span>
+            <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+                <span>${esc(actorDisplay)}</span>
+                <span>${fmt(item.timestamp)}</span>
+            </div>
         </div>`;
     }
 
@@ -430,6 +434,7 @@
                 document.getElementById('admin-filters').classList.add('hidden');
                 document.getElementById('export-btn').classList.add('hidden');
             }
+            activateTab(currentTab);
         })
         .catch(() => {})
         .finally(() => {

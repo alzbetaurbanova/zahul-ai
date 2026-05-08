@@ -37,7 +37,7 @@ async def list_presets(_: dict = Depends(require_role("mod"))):
 
 
 @router.post("/", response_model=Preset, status_code=status.HTTP_201_CREATED)
-async def create_preset(preset_data: PresetBody = Body(..., description="The new preset's data"), _: dict = Depends(require_role("admin"))):
+async def create_preset(preset_data: PresetBody = Body(..., description="The new preset's data"), current_user: dict = Depends(require_role("admin"))):
     """Create a new preset in the database."""
     # Check for conflicts first
     if db.get_preset(name=preset_data.name):
@@ -56,7 +56,7 @@ async def create_preset(preset_data: PresetBody = Body(..., description="The new
         new_preset = db.get_preset(name=preset_data.name)
         if not new_preset:
             raise HTTPException(status_code=500, detail="Failed to retrieve preset after creation.")
-        db.log_admin('preset.create', target=preset_data.name)
+        db.log_admin('preset.create', target=preset_data.name, actor=current_user)
         return new_preset
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create preset: {e}")
@@ -78,7 +78,7 @@ async def get_preset(preset_name: str = Path(..., description="The unique name o
 async def update_preset(
     preset_name: str = Path(..., description="The name of the preset to update"),
     preset_data: PresetBody = Body(..., description="The updated preset data"),
-    _: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Update an existing preset's data, ignoring any name changes."""
     # Ensure the preset to be updated exists
@@ -100,14 +100,14 @@ async def update_preset(
         # Now, `update_data` only contains fields like 'description' and 'prompt_template'.
         # The `name` argument is supplied only by `preset_name` from the URL.
         db.update_preset(name=preset_name, **update_data)
-        db.log_admin('preset.update', target=preset_name)
+        db.log_admin('preset.update', target=preset_name, actor=current_user)
         return db.get_preset(name=preset_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update preset: {e}")
 
 
 @router.delete("/{preset_name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_preset(preset_name: str = Path(..., description="The name of the preset to delete"), _: dict = Depends(require_role("admin"))):
+async def delete_preset(preset_name: str = Path(..., description="The name of the preset to delete"), current_user: dict = Depends(require_role("admin"))):
     """Delete a preset from the database."""
     # Check if the preset exists before trying to delete
     if not db.get_preset(name=preset_name):
@@ -118,7 +118,7 @@ async def delete_preset(preset_name: str = Path(..., description="The name of th
 
     try:
         db.delete_preset(name=preset_name)
-        db.log_admin('preset.delete', target=preset_name)
+        db.log_admin('preset.delete', target=preset_name, actor=current_user)
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete preset: {e}")

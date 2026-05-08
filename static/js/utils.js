@@ -171,6 +171,9 @@ function initCbDdInteractions(options = {}) {
             const btn = dd.previousElementSibling;
             if (!btn?.classList.contains('cb-dd-btn')) return;
             updateCbDdLabel(btn);
+            if (dd.dataset.closeOnSelect === '1') {
+                dd.classList.add('hidden');
+            }
             if (typeof onCheckboxChange === 'function') onCheckboxChange(e, btn, dd);
         });
     });

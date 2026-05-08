@@ -176,7 +176,7 @@ def list_tasks(user: dict = Depends(require_role("mod")), type: Optional[str] = 
 
 
 @router.post("/", response_model=Task, status_code=201)
-def create_task(body: TaskCreate, _: dict = Depends(require_role("admin"))):
+def create_task(body: TaskCreate, current_user: dict = Depends(require_role("admin"))):
     _validate_task_dependencies(body.type, body.character, body.target_type, body.target_id)
     if body.type == "reminder":
         if not body.scheduled_time:
@@ -215,7 +215,7 @@ def create_task(body: TaskCreate, _: dict = Depends(require_role("admin"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=500, detail="Failed to create task")
-    db.log_admin('task.create', target=body.name, detail=f"type={body.type} character={body.character}")
+    db.log_admin('task.create', target=body.name, detail=f"type={body.type} character={body.character}", actor=current_user)
     return task
 
 
@@ -236,7 +236,7 @@ def get_task(task_id: int, user: dict = Depends(require_role("mod"))):
 
 
 @router.put("/{task_id}", response_model=Task)
-def update_task(task_id: int, body: TaskUpdate, _: dict = Depends(require_role("admin"))):
+def update_task(task_id: int, body: TaskUpdate, current_user: dict = Depends(require_role("admin"))):
     if not db.get_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     existing = db.get_task(task_id)
@@ -269,14 +269,14 @@ def update_task(task_id: int, body: TaskUpdate, _: dict = Depends(require_role("
         db.update_task(task_id, **updates)
         changed = {k: v for k, v in updates.items() if str(existing.get(k)) != str(v)}
         if changed:
-            db.log_admin('task.update', detail=', '.join(f"{k}={v}" for k, v in changed.items()))
+            db.log_admin('task.update', detail=', '.join(f"{k}={v}" for k, v in changed.items()), actor=current_user)
     return db.get_task(task_id)
 
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: int, _: dict = Depends(require_role("admin"))):
+def delete_task(task_id: int, current_user: dict = Depends(require_role("admin"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete_task(task_id)
-    db.log_admin('task.delete', target=task.get('name', str(task_id)))
+    db.log_admin('task.delete', target=task.get('name', str(task_id)), actor=current_user)

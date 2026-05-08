@@ -189,7 +189,7 @@ async def get_me(current_user=Depends(get_current_user)):
 async def upload_user_avatar(
     user_id: int,
     image: UploadFile = File(..., description="Profile avatar image"),
-    _: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("admin")),
 ):
     db = Database()
     user = db.get_user_by_id(user_id)
@@ -214,12 +214,12 @@ async def upload_user_avatar(
 
     avatar_url = f"/static/avatars/{avatar_filename}"
     db.update_user(user_id, uploaded_avatar_url=avatar_url)
-    db.log_admin("user.avatar.upload", detail=f"user_id={user_id}")
+    db.log_admin("user.avatar.upload", detail=f"user_id={user_id}", actor=current_user)
     return {"ok": True, "avatar_url": f"{avatar_url}?v={int(time.time())}"}
 
 
 @router.post("/", status_code=201)
-async def create_user(body: CreateUserRequest, _: dict = Depends(require_role("super_admin"))):
+async def create_user(body: CreateUserRequest, current_user: dict = Depends(require_role("super_admin"))):
     db = Database()
     if body.role not in ROLE_LEVEL:
         raise HTTPException(status_code=400, detail=f"Invalid role: {body.role}")
@@ -248,7 +248,7 @@ async def create_user(body: CreateUserRequest, _: dict = Depends(require_role("s
     if body.role == "mod" and body.server_ids:
         db.set_user_server_access(uid, body.server_ids)
     created_name = (body.username or body.discord_username or "").strip()
-    db.log_admin("user.create", detail=f"username={created_name}, role={body.role}")
+    db.log_admin("user.create", detail=f"username={created_name}, role={body.role}", actor=current_user)
     return {"id": uid, "ok": True}
 
 
@@ -267,7 +267,7 @@ async def update_role(user_id: int, body: UpdateRoleRequest, current_user: dict 
     if body.role not in ROLE_LEVEL:
         raise HTTPException(status_code=400, detail=f"Invalid role: {body.role}")
     db.update_user(user_id, role=body.role)
-    db.log_admin("user.role_update", detail=f"user_id={user_id}, role={body.role}")
+    db.log_admin("user.role_update", detail=f"user_id={user_id}, role={body.role}", actor=current_user)
     return {"ok": True}
 
 
@@ -294,7 +294,7 @@ async def update_password(user_id: int, body: UpdatePasswordRequest, current_use
         raise HTTPException(status_code=400, detail="Discord account password cannot be changed.")
     pw_hash = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
     db.update_user(user_id, password_hash=pw_hash)
-    db.log_admin("user.password_update", detail=f"user_id={user_id}")
+    db.log_admin("user.password_update", detail=f"user_id={user_id}", actor=current_user)
     return {"ok": True}
 
 
@@ -314,7 +314,7 @@ async def delete_user(user_id: int, current_user: dict = Depends(require_role("a
         db.delete_user(user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    db.log_admin("user.delete", detail=f"user_id={user_id}, username={user.get('username')}")
+    db.log_admin("user.delete", detail=f"user_id={user_id}, username={user.get('username')}", actor=current_user)
     return {"ok": True}
 
 
@@ -349,7 +349,7 @@ async def create_access_request(current_user=Depends(get_current_user)):
         user_id=int(current_user["id"]),
         discord_username=str(current_user.get("discord_username") or current_user.get("username") or "").strip(),
     )
-    db.log_admin("access.request.create", detail=f"user_id={current_user['id']}, request_id={rid}")
+    db.log_admin("access.request.create", detail=f"user_id={current_user['id']}, request_id={rid}", actor=current_user)
     requester = str(current_user.get("discord_username") or current_user.get("username") or "unknown").strip()
     await _notify_super_admins_new_access_request(requester)
     return {"ok": True, "request_id": rid, "already_pending": False}
@@ -377,7 +377,7 @@ async def approve_access_request(
     db.update_user(int(req["user_id"]), role=body.role)
     db.resolve_access_request(request_id, status="approved", reviewed_by=int(current_user["id"]))
     await _notify_access_request_resolution(user, approved=True, assigned_role=body.role)
-    db.log_admin("access.request.approve", detail=f"request_id={request_id}, user_id={req['user_id']}, role={body.role}")
+    db.log_admin("access.request.approve", detail=f"request_id={request_id}, user_id={req['user_id']}, role={body.role}", actor=current_user)
     return {"ok": True}
 
 
@@ -392,5 +392,5 @@ async def deny_access_request(request_id: int, current_user: dict = Depends(requ
     user = db.get_user_by_id(int(req["user_id"]))
     db.resolve_access_request(request_id, status="denied", reviewed_by=int(current_user["id"]))
     await _notify_access_request_resolution(user, approved=False)
-    db.log_admin("access.request.deny", detail=f"request_id={request_id}, user_id={req['user_id']}")
+    db.log_admin("access.request.deny", detail=f"request_id={request_id}, user_id={req['user_id']}", actor=current_user)
     return {"ok": True}
