@@ -15,8 +15,7 @@ async def get_current_user(request: Request):
 
 def _is_first_run() -> bool:
     db = Database()
-    panel_password = db.get_config("panel_password") or ""
-    return not panel_password and not db.get_super_admin_user()
+    return db.get_super_admin_user() is None
 
 
 def require_role(min_role: str):
