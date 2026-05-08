@@ -22,20 +22,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const servers = await res.json();
             const filtered = servers.filter(s => !s.server_name.toLowerCase().includes('direct message'));
             if (filtered.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-sm col-span-full">No servers registered yet.</p>';
+                container.innerHTML = '<p class="server-list-state">No servers registered yet.</p>';
                 return;
             }
             container.innerHTML = filtered.map(s => `
-                <div class="flex items-center justify-between py-1.5">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <i class="fas fa-server text-gray-500 text-xs flex-shrink-0"></i>
-                        <span class="text-gray-300 text-sm truncate">${s.server_name}</span>
+                <div class="server-list-row">
+                    <div class="server-list-row-main">
+                        <i class="fas fa-server server-list-icon"></i>
+                        <span class="server-list-name">${s.server_name}</span>
                     </div>
-                    <a href="/servers" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap ml-2">channels →</a>
+                    <a href="/servers" class="server-list-link">channels →</a>
                 </div>
             `).join('');
         } catch (e) {
-            container.innerHTML = '<p class="text-red-500 text-sm col-span-full">Failed to load servers.</p>';
+            container.innerHTML = '<p class="server-list-state server-list-state-error">Failed to load servers.</p>';
         }
     }
     setupLogStream();
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset all classes
         const allStatusClasses = ['status-active', 'status-inactive', 'status-starting', 'status-stopping', 'status-crashed'];
         controlStatusIndicator.classList.remove(...allStatusClasses);
-        powerBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-gray-800', 'hover:bg-gray-700', 'bg-yellow-600');
+        powerBtn.classList.remove('power-btn--active', 'power-btn--inactive', 'power-btn--crashed');
 
         powerBtn.disabled = false; // Enable by default
 
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 controlStatusIndicator.classList.add('status-active');
                 controlStatusText.textContent = 'Active';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Deactivate';
-                powerBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                powerBtn.classList.add('power-btn--active');
                 break;
             case 'starting':
                 controlStatusIndicator.classList.add('status-starting');
@@ -183,13 +183,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 controlStatusIndicator.classList.add('status-crashed');
                 controlStatusText.textContent = 'Crashed';
                 powerBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Restart';
-                powerBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                powerBtn.classList.add('power-btn--crashed');
                 break;
             default: // 'inactive'
                 controlStatusIndicator.classList.add('status-inactive');
                 controlStatusText.textContent = 'Inactive';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Activate';
-                powerBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                powerBtn.classList.add('power-btn--inactive');
                 break;
         }
     }
@@ -229,14 +229,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const timeString = now.toLocaleTimeString();
 
         const logEntry = document.createElement('div');
-        logEntry.className = 'log-entry py-2 text-sm';
+        logEntry.className = 'console-log-entry';
 
         const timeSpan = document.createElement('span');
-        timeSpan.className = 'text-gray-500 mr-2';
+        timeSpan.className = 'console-log-time';
         timeSpan.textContent = `[${timeString}]`;
 
         const messageSpan = document.createElement('span');
-        messageSpan.className = 'text-gray-300';
+        messageSpan.className = 'console-log-message';
         messageSpan.textContent = message;
 
         logEntry.appendChild(timeSpan);

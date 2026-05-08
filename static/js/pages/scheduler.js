@@ -245,10 +245,10 @@
                     : options;
                 if (!filtered.length) { dropdown.classList.add('hidden'); return; }
                 dropdown.innerHTML = filtered.map(o => `
-                    <div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-700 text-sm flex justify-between items-center"
+                    <div class="scheduler-combobox-item"
                          data-id="${esc(o.id)}" data-label="${esc(o.label)}">
-                        <span class="text-white">${esc(o.label)}</span>
-                        <span class="text-gray-500 text-xs ml-2">${esc(o.sub)}</span>
+                        <span class="scheduler-combobox-label">${esc(o.label)}</span>
+                        <span class="scheduler-combobox-sub">${esc(o.sub)}</span>
                     </div>`).join('');
                 dropdown.querySelectorAll('.combobox-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
@@ -331,6 +331,8 @@
         const _sqp = new URLSearchParams(location.search);
         let PAGE_SIZE = parseInt(_sqp.get('limit')) || 25;
         let currentPage = parseInt(_sqp.get('page')) || 1;
+        const resetPageAndFetch = () => { currentPage = 1; fetchTasks(); };
+        const SCHEDULER_BADGE_BASE = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium';
 
         async function fetchTasks() {
             await ensureCharCache();
@@ -372,7 +374,7 @@
         function renderTasks(tasks) {
             const filtered = applyFilters(tasks);
             if (!filtered.length) {
-                taskList.innerHTML = '<div class="text-gray-500 text-center py-12"><i class="fas fa-calendar-xmark text-3xl mb-3 block"></i>No tasks found.</div>';
+                taskList.innerHTML = '<div class="scheduler-list-state"><i class="fas fa-calendar-xmark scheduler-list-state-icon"></i>No tasks found.</div>';
                 updatePagination(0);
                 return;
             }
@@ -402,8 +404,8 @@
 
         function typeBadge(type) {
             return type === 'schedule'
-                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>'
-                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900 text-amber-300"><i class="fas fa-bell mr-1"></i>Reminder</span>';
+                ? `<span class="${SCHEDULER_BADGE_BASE} bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>`
+                : `<span class="${SCHEDULER_BADGE_BASE} bg-amber-900 text-amber-300"><i class="fas fa-bell mr-1"></i>Reminder</span>`;
         }
 
         function statusBadge(status) {
@@ -414,7 +416,7 @@
                 disabled:  'bg-red-900 text-red-300',
                 failed:    'bg-orange-900 text-orange-300',
             };
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
         }
 
         function modeBadge(mode) {
@@ -424,7 +426,7 @@
                 generate:     'bg-purple-900 text-purple-300',
             };
             const label = mode === 'instructions' ? 'Instructions' : mode === 'generate' ? 'Generate' : 'Exact';
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[mode] || 'bg-gray-800 text-gray-300'}">${label}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[mode] || 'bg-gray-800 text-gray-300'}">${label}</span>`;
         }
 
         function normalizeTaskName(name) {
@@ -457,7 +459,7 @@
                 ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
                 : '';
             return `
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-gray-600 transition-colors" data-action="detail" data-id="${t.id}">
+            <div class="scheduler-task-card" data-action="detail" data-id="${t.id}">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-3 mb-2">
@@ -479,16 +481,16 @@
                     ${t.instructions ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(t.instructions)}</p>` : ''}
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0">
-                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
+                    <button class="scheduler-action-btn ${toggleColor}" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
                         <i class="fas ${toggleIcon}"></i>
                     </button>
-                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
+                    <button class="scheduler-action-btn text-gray-400 hover:text-gray-200" data-action="duplicate" data-id="${t.id}" title="Duplicate">
                         <i class="fas fa-copy"></i>
                     </button>
-                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
+                    <button class="scheduler-action-btn text-indigo-400 hover:text-indigo-300" data-action="edit" data-id="${t.id}" title="Edit">
                         <i class="fas fa-pen"></i>
                     </button>
-                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
+                    <button class="scheduler-action-btn text-red-400 hover:text-red-300" data-action="delete" data-id="${t.id}" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -800,7 +802,7 @@
                 statusDd.classList.add('hidden');
         });
         document.querySelectorAll('.filter-status-cb').forEach(cb => {
-            cb.addEventListener('change', () => { updateStatusDdLabel(); currentPage = 1; fetchTasks(); });
+            cb.addEventListener('change', () => { updateStatusDdLabel(); resetPageAndFetch(); });
         });
 
         function updateStatusOptions() {
@@ -828,11 +830,10 @@
         // --- Filters ---
         document.getElementById('filter-type').addEventListener('change', () => {
             updateStatusOptions();
-            currentPage = 1;
-            fetchTasks();
+            resetPageAndFetch();
         });
         ['filter-from','filter-to'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchTasks(); });
+            document.getElementById(id).addEventListener('change', resetPageAndFetch);
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';
@@ -841,19 +842,16 @@
             document.getElementById('filter-to').value = '';
             document.querySelectorAll('.filter-status-cb').forEach(cb => { cb.checked = false; });
             updateStatusDdLabel();
-            currentPage = 1;
-            fetchTasks();
+            resetPageAndFetch();
         });
-        document.getElementById('clear-from-btn').addEventListener('click', () => {
-            document.getElementById('filter-from').value = '';
-            currentPage = 1;
-            fetchTasks();
-        });
-        document.getElementById('clear-to-btn').addEventListener('click', () => {
-            document.getElementById('filter-to').value = '';
-            currentPage = 1;
-            fetchTasks();
-        });
+        const bindDateClear = (btnId, inputId) => {
+            document.getElementById(btnId).addEventListener('click', () => {
+                document.getElementById(inputId).value = '';
+                resetPageAndFetch();
+            });
+        };
+        bindDateClear('clear-from-btn', 'filter-from');
+        bindDateClear('clear-to-btn', 'filter-to');
 
         // --- Toast ---
         // Init

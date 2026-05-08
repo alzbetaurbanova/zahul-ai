@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Core Functions ---
 
     async function fetchAndDisplayCharacters() {
-        characterGrid.innerHTML = '<p class="text-gray-400 col-span-full">Loading characters...</p>';
+        characterGrid.innerHTML = '<p class="character-grid-state">Loading characters...</p>';
         try {
             const response = await fetch(API_BASE);
             if (!response.ok) throw new Error('Failed to fetch character list');
@@ -90,13 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add cards for each character from the list
             characters.forEach(char => {
                 const card = document.createElement('div');
-                card.className = 'group relative aspect-square bg-gray-900 rounded-lg cursor-pointer overflow-hidden shadow-lg transition-transform transform hover:scale-105 border border-gray-800';
+                card.className = 'character-card group';
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                    <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
+                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="character-card-img">
+                    <div class="character-card-overlay"></div>
+                    <h3 class="character-card-title">${char.name}</h3>
                 `;
                 card.addEventListener('click', () => loadCharacterForEdit(char.id));
                 characterGrid.appendChild(card);
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error(error);
-            characterGrid.innerHTML = '<p class="text-red-500 col-span-full">Failed to load characters.</p>';
+            characterGrid.innerHTML = '<p class="character-grid-state character-grid-state-error">Failed to load characters.</p>';
             showToast('Failed to load characters.', 'error');
         }
     }

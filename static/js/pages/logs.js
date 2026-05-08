@@ -7,6 +7,7 @@
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
     const esc = escapeHtml;
+    const resetPageAndFetch = () => { currentPage = 1; fetchLogs(); };
 
     async function loadServerNames() {
         try {
@@ -23,15 +24,15 @@
                 'df-character',
                 'df-character-dd',
                 data.characters || [],
-                () => { currentPage = 1; fetchLogs(); },
-                () => { currentPage = 1; fetchLogs(); }
+                resetPageAndFetch,
+                resetPageAndFetch
             );
             setupFilterCombobox(
                 'df-user',
                 'df-user-dd',
                 data.users || [],
-                () => { currentPage = 1; fetchLogs(); },
-                () => { currentPage = 1; fetchLogs(); }
+                resetPageAndFetch,
+                resetPageAndFetch
             );
         } catch (e) {}
     }
@@ -95,31 +96,38 @@
     document.querySelectorAll('.df-source-cb, .df-status-cb, .af-action-cb').forEach(cb => {
         cb.addEventListener('change', () => {
             updateDdLabel(cb.closest('.cb-dd').previousElementSibling);
-            currentPage = 1; fetchLogs();
+            resetPageAndFetch();
         });
     });
 
     // --- Filter auto-fire ---
     ['df-from','df-to'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+        document.getElementById(id).addEventListener('change', resetPageAndFetch);
     });
     ['af-from','af-to'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+        document.getElementById(id).addEventListener('change', resetPageAndFetch);
     });
 
-    document.getElementById('df-from-clear').addEventListener('click', () => { document.getElementById('df-from').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('df-to-clear').addEventListener('click', () => { document.getElementById('df-to').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
+    const bindDateClear = (btnId, inputId) => {
+        document.getElementById(btnId).addEventListener('click', () => {
+            document.getElementById(inputId).value = '';
+            resetPageAndFetch();
+        });
+    };
+    bindDateClear('df-from-clear', 'df-from');
+    bindDateClear('df-to-clear', 'df-to');
+    bindDateClear('af-from-clear', 'af-from');
+    bindDateClear('af-to-clear', 'af-to');
+
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
         ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
         clearDd('df-source'); clearDd('df-status');
-        currentPage = 1; fetchLogs();
+        resetPageAndFetch();
     });
     document.getElementById('admin-clear-btn').addEventListener('click', () => {
         ['af-from','af-to'].forEach(id => document.getElementById(id).value = '');
         clearDd('af-action');
-        currentPage = 1; fetchLogs();
+        resetPageAndFetch();
     });
 
     // --- Pagination ---
@@ -159,7 +167,7 @@
 
     async function fetchLogs() {
         const list = document.getElementById('log-list');
-        list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
+        list.innerHTML = '<div class="log-list-state">Loading...</div>';
         try {
             const res = await fetch(`/api/logs/${currentTab}?${buildParams()}`);
             const data = await res.json();
@@ -172,13 +180,13 @@
                 else if (data.total === 0) showToast('No logs found for this task.', 'error');
             }
         } catch (e) {
-            list.innerHTML = '<div class="text-red-400 text-center py-12">Failed to load logs.</div>';
+            list.innerHTML = '<div class="log-list-state log-list-state-error">Failed to load logs.</div>';
         }
     }
 
     function renderLogs(items) {
         const list = document.getElementById('log-list');
-        if (!items.length) { list.innerHTML = '<div class="text-gray-500 text-center py-12">No logs found.</div>'; return; }
+        if (!items.length) { list.innerHTML = '<div class="log-list-state">No logs found.</div>'; return; }
         list.innerHTML = items.map(item => currentTab === 'discord' ? discordRow(item) : adminRow(item)).join('');
         list.querySelectorAll('[data-log-id]').forEach(row => {
             row.addEventListener('click', () => openDetail(parseInt(row.dataset.logId)));
@@ -192,7 +200,7 @@
     function discordRow(item) {
         const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
         const sourceColor = item.source === 'scheduler' ? 'bg-indigo-900 text-indigo-300' : 'bg-gray-800 text-gray-300';
-        return `<div data-log-id="${item.id}" class="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-lg p-4 cursor-pointer transition-colors">
+        return `<div data-log-id="${item.id}" class="log-card log-card--clickable">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs px-2 py-0.5 rounded ${sourceColor}">${item.source || 'chat'}</span>
@@ -232,7 +240,7 @@
         const targetDisplay = isServerOverride
             ? (serverNames[item.target] || item.target || '')
             : (item.target || '');
-        return `<div class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+        return `<div class="log-card log-card--admin">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${color}">${esc(label)}</span>
                 ${overrideLabel ? `<span class="text-xs text-gray-400 flex-shrink-0">${overrideLabel}</span>` : ''}

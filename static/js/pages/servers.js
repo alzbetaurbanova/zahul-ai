@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.invite) {
                 inviteLinkContainer.innerHTML = `
                     <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg">
+                        class="servers-invite-link">
                         <i class="fas fa-external-link-alt"></i> Open Invite Link
                     </a>
                     <p class="text-gray-600 text-xs mt-3 break-all">${data.invite}</p>`;
