@@ -1,8 +1,9 @@
 # api/routers/plugins.py
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from api.db.database import Database
+from api.auth import require_role
 
 _db = Database()
 
@@ -21,7 +22,7 @@ class PluginResponse(BaseModel):
 # --- Routes ---
 
 @router.get("/", response_model=PluginResponse)
-async def list_plugins(request: Request):
+async def list_plugins(request: Request, _: dict = Depends(require_role("admin"))):
     """
     List all currently loaded plugins and their triggers.
     """
@@ -41,7 +42,7 @@ async def list_plugins(request: Request):
     }
 
 @router.post("/reload")
-async def reload_plugins(request: Request):
+async def reload_plugins(request: Request, _: dict = Depends(require_role("admin"))):
     """
     Hot-reload plugins from the disk without restarting the server.
     """

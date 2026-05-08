@@ -461,6 +461,40 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
 
+/* Reusable toggle switch track for checkbox sliders */
+.toggle-track {
+    width: 2.75rem;
+    height: 1.5rem;
+    background-color: #4b5563;
+    border-radius: 9999px;
+}
+
+.peer:focus ~ .toggle-track {
+    outline: none;
+}
+
+.toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    transition: all 0.15s;
+}
+
+.peer:checked ~ .toggle-track {
+    background-color: #4f46e5;
+}
+
+.peer:checked ~ .toggle-track::after {
+    transform: translateX(100%);
+    border-color: #ffffff;
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;

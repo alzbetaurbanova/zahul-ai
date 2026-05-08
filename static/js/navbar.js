@@ -87,7 +87,20 @@
         const cached = localStorage.getItem('bot-status');
         if (cached) updateStatus(cached, false);
         let _pollInterval = null;
-        function poll() { fetch('/api/discord/status').then(r => r.json()).then(d => updateStatus(d.status)).catch(() => {}); }
+        function poll() {
+            fetch('/api/discord/status')
+                .then(r => {
+                    if (!r.ok) {
+                        if (r.status === 401 || r.status === 403) return null;
+                        throw new Error(`HTTP ${r.status}`);
+                    }
+                    return r.json();
+                })
+                .then(d => {
+                    if (d && d.status) updateStatus(d.status);
+                })
+                .catch(() => {});
+        }
         function startPolling() { clearInterval(_pollInterval); poll(); _pollInterval = setInterval(poll, 60000); }
         startPolling();
         container.querySelectorAll('[data-page]').forEach(a => a.addEventListener('click', startPolling));

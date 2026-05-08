@@ -32,11 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const superAdminAccountSection = document.getElementById('super-admin-account-section');
     const saveSecurityBtn = document.getElementById('save-security-btn');
     const saveAdminBtn = document.getElementById('save-admin-btn');
+    const loginAccessSection = document.getElementById('login-access-section');
     const panelPasswordInput = document.getElementById('panel_password');
     const superAdminUsernameInput = document.getElementById('super_admin_username');
     let hasLocalSuperAdmin = false;
     let authStatus = null;
+    let currentUserRole = 'guest';
     let discordOauthConfiguredOnServer = false;
+
+    function isSuperAdmin() {
+        return currentUserRole === 'super_admin';
+    }
 
     // DM Access Control Elements
     const dmToggle = document.getElementById('dm_toggle');
@@ -88,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/auth-status');
             if (!response.ok) return;
             authStatus = await response.json();
+            currentUserRole = authStatus?.current_user?.role || (authStatus?.panel_auth_enabled ? 'guest' : 'super_admin');
             discordOauthConfiguredOnServer = !!authStatus.discord_oauth_configured;
             panelAuthToggle.checked = !!authStatus.panel_auth_enabled;
             discordLoginToggle.checked = !!authStatus.discord_login_enabled;
@@ -98,6 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             await loadSuperAdmin();
             updateMethodVisibility();
+            if (!isSuperAdmin() && loginAccessSection) {
+                loginAccessSection.classList.add('hidden');
+            }
         } catch (error) {
             // Silently ignore
         }
@@ -200,6 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleAdminSave() {
+        if (!isSuperAdmin()) {
+            showToast('Only super admin can update access settings.', 'error');
+            return;
+        }
         if (panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
             showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
             return;
@@ -245,6 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleSecuritySave() {
+        if (!isSuperAdmin()) {
+            showToast('Only super admin can update access settings.', 'error');
+            return;
+        }
         if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
             showToast('At least one login method must be enabled.', 'error');
             return;

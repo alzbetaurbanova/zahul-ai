@@ -86,6 +86,9 @@
                     <!-- Keys & Integration -->
                     <fieldset class="fieldset-section">
                         <legend class="legend-section">Keys & Integration</legend>
+                        <p class="text-hint mb-4">
+                            Note: after saving, tokens/secrets are not shown again in the UI. Store them safely before saving.
+                        </p>
                         <div class="form-grid">
                             <div>
                                 <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
@@ -126,7 +129,7 @@
                             </div>
                             <label class="toggle-wrap">
                                 <input type="checkbox" id="dm_toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div class="toggle-track"></div>
                             </label>
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
@@ -146,7 +149,7 @@
                                 </div>
                                 <label class="toggle-wrap">
                                     <input id="use_prefill" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="toggle-track"></div>
                                 </label>
                             </div>
                             <div class="divider"></div>
@@ -157,7 +160,7 @@
                                 </div>
                                 <label class="toggle-wrap">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="toggle-track"></div>
                                 </label>
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
@@ -205,7 +208,7 @@
                 </fieldset>
 
                 <!-- Login & Access -->
-                <fieldset class="fieldset-section">
+                <fieldset id="login-access-section" class="fieldset-section">
                     <legend class="legend-section">Login &amp; Access</legend>
 
                     <!-- Master toggle -->
@@ -217,7 +220,7 @@
                         </div>
                         <label class="toggle-wrap">
                             <input type="checkbox" id="panel_auth_enabled" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <div class="toggle-track"></div>
                         </label>
                     </div>
 
@@ -230,7 +233,7 @@
                             </div>
                             <label class="toggle-wrap">
                                 <input type="checkbox" id="local_login_enabled" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div class="toggle-track"></div>
                             </label>
                         </div>
                         <!-- Super admin account — shown only when unique login is ON -->
@@ -261,12 +264,15 @@
                         <div class="flex-between">
                             <div>
                                 <p class="label-inline">Discord OAuth2</p>
-                                <p class="text-hint">Login via Discord account.</p>
-                                <p id="discord-oauth-warning" class="text-yellow-400 text-xs hidden mt-1">Discord OAuth credentials are not fully configured yet.</p>
+                                <p class="text-hint">
+                                    Login via Discord account.
+                                    <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Client Secret is hidden after save. Keep a secure backup before saving changes.</span></span>
+                                </p>
+                                <p id="discord-oauth-warning" class="text-hint hidden mt-1">Discord OAuth credentials are not fully configured yet.</p>
                             </div>
                             <label class="toggle-wrap">
                                 <input type="checkbox" id="discord_login_enabled" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div class="toggle-track"></div>
                             </label>
                         </div>
                         <div id="discord-oauth-fields" class="pl-6 border-l-2 border-gray-700 space-y-4 hidden">

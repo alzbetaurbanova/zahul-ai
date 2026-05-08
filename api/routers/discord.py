@@ -96,7 +96,7 @@ async def deactivate_bot(_: dict = Depends(require_role("admin"))):
 
 
 @router.get("/status")
-async def check_bot_status():
+async def check_bot_status(_: dict = Depends(require_role("mod"))):
     # --- CHANGE THIS ---
     if bot_state.bot_instance and bot_state.bot_instance.is_ready():
         return {"status": "active"}
@@ -107,7 +107,7 @@ async def check_bot_status():
 
 
 @router.get("/invite")
-async def get_discord_invite():
+async def get_discord_invite(_: dict = Depends(require_role("mod"))):
     # --- CHANGE THIS ---
     if bot_state.bot_instance and bot_state.bot_instance.invite_link:
         return {"status": "active", "invite": bot_state.bot_instance.invite_link}

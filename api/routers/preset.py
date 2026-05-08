@@ -28,7 +28,7 @@ class PresetBody(BaseModel):
 
 
 @router.get("/", response_model=List[Preset])
-async def list_presets():
+async def list_presets(_: dict = Depends(require_role("mod"))):
     """List all available presets from the database."""
     try:
         return db.list_presets()
@@ -63,7 +63,7 @@ async def create_preset(preset_data: PresetBody = Body(..., description="The new
 
 
 @router.get("/{preset_name}", response_model=Preset)
-async def get_preset(preset_name: str = Path(..., description="The unique name of the preset")):
+async def get_preset(preset_name: str = Path(..., description="The unique name of the preset"), _: dict = Depends(require_role("mod"))):
     """Get a specific preset's configuration by its name."""
     preset = db.get_preset(name=preset_name)
     if not preset:

@@ -233,3 +233,16 @@ function initSearchableCheckboxDropdown(options) {
 
     return { reset, filterRows };
 }
+
+const ROLE_LEVELS = { super_admin: 4, admin: 3, mod: 2, guest: 1 };
+
+function roleAtLeast(role, minRole) {
+    return (ROLE_LEVELS[role] || 0) >= (ROLE_LEVELS[minRole] || 0);
+}
+
+function canMutate(role) {
+    return roleAtLeast(role, 'admin');
+}
+
+window.roleAtLeast = roleAtLeast;
+window.canMutate = canMutate;

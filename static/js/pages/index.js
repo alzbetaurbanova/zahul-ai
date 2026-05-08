@@ -7,13 +7,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const inviteContainer = document.getElementById('invite-container');
     const inviteLink = document.getElementById('invite-link');
     const copyInviteBtn = document.getElementById('copy-invite');
+    let currentUserRole = 'guest';
 
     let eventSource;
     let statusInterval;
 
+    function canControlBot() {
+        return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
+
     // --- Main Setup ---
-    checkBotStatus();
-    loadServers();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            if (!canControlBot()) {
+                powerBtn.disabled = true;
+                powerBtn.classList.add('opacity-60', 'cursor-not-allowed');
+                powerBtn.title = 'Read-only: insufficient permissions';
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            checkBotStatus();
+            loadServers();
+            if (canControlBot()) {
+                setupLogStream();
+            }
+            statusInterval = setInterval(checkBotStatus, 10000);
+        });
 
     async function loadServers() {
         const container = document.getElementById('servers-list');
@@ -38,9 +60,6 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML = '<p class="text-red-500 text-sm col-span-full">Failed to load servers.</p>';
         }
     }
-    setupLogStream();
-    statusInterval = setInterval(checkBotStatus, 10000);
-
     function burstPoll() {
         clearInterval(statusInterval);
         checkBotStatus();
@@ -57,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Event Listeners ---
 
     powerBtn.addEventListener('click', function() {
+        if (!canControlBot()) {
+            return;
+        }
         if (powerBtn.dataset.status === 'active') {
             deactivateBot();
             burstPoll();
@@ -158,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         controlStatusIndicator.classList.remove(...allStatusClasses);
         powerBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-gray-800', 'hover:bg-gray-700', 'bg-yellow-600');
 
-        powerBtn.disabled = false; // Enable by default
+        powerBtn.disabled = !canControlBot();
 
         switch (status) {
             case 'active':
@@ -192,10 +214,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 powerBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
                 break;
         }
+        if (!canControlBot()) {
+            powerBtn.classList.add('opacity-60', 'cursor-not-allowed');
+        }
     }
 
     // Set up log stream connection
     function setupLogStream() {
+        if (!canControlBot()) return;
         if (eventSource) {
             eventSource.close();
         }

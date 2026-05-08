@@ -3,10 +3,16 @@
     let currentTab = new URLSearchParams(location.search).get('tab') === 'admin' ? 'admin' : 'discord';
     let currentPage = 1;
     let totalItems = 0;
+    let currentUserRole = 'guest';
+    let canViewLogs = false;
     let _initialAutoOpen = !!new URLSearchParams(location.search).get('task_id');
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
     const esc = escapeHtml;
+
+    function canReadLogs() {
+        return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
 
     async function loadServerNames() {
         try {
@@ -47,6 +53,7 @@
     }
 
     function activateTab(tab) {
+        if (!canViewLogs) return;
         currentTab = tab;
         document.querySelectorAll('.tab-btn').forEach(b => {
             const active = b.dataset.tab === tab;
@@ -103,6 +110,7 @@
     // --- Tab switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            if (!canViewLogs) return;
             currentPage = 1;
             activateTab(btn.dataset.tab);
             history.replaceState(null, '', `?tab=${currentTab}`);
@@ -143,6 +151,7 @@
 
     // --- Export ---
     document.getElementById('export-btn').addEventListener('click', () => {
+        if (!canViewLogs) return;
         const params = buildParams();
         window.location.href = `/api/logs/${currentTab}/export?${params}`;
     });
@@ -173,6 +182,12 @@
 
     async function fetchLogs() {
         const list = document.getElementById('log-list');
+        if (!canViewLogs) {
+            list.innerHTML = '<div class="text-gray-500 text-center py-12">You do not have permission to view logs.</div>';
+            totalItems = 0;
+            updatePagination();
+            return;
+        }
         list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
         try {
             const res = await fetch(`/api/logs/${currentTab}?${buildParams()}`);
@@ -404,18 +419,35 @@
         }
     }
 
-    Promise.all([loadMeta(), loadServerNames()]).then(() => {
-        const urlParams = new URLSearchParams(location.search);
-        const paramChar = urlParams.get('character');
-        const paramSource = urlParams.get('source');
-        if (paramChar) document.getElementById('df-character').value = paramChar;
-        if (paramSource) {
-            const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
-            if (cb) {
-                cb.checked = true;
-                document.querySelectorAll('.cb-dd-btn').forEach(btn => updateCbDdLabel(btn));
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            canViewLogs = canReadLogs();
+            if (!canViewLogs) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.add('hidden'));
+                document.getElementById('discord-filters').classList.add('hidden');
+                document.getElementById('admin-filters').classList.add('hidden');
+                document.getElementById('export-btn').classList.add('hidden');
             }
-        }
-        fetchLogs();
-    });
+        })
+        .catch(() => {})
+        .finally(() => {
+            Promise.all([loadMeta(), loadServerNames()]).then(() => {
+                if (canViewLogs) {
+                    const urlParams = new URLSearchParams(location.search);
+                    const paramChar = urlParams.get('character');
+                    const paramSource = urlParams.get('source');
+                    if (paramChar) document.getElementById('df-character').value = paramChar;
+                    if (paramSource) {
+                        const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
+                        if (cb) {
+                            cb.checked = true;
+                            document.querySelectorAll('.cb-dd-btn').forEach(btn => updateCbDdLabel(btn));
+                        }
+                    }
+                }
+                fetchLogs();
+            });
+        });
 })();

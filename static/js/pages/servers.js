@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/servers';
+    let currentUserRole = 'guest';
     let currentServer = null;
     let currentChannel = null;
     let availableCharacters = [];
@@ -22,6 +23,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const serverEditTitle = document.getElementById('server-edit-title');
     const srvDefaultCharacterInput = document.getElementById('srv-default-character');
     const srvDefaultCharacterStatus = document.getElementById('srv-default-character-status');
+
+    function canEditServers() {
+        return typeof window.canMutate === 'function'
+            ? window.canMutate(currentUserRole)
+            : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
 
     // Form fields
     const nameInput = document.getElementById('name');
@@ -169,6 +176,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function openServerEditModal(server) {
+        if (!canEditServers()) {
+            showToast('You do not have permission to edit server settings.', 'error');
+            return;
+        }
         currentServer = { ...currentServer, id: server.server_id, name: server.server_name };
         serverEditTitle.textContent = server.server_name;
         serverEditModal.classList.remove('hidden');
@@ -320,6 +331,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 editBtn.innerHTML = '<i class="fas fa-cog"></i>';
                 editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
                 editBtn.title = 'Server settings';
+                if (!canEditServers()) {
+                    editBtn.classList.add('hidden');
+                }
                 editBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openServerEditModal(server);
@@ -365,8 +379,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 removeBtn.innerHTML = '<i class="fas fa-times"></i>';
                 removeBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity';
                 removeBtn.title = 'Unregister channel';
+                if (!canEditServers()) {
+                    removeBtn.classList.add('hidden');
+                }
                 removeBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
+                    if (!canEditServers()) {
+                        showToast('You do not have permission to unregister channels.', 'error');
+                        return;
+                    }
                     if (!confirm(`Unregister "${channel.data.name}"?`)) return;
                     try {
                         const res = await fetch(`${API_BASE}/${currentServer.id}/channels/${channel.channel_id}`, { method: 'DELETE' });
@@ -410,6 +431,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        if (!canEditServers()) {
+            showToast('You do not have permission to edit channels.', 'error');
+            return;
+        }
         if (!currentChannel || !currentServer) return;
         if (!nameInput.value.trim()) {
             showToast('Channel name cannot be empty.', 'error');
@@ -452,7 +477,15 @@ document.addEventListener('DOMContentLoaded', function() {
         inviteLinkContainer.innerHTML = '<p class="text-gray-500 text-sm">Loading invite link...</p>';
         inviteModal.classList.remove('hidden');
         try {
-            const data = await fetch('/api/discord/invite').then(r => r.json());
+            const res = await fetch('/api/discord/invite');
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    inviteLinkContainer.innerHTML = '<p class="text-red-400 text-sm">You do not have permission to view invite link.</p>';
+                    return;
+                }
+                throw new Error(`HTTP ${res.status}`);
+            }
+            const data = await res.json();
             if (data.invite) {
                 inviteLinkContainer.innerHTML = `
                     <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
@@ -475,5 +508,15 @@ document.addEventListener('DOMContentLoaded', function() {
     closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
 
     // Initial Load
-    fetchServers();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            if (!canEditServers()) {
+                addServerBtn.classList.add('hidden');
+                addChannelBtn.classList.add('hidden');
+            }
+        })
+        .catch(() => {})
+        .finally(() => fetchServers());
 });

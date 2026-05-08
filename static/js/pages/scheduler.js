@@ -1,5 +1,6 @@
 (() => {
         const API = '/api/tasks';
+        let currentUserRole = 'guest';
         const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         const esc = escapeHtml;
 
@@ -14,6 +15,13 @@
         const statusField = document.getElementById('status-field');
         const toastContainer = document.getElementById('toast-container');
         const dayCheckboxes = document.getElementById('day-checkboxes');
+        const createBtn = document.getElementById('create-btn');
+
+        function canEditTasks() {
+            return typeof window.canMutate === 'function'
+                ? window.canMutate(currentUserRole)
+                : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+        }
 
         // Build day pill buttons
         DAYS.forEach((d, i) => {
@@ -458,6 +466,20 @@
             const titleHtml = t.type === 'schedule'
                 ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
                 : '';
+            const actionButtons = canEditTasks() ? `
+                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
+                        <i class="fas ${toggleIcon}"></i>
+                    </button>
+                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+            ` : '';
             return `
             <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-gray-600 transition-colors" data-action="detail" data-id="${t.id}">
                 ${avatarHtml}
@@ -481,18 +503,7 @@
                     ${t.instructions ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(t.instructions)}</p>` : ''}
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0">
-                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
-                        <i class="fas ${toggleIcon}"></i>
-                    </button>
-                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
-                        <i class="fas fa-pen"></i>
-                    </button>
-                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    ${actionButtons}
                 </div>
             </div>`;
         }
@@ -578,6 +589,10 @@
 
         // --- Actions ---
         async function handleAction(action, id) {
+            if (action !== 'detail' && !canEditTasks()) {
+                showToast('You do not have permission to modify scheduler tasks.', 'error');
+                return;
+            }
             if (action === 'delete') {
                 if (!confirm('Delete this task?')) return;
                 await fetch(`${API}/${id}`, { method: 'DELETE' });
@@ -631,6 +646,7 @@
 
         // --- Modal ---
         async function openModal(task = null) {
+            if (!canEditTasks()) return;
             await loadTargetOptions();
             form.reset();
             statusField.classList.add('hidden');
@@ -705,6 +721,10 @@
         // --- Form Submit ---
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!canEditTasks()) {
+                showToast('You do not have permission to modify scheduler tasks.', 'error');
+                return;
+            }
             const id = taskIdInput.value;
             const type = document.getElementById('selected-type').value;
             const character = document.getElementById('f-character').value;
@@ -880,16 +900,25 @@
 
         // --- Toast ---
         // Init
-        loadCharacters();
-        loadTargetOptions().then(async () => {
-            await fetchTasks();
-            const openId = new URLSearchParams(location.search).get('open');
-            if (openId) {
-                try {
-                    const res = await fetch(`${API}/${openId}`);
-                    if (res.ok) openDetail(await res.json());
-                    else if (res.status === 404) showToast('This task no longer exists.', 'error');
-                } catch {}
-            }
-        });
+        fetch('/api/auth-status')
+            .then(r => r.json())
+            .then(d => {
+                currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+                if (!canEditTasks()) createBtn.classList.add('hidden');
+            })
+            .catch(() => {})
+            .finally(() => {
+                loadCharacters();
+                loadTargetOptions().then(async () => {
+                    await fetchTasks();
+                    const openId = new URLSearchParams(location.search).get('open');
+                    if (openId) {
+                        try {
+                            const res = await fetch(`${API}/${openId}`);
+                            if (res.ok) openDetail(await res.json());
+                            else if (res.status === 404) showToast('This task no longer exists.', 'error');
+                        } catch {}
+                    }
+                });
+            });
     })();

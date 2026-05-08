@@ -13,6 +13,18 @@ from pydantic import BaseModel
 # --- Initialize Database Client ---
 db = Database()
 
+
+def _is_limited_mod(user: dict) -> bool:
+    return (user or {}).get("role") == "mod"
+
+
+def _ensure_server_scope(user: dict, server_id: str):
+    if not _is_limited_mod(user):
+        return
+    allowed = set(db.get_user_server_access(int(user["id"])))
+    if server_id not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this server.")
+
 router = APIRouter(
     prefix="/api/servers",
     tags=["Servers & Channels"]
@@ -21,10 +33,14 @@ router = APIRouter(
 # --- Server Endpoints ---
 
 @router.get("/", response_model=List[Server])
-async def list_servers(_: dict = Depends(require_role("mod"))):
+async def list_servers(user: dict = Depends(require_role("mod"))):
     """List all servers available in the database."""
     try:
-        return db.list_servers()
+        servers = db.list_servers()
+        if _is_limited_mod(user):
+            allowed = set(db.get_user_server_access(int(user["id"])))
+            return [s for s in servers if s.get("server_id") in allowed]
+        return servers
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -49,16 +65,18 @@ async def create_server(server: Server = Body(..., description="Server data to c
         raise HTTPException(status_code=500, detail=f"Failed to create server: {e}")
 
 @router.get("/{server_id}", response_model=Server)
-async def get_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("mod"))):
+async def get_server(server_id: str = Path(..., description="The unique ID of the server"), user: dict = Depends(require_role("mod"))):
     """Get a specific server's configuration."""
+    _ensure_server_scope(user, server_id)
     server = db.get_server(server_id)
     if not server:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
     return server
 
 @router.get("/{server_id}/config", response_model=ServerConfig)
-async def get_server_config(server_id: str = Path(...), _: dict = Depends(require_role("mod"))):
+async def get_server_config(server_id: str = Path(...), user: dict = Depends(require_role("mod"))):
     """Get per-server config overrides."""
+    _ensure_server_scope(user, server_id)
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     return db.get_server_config(server_id)
@@ -138,8 +156,9 @@ async def create_channel(
         raise HTTPException(status_code=500, detail=f"Failed to create channel: {e}")
 
 @router.get("/{server_id}/channels", response_model=List[Channel])
-async def list_channels_in_server(server_id: str = Path(..., description="The unique ID of the server"), _: dict = Depends(require_role("mod"))):
+async def list_channels_in_server(server_id: str = Path(..., description="The unique ID of the server"), user: dict = Depends(require_role("mod"))):
     """List all channels in a specific server."""
+    _ensure_server_scope(user, server_id)
     if not db.get_server(server_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Server '{server_id}' not found")
     return db.list_channels_for_server(server_id)
@@ -148,9 +167,10 @@ async def list_channels_in_server(server_id: str = Path(..., description="The un
 async def get_channel(
     server_id: str = Path(..., description="The server ID"),
     channel_id: str = Path(..., description="The unique channel ID"),
-    _: dict = Depends(require_role("mod"))
+    user: dict = Depends(require_role("mod"))
 ):
     """Get a specific channel's configuration."""
+    _ensure_server_scope(user, server_id)
     channel = db.get_channel(channel_id)
     if not channel or channel['server_id'] != server_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Channel '{channel_id}' not found in server '{server_id}'")

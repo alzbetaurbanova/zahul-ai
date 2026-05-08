@@ -13,6 +13,22 @@ _SK_TZ = ZoneInfo("Europe/Bratislava")
 _REPEAT_TYPES = {"daily", "weekly", "monthly", "yearly"}
 
 
+def _can_access_task(user: dict, task: Dict[str, Any]) -> bool:
+    if (user or {}).get("role") != "mod":
+        return True
+    user_id = user.get("id")
+    if not user_id:
+        return False
+    # Mod scope is limited to assigned servers; DM/global tasks are excluded.
+    if task.get("target_type") != "channel":
+        return False
+    channel = db.get_channel(str(task.get("target_id") or ""))
+    if not channel:
+        return False
+    allowed_server_ids = set(db.get_user_server_access(int(user_id)))
+    return channel.get("server_id") in allowed_server_ids
+
+
 def _parse_iso_datetime(value: str) -> datetime:
     normalized = value.strip()
     if normalized.endswith("Z"):
@@ -137,12 +153,14 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
 
 
 @router.get("/")
-def list_tasks(_: dict = Depends(require_role("mod")), type: Optional[str] = None, status: List[str] = Query(default=[])):
+def list_tasks(user: dict = Depends(require_role("mod")), type: Optional[str] = None, status: List[str] = Query(default=[])):
     try:
         tasks = db.list_tasks(type=type, status=status)
         # Validate each task against the Task model to ensure data integrity
         validated_tasks = []
         for task in tasks:
+            if not _can_access_task(user, task):
+                continue
             try:
                 task['next_run'] = compute_next_run(task)
                 validated_tasks.append(Task(**task))
@@ -202,10 +220,12 @@ def create_task(body: TaskCreate, _: dict = Depends(require_role("admin"))):
 
 
 @router.get("/{task_id}", response_model=Task)
-def get_task(task_id: int, _: dict = Depends(require_role("mod"))):
+def get_task(task_id: int, user: dict = Depends(require_role("mod"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    if not _can_access_task(user, task):
+        raise HTTPException(status_code=403, detail="No access to this task")
     try:
         task['next_run'] = compute_next_run(task)
         return Task(**task)

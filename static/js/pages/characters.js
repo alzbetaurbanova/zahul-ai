@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
+    let currentUserRole = 'guest';
     let currentCharacterName = null;
     let currentCharacterId = null;
 
@@ -25,6 +26,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('delete-btn');
     const exportBtn = document.getElementById('export-btn');
     const toastContainer = document.getElementById('toast-container');
+    const newCharBtn = document.getElementById('new-char-btn');
+    const importCardBtn = document.getElementById('import-card-btn');
+
+    function canEditCharacters() {
+        return typeof window.canMutate === 'function'
+            ? window.canMutate(currentUserRole)
+            : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
     // --- Modal Management ---
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
     const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
@@ -112,6 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadCharacterForEdit(id) {
+        if (!canEditCharacters()) return;
         try {
             const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
@@ -168,6 +178,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to modify characters.', 'error');
+            return;
+        }
         
         const name = nameInput.value.trim();
         if (!name) {
@@ -268,6 +282,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleDelete() {
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to delete characters.', 'error');
+            return;
+        }
         if (!currentCharacterId || !confirm(`Are you sure you want to delete '${nameInput.value}'? This cannot be undone.`)) {
             return;
         }
@@ -544,8 +562,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Event Listeners ---
     form.addEventListener('submit', handleFormSubmit);
-    document.getElementById('new-char-btn').addEventListener('click', () => { resetForm(); openModal(); });
-    document.getElementById('import-card-btn').addEventListener('click', () => openImportInfoModal());
+    newCharBtn.addEventListener('click', () => {
+        if (!canEditCharacters()) return;
+        resetForm();
+        openModal();
+    });
+    importCardBtn.addEventListener('click', () => {
+        if (!canEditCharacters()) return;
+        openImportInfoModal();
+    });
     deleteBtn.addEventListener('click', handleDelete);
     exportBtn.addEventListener('click', handleExport);
     avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
@@ -554,6 +579,18 @@ document.addEventListener('DOMContentLoaded', function() {
     modalCloseBtn.addEventListener('click', closeModal);
 
     // --- Initial Load ---
-    loadServerFilter();
-    fetchAndDisplayCharacters();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            if (!canEditCharacters()) {
+                newCharBtn.classList.add('hidden');
+                importCardBtn.classList.add('hidden');
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            loadServerFilter();
+            fetchAndDisplayCharacters();
+        });
     });

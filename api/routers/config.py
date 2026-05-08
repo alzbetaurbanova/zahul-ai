@@ -38,13 +38,13 @@ router = APIRouter(
 )
 
 def _validate_panel_auth_prerequisites(panel_auth_enabled: bool, discord_login_enabled: bool, local_login_enabled: bool):
+    if not panel_auth_enabled:
+        return
     if local_login_enabled and db.count_local_super_admins() < 1:
         raise HTTPException(
             status_code=400,
             detail="Local login requires at least one local super admin account."
         )
-    if not panel_auth_enabled:
-        return
     if not (discord_login_enabled or local_login_enabled):
         raise HTTPException(status_code=400, detail="Enable at least one login method before enabling panel protection.")
     if not discord_login_enabled and not db.get_super_admin_account():
@@ -167,6 +167,7 @@ async def update_security_methods(config: AuthMethodsConfig, _: dict = Depends(r
         db.set_config("panel_auth_enabled", config.panel_auth_enabled)
         db.set_config("discord_login_enabled", config.discord_login_enabled)
         db.set_config("local_login_enabled", config.local_login_enabled)
+        # Preserve existing OAuth values when incoming fields are empty.
         if config.discord_oauth_client_id:
             db.set_config("discord_oauth_client_id", config.discord_oauth_client_id)
         if config.discord_oauth_client_secret:
