@@ -147,6 +147,7 @@ async def update_security(config: SecurityConfig, _: dict = Depends(require_role
             db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
             changed = ["super_admin_created"]
 
+        db.delete_all_sessions()
         db.log_admin('config.security.update', detail=', '.join(changed))
         return {"ok": True}
     except HTTPException:

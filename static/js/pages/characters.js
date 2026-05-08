@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     serverFilter.addEventListener('change', applyFilter);
+    if (typeof initFilterClear === 'function') initFilterClear(() => applyFilter(), document.getElementById('characters-toolbar-filter'));
 
     // --- Core Functions ---
 

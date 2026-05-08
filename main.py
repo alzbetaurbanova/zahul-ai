@@ -13,7 +13,7 @@ import httpx
 import uvicorn
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -131,7 +131,11 @@ def _make_session_expiry() -> datetime:
 
 
 def _cookie_secure(request: Request) -> bool:
-    return request.url.scheme == "https"
+    if request.url.scheme == "https":
+        return True
+    # Reverse proxies (e.g. Caddy) may speak HTTP to the app while the client used HTTPS.
+    xf = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    return xf == "https"
 
 
 def _is_panel_auth_enabled(db: Database) -> bool:
@@ -140,6 +144,27 @@ def _is_panel_auth_enabled(db: Database) -> bool:
 
 def _super_admin_setup_required(db: Database) -> bool:
     return _is_panel_auth_enabled(db) and db.get_super_admin_account() is None
+
+
+def _clear_session_cookie(response: Response, request: Request) -> None:
+    """
+    Remove zahul_session. Emit both Secure variants — mismatch prevents deletion in browsers
+    when the cookie was set over HTTP :port vs HTTPS behind a proxy.
+    """
+    common = {"key": "zahul_session", "path": "/", "httponly": True, "samesite": "lax"}
+    response.delete_cookie(**common, secure=False)
+    response.delete_cookie(**common, secure=True)
+
+
+def _unauthenticated_response(request: Request, path: str, *, clear_session_cookie: bool) -> Response:
+    """401/redirect to login; optionally strip stale session cookie from the browser."""
+    if path.startswith("/api"):
+        resp: Response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    else:
+        resp = RedirectResponse(url="/login", status_code=302)
+    if clear_session_cookie:
+        _clear_session_cookie(resp, request)
+    return resp
 
 
 # --- Auth Middleware ---
@@ -155,6 +180,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/login") or path.startswith("/static") or path in (
             "/favicon.ico",
             "/zahul",
+            "/logout",
             "/no-access",
             "/api/panel-hint",
             "/api/auth-enabled",
@@ -171,39 +197,29 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return JSONResponse({"detail": "Super admin account setup required"}, status_code=403)
             return RedirectResponse(url="/login?setup=1", status_code=302)
 
-        token = request.cookies.get("zahul_session")
-        if token:
-            session = db.get_session(token)
-            if session:
-                expires_at = datetime.fromisoformat(session["expires_at"])
-                if expires_at > _utc_now():
-                    request.state.auth_user = db.get_user_by_id(int(session["user_id"]))
-                    user = request.state.auth_user
-                    if not user:
-                        # Session points to a removed or invalid user.
-                        # Clear it and force normal unauthenticated flow.
-                        db.delete_session(token)
-                    else:
-                        if user.get("auth_provider") == "discord" and user.get("role") not in {
-                            "super_admin", "admin", "mod", "guest"
-                        }:
-                            allowed_paths = {
-                                "/no-access",
-                                "/logout",
-                                "/api/auth-status",
-                                "/api/users/requests",
-                                "/api/users/requests/me",
-                            }
-                            if path not in allowed_paths:
-                                if path.startswith("/api"):
-                                    return JSONResponse({"detail": "Access request required"}, status_code=403)
-                                return RedirectResponse(url="/no-access", status_code=302)
-                        return await call_next(request)
-                db.delete_session(token)
+        raw_token = request.cookies.get("zahul_session")
+        token = (raw_token or "").strip() or None
+        user = db.get_user_from_session_token(token) if token else None
 
-        if path.startswith("/api"):
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-        return RedirectResponse(url="/login", status_code=302)
+        if user:
+            request.state.auth_user = user
+            if user.get("auth_provider") == "discord" and user.get("role") not in {
+                "super_admin", "admin", "mod", "guest"
+            }:
+                allowed_paths = {
+                    "/no-access",
+                    "/logout",
+                    "/api/auth-status",
+                    "/api/users/requests",
+                    "/api/users/requests/me",
+                }
+                if path not in allowed_paths:
+                    if path.startswith("/api"):
+                        return JSONResponse({"detail": "Access request required"}, status_code=403)
+                    return RedirectResponse(url="/no-access", status_code=302)
+            return await call_next(request)
+
+        return _unauthenticated_response(request, path, clear_session_cookie=bool(token))
 
 
 # --- FastAPI App Setup ---
@@ -387,15 +403,10 @@ async def auth_status(request: Request):
         and (db.get_config("discord_oauth_client_secret") or "").strip()
         and (db.get_config("discord_oauth_redirect_uri") or "").strip()
     )
-    token = request.cookies.get("zahul_session")
-    user = None
-    if token:
-        session = db.get_session(token)
-        if session:
-            from datetime import datetime, timezone
-            if datetime.fromisoformat(session["expires_at"]) > datetime.now(timezone.utc):
-                user = db.get_user_by_id(int(session["user_id"]))
-    return {
+    raw_token = request.cookies.get("zahul_session")
+    token = (raw_token or "").strip() or None
+    user = db.get_user_from_session_token(token) if token else None
+    payload = {
         "super_admin_setup_required": _super_admin_setup_required(db),
         "discord_login_enabled": bool(db.get_config("discord_login_enabled")),
         "local_login_enabled": bool(db.get_config("local_login_enabled")),
@@ -408,6 +419,11 @@ async def auth_status(request: Request):
             "role": user["role"],
         } if user else None,
     }
+    response = JSONResponse(payload)
+    # Allowlisted route: scrub stale cookies here so the UI cannot look "logged in" with a dead session.
+    if token and not user:
+        _clear_session_cookie(response, request)
+    return response
 
 
 @app.get("/api/auth-super-admin", include_in_schema=False)
@@ -527,7 +543,7 @@ async def logout(request: Request):
     if token:
         Database().delete_session(token)
     response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("zahul_session")
+    _clear_session_cookie(response, request)
     return response
 
 @app.get("/users", response_class=FileResponse, include_in_schema=False)

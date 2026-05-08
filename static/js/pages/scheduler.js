@@ -256,6 +256,8 @@
                         input.value = item.dataset.label;
                         input.dataset.value = item.dataset.id;
                         dropdown.classList.add('hidden');
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
                     });
                 });
                 dropdown.classList.remove('hidden');
@@ -787,21 +789,28 @@
             } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
         });
 
-        // --- Status checkbox dropdown ---
-        function updateStatusDdLabel() {
-            const checked = [...document.querySelectorAll('.filter-status-cb:checked')].map(el => el.value);
-            document.getElementById('filter-status-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
+        // --- Filter toolbar: checkbox dropdowns + filter clears + status dropdown ---
+        const schedulerFiltersEl = document.getElementById('scheduler-filters');
+        if (typeof initCbDdInteractions === 'function') {
+            initCbDdInteractions({
+                containers: [schedulerFiltersEl].filter(Boolean),
+                onCheckboxChange: () => {
+                    currentPage = 1;
+                    fetchTasks();
+                },
+            });
         }
-        const statusBtn = document.getElementById('filter-status-btn');
-        const statusDd = document.getElementById('filter-status-dd');
-        statusBtn.addEventListener('click', () => statusDd.classList.toggle('hidden'));
-        document.addEventListener('click', e => {
-            if (!statusBtn.contains(e.target) && !statusDd.contains(e.target))
-                statusDd.classList.add('hidden');
-        });
-        document.querySelectorAll('.filter-status-cb').forEach(cb => {
-            cb.addEventListener('change', () => { updateStatusDdLabel(); currentPage = 1; fetchTasks(); });
-        });
+        if (typeof wireCbDdClear === 'function') {
+            wireCbDdClear('filter-status-clear', 'filter-status-dd', () => {
+                currentPage = 1;
+                fetchTasks();
+            });
+        }
+
+        function updateStatusDdLabel() {
+            const btn = document.getElementById('filter-status-btn');
+            if (btn && typeof updateCbDdLabel === 'function') updateCbDdLabel(btn);
+        }
 
         function updateStatusOptions() {
             const selectedType = document.getElementById('filter-type').value;
@@ -836,12 +845,28 @@
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';
-            document.getElementById('filter-status').value = '';
             document.getElementById('filter-from').value = '';
             document.getElementById('filter-to').value = '';
+            if (typeof clearCheckboxDropdownPrefix === 'function') {
+                clearCheckboxDropdownPrefix('filter-status');
+            } else {
+                document.querySelectorAll('.filter-status-cb').forEach(cb => { cb.checked = false; });
+                updateStatusDdLabel();
+            }
+            document.querySelectorAll('#scheduler-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
+            document.querySelectorAll('#scheduler-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
             currentPage = 1;
             fetchTasks();
         });
+        if (typeof initFilterClear === 'function') {
+            initFilterClear(() => { currentPage = 1; fetchTasks(); }, document.getElementById('scheduler-filters'));
+            initFilterClear((id) => {
+                if (id === 'f-channel-input' || id === 'f-dm-input') {
+                    const el = document.getElementById(id);
+                    if (el) el.dataset.value = '';
+                }
+            }, document.getElementById('task-form'));
+        }
         document.getElementById('clear-from-btn').addEventListener('click', () => {
             document.getElementById('filter-from').value = '';
             currentPage = 1;

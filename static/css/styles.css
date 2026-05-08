@@ -699,19 +699,66 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 .icon-clear-btn {
     position: absolute;
-    right: 0.5rem;
-    top: 0.5rem;
+    right: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--text-muted);
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.75rem;
+    font-size: 1rem;
     line-height: 1;
+    padding: 0 2px;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
     transition: color 0.15s;
+    z-index: 2;
+}
+
+.icon-clear-btn i {
+    font-size: 1em;
+    line-height: 1;
 }
 
 .icon-clear-btn:hover {
     color: var(--text-soft);
+}
+
+/* Select with custom chevron + clearable X */
+.select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.select-wrap select.input-field {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+
+.select-wrap::after {
+    content: '\f078';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    position: absolute;
+    right: 0.55rem;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.select-wrap.has-value::after {
+    opacity: 0;
+}
+
+.select-wrap .icon-clear-btn {
+    right: 0.45rem;
 }
 
 /* ========================================================================== */
@@ -723,6 +770,10 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     margin-left: auto;
 }
 
+.cb-dd-chevron--btn {
+    margin-left: 0;
+}
+
 .cb-dd-btn {
     font-size: 0.875rem;
     padding: 0.5rem 0.75rem;
@@ -730,6 +781,21 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    position: relative;
+}
+
+.cb-dd-clear {
+    flex-shrink: 0;
+    font-size: 1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.cb-dd-clear:hover {
+    color: var(--text-soft);
 }
 
 .cb-dd {
@@ -749,6 +815,27 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     max-height: min(20rem, 50vh);
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+.cb-dd.cb-dd-searchable {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: min(28rem, 55vh);
+}
+
+.cb-dd-search-wrap {
+    flex-shrink: 0;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--surface-raised);
+}
+
+.cb-dd-search-list {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    padding: 0.25rem 0;
 }
 
 .cb-dd-item {

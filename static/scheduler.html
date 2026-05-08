@@ -27,25 +27,34 @@
             </div>
 
             <!-- Filters -->
-            <div class="filter-panel mb-6">
-                <div class="relative">
+            <div id="scheduler-filters" class="filter-panel mb-6">
+                <div>
                     <label class="label-xs">Character</label>
-                    <input type="text" id="filter-character" autocomplete="off" placeholder="any"
-                        class="input-field w-36">
-                    <div id="filter-character-dd" class="autocomplete-dd hidden"></div>
+                    <div class="relative">
+                        <input type="text" id="filter-character" autocomplete="off" placeholder="any" class="input-field w-36 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="filter-character" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="filter-character-dd" class="autocomplete-dd hidden"></div>
+                    </div>
                 </div>
                 <div>
                     <label class="label-xs">Type</label>
-                    <select id="filter-type" class="input-field">
-                        <option value="">All</option>
-                        <option value="schedule">Schedule</option>
-                        <option value="reminder">Reminder</option>
-                    </select>
+                    <div class="select-wrap">
+                        <select id="filter-type" class="input-field">
+                            <option value="">All</option>
+                            <option value="schedule">Schedule</option>
+                            <option value="reminder">Reminder</option>
+                        </select>
+                        <button class="icon-clear-btn hidden" data-clear="filter-type" title="Clear"><i class="fas fa-times"></i></button>
+                    </div>
                 </div>
                 <div class="relative">
                     <label class="label-xs">Status</label>
-                    <button id="filter-status-btn" class="cb-dd-btn min-w-[8rem]">
-                        <span id="filter-status-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
+                    <button id="filter-status-btn" type="button" class="cb-dd-btn min-w-[8rem]" data-dd="filter-status-dd">
+                        <span id="filter-status-label" class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
+                        <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <i class="fas fa-times cb-dd-clear hidden" id="filter-status-clear" title="Clear status filter"></i>
+                            <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                        </span>
                     </button>
                     <div id="filter-status-dd" class="cb-dd hidden min-w-[9rem]">
                         <label id="fs-active-row" class="cb-dd-item"><input type="checkbox" value="active" class="filter-status-cb accent-indigo-500"> Active</label>
@@ -175,7 +184,8 @@
                         <label class="label-form">Character</label>
                         <div class="relative">
                             <input type="text" id="f-character" autocomplete="off" required placeholder="Select character..."
-                                class="input-field">
+                                class="input-field pr-8">
+                            <button type="button" class="icon-clear-btn hidden" data-clear="f-character" title="Clear"><i class="fas fa-times"></i></button>
                             <div id="f-character-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>
@@ -212,7 +222,8 @@
                     <label class="label-form">Channel</label>
                     <div class="relative">
                         <input type="text" id="f-channel-input" autocomplete="off" required placeholder="Type to search or paste ID..."
-                            class="input-field">
+                            class="input-field pr-8">
+                        <button type="button" class="icon-clear-btn hidden" data-clear="f-channel-input" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="f-channel-dropdown" class="picker-dd hidden"></div>
                     </div>
                 </div>
@@ -222,7 +233,8 @@
                     <label class="label-form">User</label>
                     <div class="relative">
                         <input type="text" id="f-dm-input" autocomplete="off" required placeholder="Type to search or paste ID..."
-                            class="input-field">
+                            class="input-field pr-8">
+                        <button type="button" class="icon-clear-btn hidden" data-clear="f-dm-input" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="f-dm-dropdown" class="picker-dd hidden"></div>
                     </div>
                 </div>

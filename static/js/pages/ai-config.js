@@ -189,12 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
         discordOauthWarning.classList.toggle('hidden', configured || !discordLoginToggle.checked);
     }
 
-    function updateMethodVisibility() {
+    function updateMethodVisibility(autoEnablePanel = false) {
         discordOauthFields.classList.toggle('hidden', !discordLoginToggle.checked);
         superAdminAccountSection.classList.toggle('hidden', !localLoginToggle.checked);
         updateDiscordOauthWarning();
         updateMasterToggleState();
-        if (discordLoginToggle.checked || localLoginToggle.checked) {
+        if (autoEnablePanel && (discordLoginToggle.checked || localLoginToggle.checked)) {
             panelAuthToggle.checked = true;
         }
     }
@@ -229,10 +229,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 'Failed to save security config.';
                 throw new Error(msg);
             }
-            showToast('Super admin account saved.');
+            const isAuthOn = panelAuthToggle.checked;
             panelPasswordInput.value = '';
-            await loadSuperAdmin();
-            updateMasterToggleState();
+            if (isAuthOn) {
+                showToast('Credentials updated. Redirecting to login…');
+                setTimeout(() => { window.location.href = '/logout'; }, 1200);
+            } else {
+                showToast('Super admin account saved.');
+                await loadSuperAdmin();
+                updateMasterToggleState();
+            }
         } catch (error) {
             showToast(error.message, 'error');
         }
@@ -263,7 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const error = await response.json();
                 throw new Error(error.detail || 'Failed to save security settings.');
             }
-            showToast('Security settings saved.');
+            if (payload.panel_auth_enabled) {
+                showToast('Security enabled. Redirecting to login…');
+                setTimeout(() => { window.location.href = '/logout'; }, 1200);
+            } else {
+                showToast('Security settings saved.');
+            }
         } catch (error) {
             showToast(error.message, 'error');
             await loadSecurityStatus();
@@ -346,11 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             document.getElementById('confirm-disable-discord-confirm').onclick = () => {
                 modal.classList.add('hidden');
-                updateMethodVisibility();
+                updateMethodVisibility(true);
             };
             return;
         }
-        updateMethodVisibility();
+        updateMethodVisibility(true);
     });
     localLoginToggle.addEventListener('change', () => {
         if (localLoginToggle.checked && !hasLocalSuperAdmin) {
@@ -367,11 +378,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             document.getElementById('confirm-disable-local-confirm').onclick = () => {
                 modal.classList.add('hidden');
-                updateMethodVisibility();
+                updateMethodVisibility(true);
             };
             return;
         }
-        updateMethodVisibility();
+        updateMethodVisibility(true);
     });
     elements.discord_oauth_client_id.addEventListener('input', updateDiscordOauthWarning);
     elements.discord_oauth_redirect_uri.addEventListener('input', updateDiscordOauthWarning);

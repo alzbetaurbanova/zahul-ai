@@ -203,6 +203,19 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_requested_at ON access_requests(requested_at DESC)")
+            # Ensure security-related config keys exist with safe defaults for existing DBs
+            security_defaults = [
+                ("panel_auth_enabled", "false"),
+                ("local_login_enabled", "true"),
+                ("discord_login_enabled", "false"),
+                ("discord_allowed_usernames", "[]"),
+                ("panel_password_hint", '""'),
+                ("discord_oauth_client_id", '""'),
+                ("discord_oauth_client_secret", '""'),
+                ("discord_oauth_redirect_uri", '""'),
+            ]
+            for key, val in security_defaults:
+                conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
 
     # ------------------------------------------------------
@@ -899,11 +912,52 @@ class Database:
             ).fetchone()
             return dict(row) if row else None
 
-    def get_session_user(self, token: str) -> Optional[Dict[str, Any]]:
+    def _parse_session_expires_at(self, raw: Any) -> Optional[datetime]:
+        if raw is None:
+            return None
+        s = str(raw).strip()
+        if not s:
+            return None
+        try:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except Exception:
+            return None
+
+    def get_user_from_session_token(self, token: Optional[str]) -> Optional[Dict[str, Any]]:
+        """
+        Resolve a logged-in user from a session cookie token.
+        Deletes expired sessions and orphan sessions (missing user row).
+        """
+        if not token:
+            return None
         session = self.get_session(token)
         if not session:
             return None
-        return self.get_user_by_id(int(session["user_id"]))
+        expires_at = self._parse_session_expires_at(session.get("expires_at"))
+        if expires_at is None:
+            self.delete_session(token)
+            return None
+        if expires_at <= datetime.now(timezone.utc):
+            self.delete_session(token)
+            return None
+        try:
+            uid = int(session["user_id"])
+        except (TypeError, ValueError, KeyError):
+            self.delete_session(token)
+            return None
+        user = self.get_user_by_id(uid)
+        if not user:
+            self.delete_session(token)
+            return None
+        return user
+
+    def get_session_user(self, token: str) -> Optional[Dict[str, Any]]:
+        return self.get_user_from_session_token(token)
 
     def list_users(self) -> List[Dict[str, Any]]:
         with self._get_connection() as conn:
@@ -921,6 +975,7 @@ class Database:
         if not user:
             return
         with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
             conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
 
@@ -988,6 +1043,11 @@ class Database:
     def delete_session(self, token: str):
         with self._get_connection() as conn:
             conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
+            conn.commit()
+
+    def delete_all_sessions(self):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions")
             conn.commit()
 
     def purge_expired_sessions(self):

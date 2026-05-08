@@ -31,18 +31,28 @@
             <div id="discord-filters" class="filter-panel mb-5">
                 <div><label class="label-xs">From</label><div class="relative"><input type="date" id="df-from" class="input-field pr-8"><button id="df-from-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="label-xs">To</label><div class="relative"><input type="date" id="df-to" class="input-field pr-8"><button id="df-to-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
-                <div class="relative"><label class="label-xs">Character</label>
-                    <input type="text" id="df-character" autocomplete="off" placeholder="any" class="input-field w-32">
-                    <div id="df-character-dd" class="autocomplete-dd hidden"></div>
+                <div><label class="label-xs">Character</label>
+                    <div class="relative">
+                        <input type="text" id="df-character" autocomplete="off" placeholder="any" class="input-field w-32 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="df-character" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="df-character-dd" class="autocomplete-dd hidden"></div>
+                    </div>
                 </div>
-                <div class="relative"><label class="label-xs">User</label>
-                    <input type="text" id="df-user" autocomplete="off" placeholder="any" class="input-field w-32">
-                    <div id="df-user-dd" class="autocomplete-dd hidden"></div>
+                <div><label class="label-xs">User</label>
+                    <div class="relative">
+                        <input type="text" id="df-user" autocomplete="off" placeholder="any" class="input-field w-32 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="df-user" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="df-user-dd" class="autocomplete-dd hidden"></div>
+                    </div>
                 </div>
                 <div class="relative">
                     <label class="label-xs">Source</label>
-                    <button class="cb-dd-btn min-w-[8rem]" data-dd="dd-source">
-                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
+                    <button type="button" class="cb-dd-btn min-w-[8rem]" data-dd="dd-source">
+                        <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
+                        <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <i class="fas fa-times cb-dd-clear hidden" id="dd-source-clear" title="Clear"></i>
+                            <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                        </span>
                     </button>
                     <div id="dd-source" class="cb-dd hidden min-w-[10rem]">
                         <label class="cb-dd-item"><input type="checkbox" value="chat" class="df-source-cb accent-indigo-500"> Chat</label>
@@ -51,8 +61,12 @@
                 </div>
                 <div class="relative">
                     <label class="label-xs">Status</label>
-                    <button class="cb-dd-btn min-w-[8rem]" data-dd="dd-status">
-                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
+                    <button type="button" class="cb-dd-btn min-w-[8rem]" data-dd="dd-status">
+                        <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
+                        <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <i class="fas fa-times cb-dd-clear hidden" id="dd-status-clear" title="Clear"></i>
+                            <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                        </span>
                     </button>
                     <div id="dd-status" class="cb-dd hidden min-w-[8rem]">
                         <label class="cb-dd-item"><input type="checkbox" value="ok" class="df-status-cb accent-indigo-500"> OK</label>
@@ -68,10 +82,18 @@
                 <div><label class="label-xs">To</label><div class="relative"><input type="date" id="af-to" class="input-field pr-8"><button id="af-to-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div class="relative">
                     <label class="label-xs">Action</label>
-                    <button class="cb-dd-btn min-w-[10rem]" data-dd="dd-action">
-                        <span class="cb-dd-label">All</span><i class="fas fa-chevron-down cb-dd-chevron"></i>
+                    <button type="button" class="cb-dd-btn min-w-[10rem]" data-dd="dd-action">
+                        <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
+                        <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                            <i class="fas fa-times cb-dd-clear hidden" id="dd-action-clear" title="Clear"></i>
+                            <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                        </span>
                     </button>
-                    <div id="dd-action" class="cb-dd cb-dd-scrollable hidden min-w-[12rem] max-w-[20rem]">
+                    <div id="dd-action" class="cb-dd cb-dd-searchable hidden min-w-[14rem] max-w-[min(24rem,92vw)]">
+                        <div class="cb-dd-search-wrap">
+                            <input type="text" id="af-action-search" class="input-field text-sm py-2" placeholder="Search actions…" autocomplete="off">
+                        </div>
+                        <div class="cb-dd-search-list">
                         <label class="cb-dd-item"><input type="checkbox" value="access.request.approve" class="af-action-cb accent-indigo-500"> access.request.approve</label>
                         <label class="cb-dd-item"><input type="checkbox" value="access.request.create" class="af-action-cb accent-indigo-500"> access.request.create</label>
                         <label class="cb-dd-item"><input type="checkbox" value="access.request.deny" class="af-action-cb accent-indigo-500"> access.request.deny</label>
@@ -108,6 +130,7 @@
                         <label class="cb-dd-item"><input type="checkbox" value="user.delete" class="af-action-cb accent-indigo-500"> user.delete</label>
                         <label class="cb-dd-item"><input type="checkbox" value="user.password_update" class="af-action-cb accent-indigo-500"> user.password_update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="user.role_update" class="af-action-cb accent-indigo-500"> user.role_update</label>
+                        </div>
                     </div>
                 </div>
                 <button id="admin-clear-btn" class="btn-clear-filter">Clear filters</button>

@@ -91,19 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
     bindPasswordToggle('new-password', 'new-password-toggle');
     bindPasswordToggle('edit-password', 'edit-password-toggle');
     initUserCombobox();
-    document.getElementById('filter-user-clear').addEventListener('click', () => {
-        document.getElementById('filter-user').value = '';
-        document.getElementById('filter-user-dd').classList.add('hidden');
-        renderUsers();
-    });
     document.getElementById('filter-role').addEventListener('change', renderUsers);
     document.getElementById('filter-auth').addEventListener('change', renderUsers);
     document.getElementById('clear-filters-btn').addEventListener('click', () => {
         document.getElementById('filter-user').value = '';
         document.getElementById('filter-role').value = '';
         document.getElementById('filter-auth').value = '';
+        document.getElementById('filter-user-dd').classList.add('hidden');
+        document.querySelectorAll('#users-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
+        document.querySelectorAll('#users-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
         renderUsers();
     });
+    if (typeof initFilterClear === 'function') initFilterClear(() => {
+        document.getElementById('filter-user-dd').classList.add('hidden');
+        renderUsers();
+    }, document.getElementById('users-filters'));
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => setTab(btn.dataset.tab || 'users'));
     });

@@ -59,6 +59,47 @@
 
     activateTab(currentTab);
 
+    const adminActionSearch = typeof initSearchableCheckboxDropdown === 'function'
+        ? initSearchableCheckboxDropdown({ searchInputId: 'af-action-search', dropdownId: 'dd-action' })
+        : null;
+
+    function clearDd(cls) {
+        clearCheckboxDropdownPrefix(cls, {
+            afterReset: (prefix) => {
+                if (prefix === 'af-action') adminActionSearch?.reset();
+            },
+        });
+    }
+
+    if (typeof initCbDdInteractions === 'function') {
+        initCbDdInteractions({
+            containers: [
+                document.getElementById('discord-filters'),
+                document.getElementById('admin-filters'),
+            ],
+            onCheckboxChange: () => {
+                currentPage = 1;
+                fetchLogs();
+            },
+        });
+    }
+
+    if (typeof wireCbDdClear === 'function') {
+        wireCbDdClear('dd-source-clear', 'dd-source', () => {
+            currentPage = 1;
+            fetchLogs();
+        });
+        wireCbDdClear('dd-status-clear', 'dd-status', () => {
+            currentPage = 1;
+            fetchLogs();
+        });
+        wireCbDdClear('dd-action-clear', 'dd-action', () => {
+            adminActionSearch?.reset();
+            currentPage = 1;
+            fetchLogs();
+        });
+    }
+
     // --- Tab switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -66,36 +107,6 @@
             activateTab(btn.dataset.tab);
             history.replaceState(null, '', `?tab=${currentTab}`);
             fetchLogs();
-        });
-    });
-
-    // --- Checkbox dropdown logic ---
-    function updateDdLabel(btn) {
-        const ddId = btn.dataset.dd;
-        const checked = [...document.querySelectorAll(`#${ddId} input:checked`)].map(el => el.value);
-        btn.querySelector('.cb-dd-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
-    }
-    function clearDd(cls) {
-        document.querySelectorAll('.' + cls + '-cb').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
-    }
-    document.querySelectorAll('.cb-dd-btn').forEach(btn => {
-        const dd = document.getElementById(btn.dataset.dd);
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.cb-dd').forEach(d => { if (d !== dd) d.classList.add('hidden'); });
-            dd.classList.toggle('hidden');
-        });
-    });
-    document.addEventListener('click', e => {
-        document.querySelectorAll('.cb-dd-btn').forEach(btn => {
-            const dd = document.getElementById(btn.dataset.dd);
-            if (!btn.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hidden');
-        });
-    });
-    document.querySelectorAll('.df-source-cb, .df-status-cb, .af-action-cb').forEach(cb => {
-        cb.addEventListener('change', () => {
-            updateDdLabel(cb.closest('.cb-dd').previousElementSibling);
-            currentPage = 1; fetchLogs();
         });
     });
 
@@ -114,13 +125,16 @@
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
         ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
         clearDd('df-source'); clearDd('df-status');
+        document.querySelectorAll('#discord-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
     document.getElementById('admin-clear-btn').addEventListener('click', () => {
         ['af-from','af-to'].forEach(id => document.getElementById(id).value = '');
         clearDd('af-action');
+        document.querySelectorAll('#admin-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
+    if (typeof initFilterClear === 'function') initFilterClear(() => { currentPage = 1; fetchLogs(); }, document.getElementById('discord-filters'));
 
     // --- Pagination ---
     document.getElementById('prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchLogs(); } });
@@ -399,7 +413,7 @@
             const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
             if (cb) {
                 cb.checked = true;
-                document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
+                document.querySelectorAll('.cb-dd-btn').forEach(btn => updateCbDdLabel(btn));
             }
         }
         fetchLogs();

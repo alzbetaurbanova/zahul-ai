@@ -23,6 +23,9 @@ def require_role(min_role: str):
     async def dep(request: Request, user=Depends(get_current_user)):
         if _is_first_run():
             return {"role": "super_admin", "id": None, "username": "setup"}
+        db = Database()
+        if not db.get_config("panel_auth_enabled"):
+            return user or {"role": "super_admin", "id": None, "username": "panel-auth-off"}
         if user is None:
             raise HTTPException(status_code=403, detail="Not authenticated")
         if ROLE_LEVEL.get(user.get("role"), 0) < ROLE_LEVEL[min_role]:

@@ -15,7 +15,7 @@
     <div id="navbar-container"></div>
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/utils.js" defer></script>
-    <script src="/static/js/pages/ai-config.js" defer></script>
+    <script src="/static/js/pages/ai-config.js?v=2" defer></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6">
@@ -204,16 +204,16 @@
                     </div>
                 </fieldset>
 
-                <!-- Panel Security -->
+                <!-- Login & Access -->
                 <fieldset class="fieldset-section">
-                    <legend class="legend-section">Panel Security</legend>
+                    <legend class="legend-section">Login &amp; Access</legend>
 
                     <!-- Master toggle -->
                     <div id="panel-auth-master-wrap" class="flex-between mt-2">
                         <div>
-                            <p class="flex items-center gap-1.5 label-inline">Protect panel <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Master switch. Requires at least one login method enabled.</span></span></p>
+                            <p class="flex items-center gap-1.5 label-inline">Require login <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When enabled, the panel is protected — only logged-in users with an account can access it. Disable to allow open access without authentication.</span></span></p>
                             <p id="panel-auth-master-note" class="text-hint hidden mt-1">Enable at least one login method first.</p>
-                            <p class="text-hint mt-1">It is recommended to enable and verify both login methods before turning on protection, to avoid being locked out.</p>
+                            <p class="text-hint mt-1">Set up and verify a login method below before enabling, to avoid being locked out.</p>
                         </div>
                         <label class="toggle-wrap">
                             <input type="checkbox" id="panel_auth_enabled" class="sr-only peer">
@@ -297,7 +297,7 @@
 
                     <!-- Save Security -->
                     <div class="mt-5 flex justify-end">
-                        <button id="save-security-btn" class="btn-red px-6">Save Security</button>
+                        <button id="save-security-btn" class="btn-red px-6">Save Access Settings</button>
                     </div>
                 </fieldset>
             </div>

@@ -28,11 +28,14 @@
                 <button id="import-card-btn" class="btn-dashed">
                     <i class="fas fa-upload"></i> Import Card
                 </button>
-                <div class="flex items-center gap-2 ml-auto">
+                <div class="flex items-center gap-2 ml-auto" id="characters-toolbar-filter">
                     <label for="server-filter" class="label-filter">Filter by server:</label>
-                    <select id="server-filter" class="input-field">
-                        <option value="all">All</option>
-                    </select>
+                    <div class="select-wrap">
+                        <select id="server-filter" class="input-field">
+                            <option value="all">All</option>
+                        </select>
+                        <button class="icon-clear-btn hidden" data-clear="server-filter" data-clear-value="all" title="Clear"><i class="fas fa-times"></i></button>
+                    </div>
                 </div>
             </div>
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
