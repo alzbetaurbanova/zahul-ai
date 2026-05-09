@@ -5,7 +5,6 @@ from jinja2 import Environment
 # Adjust these import paths to match your project structure
 from src.models.aicharacter import ActiveCharacter
 from src.models.dimension import ActiveChannel
-from src.plugins.manager import PluginManager
 from src.controller.history import get_history 
 from api.db.database import Database
 
@@ -16,8 +15,6 @@ DEFAULT_PROMPT_TEMPLATE = """\
 {{character.persona}}
 {% if character.instructions %}{{character.instructions}}{% endif %}
 {% if channel.global_note %}{{channel.global_note}}{% endif %}
-{% if plugins %}{% for plugin_name, output_data in plugins.items() %}{% for key, value in output_data.items() %}{{value}}
-{% endfor %}{% endfor %}{% endif %}
 [History]
 {{history}}
 [Reply only as {{character.name}}.]"""
@@ -25,7 +22,7 @@ DEFAULT_PROMPT_TEMPLATE = """\
 
 
 class PromptEngineer:
-    def __init__(self, bot: ActiveCharacter, message: discord.Message, channel: ActiveChannel,plugin_manager:PluginManager, messenger):
+    def __init__(self, bot: ActiveCharacter, message: discord.Message, channel: ActiveChannel, messenger):
         self.bot = bot
         self.user_name = str(message.author.display_name)
         self.message = message
@@ -35,7 +32,6 @@ class PromptEngineer:
         # Get the database instance from one of the active models
         self.db: Database = bot.db
         
-        self.plugin_manager = plugin_manager 
         self.jinja_env = Environment(trim_blocks=True, lstrip_blocks=True) # Recommended settings for prompt templates
 
         self.stopping_strings = ["[System", "(System", self.user_name + ":", "[End"] # Note make this not hardcoded
@@ -117,12 +113,7 @@ class PromptEngineer:
             "message": self.message
         }
 
-        # 2. Execute plugins based on the message content
-        plugin_outputs = await self.plugin_manager.scan_and_execute(
-            self.message, self.bot, self.channel, self.db, self.messenger
-        )
-        
-        final_context = {**base_context, "plugins": plugin_outputs}
+        final_context = {**base_context, "plugins": {}}
 
         # --- STEP 5: Final Render ---
         prompt_template_str = self.get_template_from_preset()

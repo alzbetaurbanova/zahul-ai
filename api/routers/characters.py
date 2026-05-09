@@ -18,7 +18,7 @@ import httpx
 from urllib.parse import urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
-from typing import List, Annotated
+from typing import List
 from api.auth import require_role
 from api.url_safety import validate_proxy_image_url
 
@@ -361,8 +361,8 @@ async def create_character_from_import(request: Request, current_user: dict = De
 
 @router.post("/upload_image", response_model=dict)
 async def upload_image(
-    image: Annotated[UploadFile, File()],
-    current_user: dict = Depends(require_role("admin"))
+    image: UploadFile = File(...),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """
     Accepts an image file, uploads it via the Discord bot, and returns the permanent Discord CDN link.

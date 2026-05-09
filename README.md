@@ -20,9 +20,9 @@ zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. Yo
 
 ## What it does
 
-- Multi-character roleplay bot — each character has its own personality, avatar, and trigger words
+- Multi-character roleplay bot - each character has its own personality, avatar, and trigger words
 - Per-channel setup: assign characters, set persona and instructions, whitelist who can speak where
-- Web panel at `http://localhost:5666` — manage everything without touching code
+- Web panel at `http://localhost:5666` - manage everything without touching code
 - Any OpenAI-compatible AI backend, with automatic fallback when the primary hits rate limits
 - Scheduler for recurring messages and one-time reminders
 - Activity and admin logs at `/logs`
@@ -34,8 +34,10 @@ See [CHANGES.md](CHANGES.md) for the full feature list and slash command referen
 
 ## Getting started
 
+Full install paths (Docker, uv, pip), Discord bot creation, and panel setup: [`docs/00-guide.md`](docs/00-guide.md) - start with [Getting Started](docs/01-getting-started.md).
+
 ### Requirements
-- Python 3.12+ (or [uv](https://github.com/astral-sh/uv) — recommended)
+- Python 3.12+ (or [uv](https://github.com/astral-sh/uv) - recommended)
 - A Discord bot token ([Discord Developer Portal](https://discord.com/developers/applications))
 - An API key for your chosen AI provider (Groq, OpenRouter, or any OpenAI-compatible endpoint)
 
@@ -70,7 +72,7 @@ docker-compose up -d
 
 The panel is available at `http://localhost:5666`.
 
-On first run, the database is created automatically — a default character (Echo), a default prompt preset, and a baseline configuration are inserted. No manual database setup needed.
+On first run, the database is created automatically - a default character (Echo), a default prompt preset, and a baseline configuration are inserted. No manual database setup needed.
 
 ---
 
@@ -81,7 +83,7 @@ On first run, the database is created automatically — a default character (Ech
    - Presence Intent
    - Server Members Intent
    - Message Content Intent
-3. Copy your bot token — you'll need it in the next step
+3. Copy your bot token - you'll need it in the next step
 
 ---
 
@@ -97,7 +99,7 @@ Open `http://localhost:5666` and go to **AI Config**. Fill in:
 | **Primary Model** | e.g. `llama-3.3-70b-versatile` |
 | **Default Character** | `Echo` (pre-created) or your own |
 
-Save the config, then click **Start Bot** on the main panel. An invite link will appear — use it to add the bot to your server.
+Save the config, then click **Start Bot** on the main panel. An invite link will appear - use it to add the bot to your server.
 
 ---
 
@@ -134,30 +136,32 @@ Go to **AI Config → Panel Security**, enable the toggle, set a password, and s
 
 ## Documentation
 
-Complete guide here: [`docs/README.md`](docs/README.md).
+Full index: [`docs/00-guide.md`](docs/00-guide.md).
 
 | Guide | What it covers |
 |---|---|
-| [Getting Started](docs/01-getting-started.md) | Installation, keys, first run |
-| [Panel Security](docs/02-panel-security.md) | Login protection, owner account |
-| [Discord OAuth Login](docs/03-discord-oauth.md) | Step-by-step Discord app setup |
-| [Characters](docs/04-characters.md) | Creating and managing AI personas |
-| [AI Config](docs/05-ai-config.md) | Models, endpoints, rate limiting |
-| [Plugins](docs/06-plugins.md) | Dice, tarot, search, image generation |
-| [Multimodal](docs/07-multimodal.md) | Image description via vision model |
-| [Scheduler](docs/08-scheduler.md) | Scheduled and recurring messages (channels and DMs) |
-| [Users and roles](docs/09-users-and-roles.md) | Panel accounts, roles (`super_admin`–`guest`), access requests |
+| [Getting Started](docs/01-getting-started.md) | Install (Docker, uv, pip), Discord bot, open the panel |
+| [AI Config](docs/02-ai-config.md) | First-time token and AI provider setup |
+| [Characters](docs/03-characters.md) | Personas, triggers, default character, whitelist overview |
+| [Servers & channels](docs/04-servers.md) | Invite, `/register_channel`, whitelist |
+| [Scheduler](docs/05-scheduler.md) | Reminders and recurring messages |
+| [Slash commands](docs/06-slash-commands.md) | All commands (incl. `/rolldice`, `/random`, `/wheel`, `/search`, `/image`) |
+| [Panel Security](docs/07-panel-security.md) | Protecting the panel, local login, recovery |
+| [Discord OAuth](docs/08-discord-oauth.md) | Discord app and OAuth setup |
+| [Users](docs/09-users.md) | Panel accounts, access requests, permissions |
+| [Dashboard, logs & tools](docs/10-panel-tools.md) | Home console, activity logs, avatar editor, prompt presets |
+| [Multimodal](docs/11-multimodal.md) | Image description (vision model) |
 
 ---
 
 ## Tech stack
 
-- **FastAPI** + **Uvicorn** — HTTP API and web panel
-- **discord.py** — Discord gateway (bot events, slash commands, webhooks)
-- **SQLite** — single-file database for characters, config, users, and logs
-- **Vanilla JS** + **Tailwind CSS** (CDN) + **custom CSS** (`static/css/styles.css`) — panel UI without a bundler or `node_modules`
-- **Jinja2** — prompt templates for AI requests (`src/models/prompts.py`)
-- **Caddy** (optional) — reverse proxy / HTTPS in front of the panel
+- **FastAPI** + **Uvicorn** - HTTP API and web panel
+- **discord.py** - Discord gateway (bot events, slash commands, webhooks)
+- **SQLite** - single-file database for characters, config, users, and logs
+- **Vanilla JS** + **Tailwind CSS** (CDN) + **custom CSS** (`static/css/styles.css`) - panel UI without a bundler or `node_modules`
+- **Jinja2** - prompt templates for AI requests (`src/models/prompts.py`)
+- **Caddy** (optional) - reverse proxy / HTTPS in front of the panel
 
 ---
 
