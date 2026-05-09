@@ -9,6 +9,7 @@ from typing import Any
 from api.db.database import Database
 
 _log = logging.getLogger(__name__)
+_MAX_DM_ATTEMPTS = 5
 
 
 async def flush_discord_panel_dm_queue(bot: Any) -> None:
@@ -50,9 +51,17 @@ async def flush_discord_panel_dm_queue(bot: Any) -> None:
                 err,
                 exc_info=True,
             )
-            db.log_admin(
-                "discord.dm.retry",
-                target="discord",
-                detail=f"queue_id={qid} kind={kind} discord_user_id={discord_user_id} attempts={attempts} error={err}",
-            )
+            if attempts >= _MAX_DM_ATTEMPTS:
+                db.delete_discord_dm_queue_item(qid)
+                db.log_admin(
+                    "discord.dm.failed",
+                    target="discord",
+                    detail=f"queue_id={qid} kind={kind} discord_user_id={discord_user_id} attempts={attempts} final_error={err}",
+                )
+            else:
+                db.log_admin(
+                    "discord.dm.retry",
+                    target="discord",
+                    detail=f"queue_id={qid} kind={kind} discord_user_id={discord_user_id} attempts={attempts} error={err}",
+                )
         await asyncio.sleep(0.35)

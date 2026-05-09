@@ -108,7 +108,6 @@ class Zahul(discord.Client):
     async def on_ready(self):
         print(f"Discord Bot is logged in as {self.user} (ID: {self.user.id})")
         app_info = await self.application_info()
-        self.invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot" # Set the attribute here
         invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
         print(f"Bot Invite Link: {invite_link}")
         print("Discord Bot is up and running.")

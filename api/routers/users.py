@@ -274,14 +274,20 @@ async def update_role(user_id: int, body: UpdateRoleRequest, current_user: dict 
     user = db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
-    changing_from_super_admin = user["role"] == "super_admin" and body.role != "super_admin"
-    changing_to_super_admin = body.role == "super_admin" and user["role"] != "super_admin"
-    if changing_from_super_admin and db.count_super_admins() <= 1:
-        raise HTTPException(status_code=400, detail="At least one super admin account is required.")
-    if (changing_from_super_admin or changing_to_super_admin) and current_user.get("role") != "super_admin":
-        raise HTTPException(status_code=403, detail="Only super admin can assign super admin role.")
     if body.role not in ROLE_LEVEL:
         raise HTTPException(status_code=400, detail=f"Invalid role: {body.role}")
+    caller_level = ROLE_LEVEL.get(current_user.get("role", ""), 0)
+    target_level = ROLE_LEVEL.get(user["role"], 0)
+    new_level = ROLE_LEVEL.get(body.role, 0)
+    # Admin cannot modify users with equal or higher role (prevents peer demotion)
+    if caller_level <= target_level and current_user.get("id") != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify a user with equal or higher role.")
+    # Admin cannot promote above their own level
+    if new_level > caller_level:
+        raise HTTPException(status_code=403, detail="Cannot assign a role higher than your own.")
+    changing_from_super_admin = user["role"] == "super_admin" and body.role != "super_admin"
+    if changing_from_super_admin and db.count_super_admins() <= 1:
+        raise HTTPException(status_code=400, detail="At least one super admin account is required.")
     db.update_user(user_id, role=body.role)
     db.log_admin("user.role_update", detail=f"user_id={user_id}, role={body.role}", actor=current_user)
     return {"ok": True}

@@ -1,8 +1,8 @@
 # routers/config.py
 """Bot configuration API endpoints, powered by the database."""
 
-from fastapi import APIRouter, Body, HTTPException, Depends, Request
-from typing import Any, List, Optional, Set
+from fastapi import APIRouter, Body, HTTPException, Depends
+from typing import List, Optional, Set
 from pydantic import BaseModel
 import bcrypt
 from api.db.database import Database
@@ -143,37 +143,38 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
 
 @router.patch("/security")
 async def update_security(config: SecurityConfig, current_user: dict = Depends(require_role("super_admin"))):
-    """Create/update super admin credentials."""
+    """Create/update super admin credentials. Password is required for new accounts; optional for username-only renames."""
     try:
-        if len(config.panel_password) < MIN_PANEL_PASSWORD_LENGTH:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Panel password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters."
-            )
-
         username = config.username.strip()
         if not username:
             raise HTTPException(status_code=400, detail="Username is required.")
 
+        new_password = config.panel_password
         current_super_admin = db.get_super_admin_account()
+
         if current_super_admin:
             existing_user = db.get_user_by_username(username)
             if existing_user and int(existing_user["id"]) != int(current_super_admin["id"]):
                 raise HTTPException(status_code=409, detail="Username already exists.")
-            password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-            db._update_record(
-                "users",
-                "id",
-                int(current_super_admin["id"]),
-                username=username,
-                password_hash=password_hash,
-                updated_at=db._utcnow_iso(),
-            )
+            update_kwargs: dict = {"username": username, "updated_at": db._utcnow_iso()}
+            if new_password:
+                if len(new_password) < MIN_PANEL_PASSWORD_LENGTH:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Panel password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters.",
+                    )
+                update_kwargs["password_hash"] = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db._update_record("users", "id", int(current_super_admin["id"]), **update_kwargs)
             changed = ["super_admin_credentials"]
         else:
+            if not new_password or len(new_password) < MIN_PANEL_PASSWORD_LENGTH:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Panel password must be at least {MIN_PANEL_PASSWORD_LENGTH} characters.",
+                )
             if db.get_user_by_username(username):
                 raise HTTPException(status_code=409, detail="Username already exists.")
-            password_hash = bcrypt.hashpw(config.panel_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
             changed = ["super_admin_created"]
 

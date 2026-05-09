@@ -305,7 +305,7 @@ app.include_router(users_router.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -355,8 +355,7 @@ async def get_servers_html():
     return "static/servers.html"
 
 @app.get("/ai-config", response_class=FileResponse)
-async def get_servers_html():
-    """Serve the servers.html page."""
+async def get_ai_config_html():
     return "static/ai-config.html"
 
 @app.get("/scheduler", response_class=FileResponse)
@@ -498,8 +497,11 @@ async def discord_oauth_start():
     if not client_id or not redirect_uri:
         return RedirectResponse(url="/login?oauth_error=config", status_code=302)
 
+    now = _utc_now()
+    for k in [k for k, exp in list(_oauth_states.items()) if exp <= now]:
+        del _oauth_states[k]
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = _utc_now() + timedelta(minutes=10)
+    _oauth_states[state] = now + timedelta(minutes=10)
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
