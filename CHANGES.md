@@ -18,7 +18,7 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Errors from LLM generation are silently dropped - no raw error messages leak to Discord
 
 ### Activity logs
-- Every Discord interaction is logged: character, user, channel, model, tokens in/out, trigger, response, source (chat/scheduler), status (ok/error)
+- Every Discord interaction is logged: character, user, channel, model, tokens in/out, trigger, response, source (chat/scheduler/slash), status (ok/error)
 - Admin log tracks all panel actions: character create/update/delete, task create/update/delete, config changes - with changed fields only
 - Logs browsable at `/logs` - two tabs (Discord / Admin), filters (character, user, date, source, status), pagination with configurable page size, JSON export
 - Log detail shows full request JSON (messages sent to LLM), response body, and error if present
@@ -70,8 +70,13 @@ Reference: [Slash commands](docs/06-slash-commands.md).
 - `/autocap on` - re-enables the chain limit with the last set value
 - `/autocap reset` - resets chain limit to the value in AI Config
 - `/autocap status` - shows the current chain limit state
-- `/reminder <character> <when> <text> [mode]` - schedules a one-time reminder; auto-targets the current channel or DM; mode is `exact` (default) or `generate`
-- All commands except `/about` are ephemeral (only visible to the user who ran them)
+- `/reminder <character> <when> <text> [mode]` - one-time reminder; `when` is wall time in **`Europe/Bratislava`**; auto-targets the current channel or DM; mode is `exact` (default) or `generate`
+- `/rolldice` - standard RPG dice only (d4, d6, d8, d10, d12, d20, d100); optional `die` (default d6), `count` (1–50); optional `character`
+- `/random` - uniform random integer(s); **`maximum` required**, omit **`minimum`** for range **0..maximum**; otherwise inclusive min..max (values clamped to ±10¹²); `count` 1–100; optional `character`
+- `/wheel` - random pick from comma-separated `choices`; optional `character`
+- `/search` - web research; optional character for in-character comment
+- `/image` - image generation (ElectronHub, uses `ai_key`); optional character (webhook + comment)
+- Most commands are ephemeral; tool commands that post in-channel use **defer** + character webhook where needed. See [Slash commands → Tools](docs/06-slash-commands.md#tools).
 
 ---
 
@@ -98,8 +103,6 @@ Reference: [Slash commands](docs/06-slash-commands.md).
 
 ---
 
-## Adapted for Slovak Audience
+## Timezones
 
-- All Discord slash commands and responses written in Slovak
-- `/tokens` command displays model names and limits in Slovak
-- UI panel labels and descriptions kept in English for maintainability
+- One-off **`/reminder`** times and the [Scheduler](docs/05-scheduler.md) **Date & Time** fields are interpreted in **`Europe/Bratislava`** (IANA), unless you change the code constant.

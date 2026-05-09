@@ -9,7 +9,7 @@ echo "=== Deploy started: $(date) ==="
 
 cd "$DEPLOY_DIR"
 
-# Čítaj public_url z DB — ak reálna doména, spusti aj Caddy
+# Read public_url from DB — if real domain, enable production profile (Caddy)
 PUBLIC_URL=$(python3 -c "
 import sqlite3, json
 try:
@@ -25,14 +25,14 @@ if [[ -n "$PUBLIC_URL" && "$PUBLIC_URL" != *"localhost"* ]]; then
 fi
 DC="docker-compose"
 
-# 1) Záloha aktuálneho image pred akoukoľvek zmenou
+# 1) Tag current image for rollback before any change
 PREV_SHA=$(git rev-parse --short HEAD)
 RUNNING_IMAGE=$(docker inspect zahul_ai --format='{{.Image}}' 2>/dev/null || echo "")
 if [ -n "$RUNNING_IMAGE" ]; then
     docker tag "$RUNNING_IMAGE" zahul-rollback:latest 2>/dev/null || true
 fi
 
-# 2) Pull nového kódu
+# 2) Pull latest code
 if ! { git fetch origin && git reset --hard origin/master; }; then
     echo "ERROR: git fetch/reset failed, aborting."
     exit 1
@@ -46,7 +46,7 @@ fi
 
 echo "Deploying $PREV_SHA -> $NEW_SHA"
 
-# 3) Build — len ak sa zmenili závislosti alebo Docker konfig
+# 3) Build only when dependencies or Docker config changed
 NEEDS_BUILD=false
 if git diff "$PREV_SHA" "$NEW_SHA" -- pyproject.toml uv.lock Dockerfile | grep -q .; then
     NEEDS_BUILD=true
@@ -64,7 +64,7 @@ else
     echo "No build needed (only static/code/config changes)."
 fi
 
-# 4) Zisti či treba reštart
+# 4) Decide if container restart is needed
 NEEDS_RESTART=false
 while IFS= read -r file; do
     if [[ "$file" != static/* && "$file" != *.md && "$file" != *.txt && \
@@ -81,7 +81,7 @@ if ! $NEEDS_RESTART; then
     exit 0
 fi
 
-# 5) Atomický swap (krátky výpadok ~2s, nutné kvôli docker-compose 1.29.2 ContainerConfig bugu)
+# 5) Atomic swap (~2s blip; workaround for docker-compose 1.29.2 ContainerConfig bug)
 docker rm -f $(docker ps -aq) 2>/dev/null || true
 $DC up -d
 

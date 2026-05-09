@@ -167,13 +167,13 @@ html {
     color: #1f2937;
 }
 
-/* Admin: o kúsok tmavšia zeleň = lepší kontrast s bielou ikonou */
+/* Admin: slightly darker green for better contrast with the white icon */
 .nav-user-badge.role-admin {
     background: #047857;
     color: #fff;
 }
 
-/* Mod: blue chip + biela ikona */
+/* Mod: blue chip + white icon */
 .nav-user-badge.role-mod {
     background: #2563eb;
     color: #fff;

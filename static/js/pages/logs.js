@@ -284,7 +284,6 @@
             'config.security_update': 'bg-red-900 text-red-300',
             'config.update': 'bg-amber-900 text-amber-300',
             'log.delete': 'bg-gray-700 text-gray-200',
-            'plugins.reload': 'bg-cyan-900 text-cyan-300',
             'preset.create': 'bg-violet-900 text-violet-300',
             'preset.delete': 'bg-red-900 text-red-300',
             'preset.update': 'bg-violet-800 text-violet-200',

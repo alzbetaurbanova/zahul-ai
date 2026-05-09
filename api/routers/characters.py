@@ -18,7 +18,7 @@ import httpx
 from urllib.parse import urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
-from typing import List, Annotated
+from typing import List
 from api.auth import require_role
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
@@ -143,9 +143,9 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
 @router.post("/save_avatar")
 async def save_avatar(
-    current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
-    image: Annotated[UploadFile, File(..., description="Avatar image file")],
+    image: UploadFile = File(..., description="Avatar image file"),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
     content_type = (image.content_type or "").lower()
@@ -352,8 +352,8 @@ async def create_character_from_import(request: Request, current_user: dict = De
 
 @router.post("/upload_image", response_model=dict)
 async def upload_image(
-    image: Annotated[UploadFile, File()],
-    current_user: dict = Depends(require_role("admin"))
+    image: UploadFile = File(...),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """
     Accepts an image file, uploads it via the Discord bot, and returns the permanent Discord CDN link.

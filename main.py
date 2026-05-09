@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import os
 import secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -22,7 +23,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
 from api.routers import users as users_router
 from api.db.database import Database
-from src.plugins.manager import PluginManager
 
 # --- Default Data for First-Time Setup ---
 
@@ -222,27 +222,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return _unauthenticated_response(request, path, clear_session_cookie=bool(token))
 
 
-# --- FastAPI App Setup ---
-
-app = FastAPI(
-    title="zahul-ai Configuration API",
-    description="API for managing character, channel, and bot configurations",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url="/api/openapi.json",
-)
-
-app.add_middleware(AuthMiddleware)
-
-@app.on_event("startup")
-async def startup_event():
-    """Run the database initialization when the app starts."""
-    await initialize_database()
-    from api.db.trash import TrashDB
-    TrashDB().purge_old()
-    Database().purge_expired_sessions()
-    asyncio.create_task(_auto_activate())
-
 async def _auto_activate():
     """Try to activate the bot automatically on startup, retrying for up to 60 seconds."""
     from api.routers.discord import activate_bot
@@ -253,6 +232,39 @@ async def _auto_activate():
             return
         except Exception:
             pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: DB init, housekeeping, background bot activation. Shutdown: cancel background task."""
+    await initialize_database()
+    from api.db.trash import TrashDB
+
+    TrashDB().purge_old()
+    Database().purge_expired_sessions()
+    auto_task = asyncio.create_task(_auto_activate())
+    try:
+        yield
+    finally:
+        auto_task.cancel()
+        try:
+            await auto_task
+        except asyncio.CancelledError:
+            pass
+
+
+# --- FastAPI App Setup ---
+
+app = FastAPI(
+    title="zahul-ai Configuration API",
+    description="API for managing character, channel, and bot configurations",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan,
+)
+
+app.add_middleware(AuthMiddleware)
 
 # Include routers
 app.include_router(characters.router)

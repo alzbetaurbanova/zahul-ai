@@ -71,5 +71,5 @@ The default prompt template shapes every AI request (variables such as character
 
 - [Characters](03-characters.md) - personas and triggers  
 - [Multimodal](11-multimodal.md) - vision / image description
-- [Plugins](12-plugins.md) - optional features toggled on the Plugins page
+- [Slash commands → Tools](06-slash-commands.md#tools) - `/rolldice`, `/random`, `/wheel`, `/search`, `/image`
 

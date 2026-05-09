@@ -708,7 +708,7 @@
                 else initDmCombobox(task.target_id || '');
                 document.getElementById('f-instructions').value = task.instructions || '';
                 if (task.scheduled_time) {
-                    // Use stored string directly — it's already in Slovak time, no conversion needed
+                    // Use stored string as-is (Europe/Bratislava wall time, no conversion)
                     document.getElementById('f-scheduled-time').value = task.scheduled_time.slice(0, 16);
                 }
                 if (task.repeat_pattern) {

@@ -24,7 +24,7 @@ if [[ -n "$CLEAN_URL" && "$CLEAN_URL" == *.* && "$CLEAN_URL" != *"localhost"* ]]
 
 fi
 
-# Build len ak sa zmenili závislosti alebo Dockerfile
+# Rebuild image only when dependencies or Dockerfile changed
 if git diff HEAD~1 HEAD -- pyproject.toml uv.lock Dockerfile 2>/dev/null | grep -q .; then
     echo "Rebuilding image..."
     docker-compose build

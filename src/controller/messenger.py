@@ -32,6 +32,31 @@ class DiscordMessenger:
         else:
             await self._send_guild_message(sanitized_item, character, message)
 
+    async def send_embed_as_character(
+        self,
+        character: ActiveCharacter,
+        context: discord.abc.Messageable,
+        embed: discord.Embed,
+        content: Optional[str] = None,
+    ):
+        """Post an embed (e.g. generated image) via the character webhook."""
+        if isinstance(context, discord.DMChannel):
+            await context.send(content=content or "", embed=embed)
+            return
+        webhook_context = await self._get_webhook_context(context, character)
+        webhook = webhook_context["webhook"]
+        thread = webhook_context["thread"]
+        send_kwargs = {
+            "content": content,
+            "embed": embed,
+            "username": webhook_context["username"],
+            "avatar_url": webhook_context["avatar_url"],
+            "allowed_mentions": discord.AllowedMentions.none(),
+        }
+        if thread:
+            send_kwargs["thread"] = thread
+        await webhook.send(**send_kwargs)
+
     async def send_system_message(self, character: ActiveCharacter, message: discord.Message, regular_message: str):
             """
             Sends a plain string message as the character. 

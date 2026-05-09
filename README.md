@@ -145,13 +145,12 @@ Full index: [`docs/00-guide.md`](docs/00-guide.md).
 | [Characters](docs/03-characters.md) | Personas, triggers, default character, whitelist overview |
 | [Servers & channels](docs/04-servers.md) | Invite, `/register_channel`, whitelist |
 | [Scheduler](docs/05-scheduler.md) | Reminders and recurring messages |
-| [Slash commands](docs/06-slash-commands.md) | All Discord slash commands and context menus |
+| [Slash commands](docs/06-slash-commands.md) | All commands (incl. `/rolldice`, `/random`, `/wheel`, `/search`, `/image`) |
 | [Panel Security](docs/07-panel-security.md) | Protecting the panel, local login, recovery |
 | [Discord OAuth](docs/08-discord-oauth.md) | Discord app and OAuth setup |
 | [Users](docs/09-users.md) | Panel accounts, access requests, permissions |
 | [Dashboard, logs & tools](docs/10-panel-tools.md) | Home console, activity logs, avatar editor, prompt presets |
 | [Multimodal](docs/11-multimodal.md) | Image description (vision model) |
-| [Plugins](docs/12-plugins.md) | Dice, tarot, search, image generation |
 
 ---
 
