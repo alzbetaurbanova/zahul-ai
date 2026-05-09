@@ -176,6 +176,7 @@ class TaskCreate(BaseModel):
         return value
 
 class TaskUpdate(BaseModel):
+    type: Optional[Literal['schedule', 'reminder']] = None
     name: Optional[str] = None
     character: Optional[str] = None
     target_type: Optional[Literal['channel', 'dm']] = None

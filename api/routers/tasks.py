@@ -245,7 +245,9 @@ def update_task(task_id: int, body: TaskUpdate, current_user: dict = Depends(req
 
     _validate_task_dependencies(merged["type"], merged["character"], merged["target_type"], merged["target_id"])
 
-    if merged["type"] == "reminder" and "scheduled_time" in updates:
+    if merged["type"] == "reminder":
+        if not merged.get("scheduled_time"):
+            raise HTTPException(status_code=400, detail="scheduled_time is required for reminder tasks")
         try:
             scheduled_dt = _parse_iso_datetime(merged["scheduled_time"])
         except ValueError:
@@ -257,7 +259,7 @@ def update_task(task_id: int, body: TaskUpdate, current_user: dict = Depends(req
         elif scheduled_dt.astimezone(_SK_TZ) <= now:
             raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
 
-    if merged["type"] == "schedule" and "repeat_pattern" in updates:
+    elif merged["type"] == "schedule":
         if not merged.get("repeat_pattern"):
             raise HTTPException(status_code=400, detail="repeat_pattern is required for schedule tasks")
         _validate_repeat_pattern(merged["repeat_pattern"])
