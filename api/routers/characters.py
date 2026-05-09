@@ -20,6 +20,7 @@ from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, F
 from fastapi.responses import Response
 from typing import List, Annotated
 from api.auth import require_role
+from api.url_safety import validate_proxy_image_url
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -143,9 +144,9 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 
 @router.post("/save_avatar")
 async def save_avatar(
-    current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
-    image: Annotated[UploadFile, File(..., description="Avatar image file")],
+    image: UploadFile = File(..., description="Avatar image file"),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
     content_type = (image.content_type or "").lower()
@@ -180,15 +181,23 @@ async def mirror_avatar_endpoint(
 
 
 @router.get("/proxy_image")
-async def proxy_image(url: str = Query(..., description="External image URL to proxy")):
+async def proxy_image(
+    url: str = Query(..., description="External image URL to proxy"),
+    _: dict = Depends(require_role("guest")),
+):
     """Fetches an external image server-side and returns it, bypassing browser CORS restrictions."""
+    await asyncio.to_thread(validate_proxy_image_url, url)
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
         async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
-            content_type = resp.headers.get("content-type", "image/png").split(";")[0]
+            content_type = (resp.headers.get("content-type") or "image/png").split(";")[0].strip().lower()
+            if not content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="URL did not return an image.")
             return Response(content=resp.content, media_type=content_type)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch image: {e}")
 

@@ -13,8 +13,8 @@
                         <a href="/" data-page="dashboard" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
                         <a href="/characters" data-page="characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
                         <a href="/scheduler" data-page="scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-                        <a href="/users" data-page="users" class="nav-link nav-users-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
-                        <a href="/ai-config" data-page="ai-config" class="nav-link nav-admin-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
+                        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-link nav-users-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
+                        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-link nav-admin-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
                     </div>
                 </div>
             </div>
@@ -48,8 +48,8 @@
         <a href="/" data-page="dashboard" class="nav-mobile-link"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
         <a href="/characters" data-page="characters" class="nav-mobile-link"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
         <a href="/scheduler" data-page="scheduler" class="nav-mobile-link"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-        <a href="/users" data-page="users" class="nav-mobile-link nav-users-mobile-link hidden"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
-        <a href="/ai-config" data-page="ai-config" class="nav-mobile-link nav-admin-mobile-link hidden"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
+        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-mobile-link nav-users-mobile-link hidden"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
+        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-mobile-link nav-admin-mobile-link hidden"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
         <a href="/logout" class="nav-mobile-logout nav-mobile-link hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:6px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
     </div>
 </nav>

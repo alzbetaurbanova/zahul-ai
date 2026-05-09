@@ -15,7 +15,7 @@ async def get_current_user(request: Request):
 
 def _is_first_run() -> bool:
     db = Database()
-    return db.get_super_admin_user() is None
+    return db.get_super_admin_account() is None
 
 
 def require_role(min_role: str):

@@ -117,11 +117,12 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
                 not str(new_config.get(field, '')).strip()):
                 new_config[field] = existing_config[field]
 
+        merged_config = {**existing_config, **new_config}
         _validate_panel_auth_prerequisites(
-            bool(new_config.get("panel_auth_enabled")),
-            bool(new_config.get("discord_login_enabled")),
-            bool(new_config.get("local_login_enabled")),
-            discord_allowed_usernames=existing_config.get("discord_allowed_usernames"),
+            bool(merged_config.get("panel_auth_enabled")),
+            bool(merged_config.get("discord_login_enabled")),
+            bool(merged_config.get("local_login_enabled")),
+            discord_allowed_usernames=merged_config.get("discord_allowed_usernames"),
         )
 
         # Write each key-value pair from the final, merged config to the database

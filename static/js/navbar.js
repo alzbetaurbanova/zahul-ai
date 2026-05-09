@@ -97,11 +97,11 @@
         const adminLink = container.querySelector('a.nav-admin-link');
         const adminMobileLink = container.querySelector('a.nav-admin-mobile-link');
         const showUsers = authEnabled && (role === 'super_admin' || role === 'admin');
-        const showAdmin = !authEnabled || role === 'super_admin';
+        const showAiConfig = !authEnabled || role === 'super_admin';
         if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
         if (usersMobileLink) usersMobileLink.classList.toggle('hidden', !showUsers);
-        if (adminLink) adminLink.classList.toggle('hidden', !showAdmin);
-        if (adminMobileLink) adminMobileLink.classList.toggle('hidden', !showAdmin);
+        if (adminLink) adminLink.classList.toggle('hidden', !showAiConfig);
+        if (adminMobileLink) adminMobileLink.classList.toggle('hidden', !showAiConfig);
     }
 
     // Pre-apply from cache to avoid flash

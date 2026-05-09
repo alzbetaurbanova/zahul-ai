@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     fetch('/api/auth-status').then(r => r.json()).then(d => {
         const role = d.current_user?.role;
-        if (d.panel_auth_enabled && role !== 'super_admin') {
+        const allowed = role === 'super_admin';
+        if (d.panel_auth_enabled && !allowed) {
             window.location.href = '/';
         }
     }).catch(() => {});

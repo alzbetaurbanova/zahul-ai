@@ -877,9 +877,6 @@ class Database:
             row = conn.execute("SELECT * FROM users WHERE role = 'super_admin' ORDER BY id ASC LIMIT 1").fetchone()
             return dict(row) if row else None
 
-    def get_super_admin_user(self) -> Optional[Dict[str, Any]]:
-        return self.get_super_admin_account()
-
     def count_super_admins(self) -> int:
         with self._get_connection() as conn:
             row = conn.execute("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").fetchone()
@@ -930,6 +927,45 @@ class Database:
             )
             conn.commit()
             return cur.lastrowid
+
+    def create_first_super_admin_if_absent(self, username: str, password_hash: str) -> int:
+        """
+        Atomically create the first local super_admin (BEGIN IMMEDIATE).
+        Raises ValueError('super_admin_exists' | 'username_exists') on conflict.
+        """
+        now = self._utcnow_iso()
+        _ensure_db_directory(self.db_path)
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").fetchone()
+            if row and int(row["c"]) > 0:
+                conn.rollback()
+                raise ValueError("super_admin_exists")
+            row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            if row:
+                conn.rollback()
+                raise ValueError("username_exists")
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO users (username, password_hash, role, auth_provider, created_at, updated_at)
+                VALUES (?, ?, 'super_admin', 'local', ?, ?)
+                """,
+                (username, password_hash, now, now),
+            )
+            uid = int(cur.lastrowid)
+            conn.commit()
+            return uid
+        except ValueError:
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def create_user(self, username: str, password_hash: Optional[str], role: str,
                     auth_provider: str = "local", discord_id: Optional[str] = None,

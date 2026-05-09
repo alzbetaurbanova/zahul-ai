@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 import bcrypt
 import httpx
 import uvicorn
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request, Depends
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +22,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
 from api.routers import users as users_router
 from api.db.database import Database
+from api.auth import require_role
 from src.plugins.manager import PluginManager
 
 # --- Default Data for First-Time Setup ---
@@ -167,6 +168,34 @@ def _unauthenticated_response(request: Request, path: str, *, clear_session_cook
     return resp
 
 
+_ASSIGNED_PANEL_ROLES = frozenset({"super_admin", "admin", "mod", "guest"})
+
+
+def _normalize_request_path(path: str) -> str:
+    p = path.rstrip("/")
+    return p if p else "/"
+
+
+def _discord_pending_api_allowed(request: Request) -> bool:
+    """
+    Minimal API/method surface for Discord accounts without an assigned panel role yet
+    (pending / legacy rows). Browsers may send OPTIONS preflight without cookies.
+    """
+    method = request.method.upper()
+    if method == "OPTIONS":
+        return True
+    path = _normalize_request_path(request.url.path)
+    if method == "GET" and path in (
+        "/api/auth-status",
+        "/api/users/me",
+        "/api/users/requests/me",
+    ):
+        return True
+    if method == "POST" and path == "/api/users/requests":
+        return True
+    return False
+
+
 # --- Auth Middleware ---
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -203,20 +232,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         if user:
             request.state.auth_user = user
-            if user.get("auth_provider") == "discord" and user.get("role") not in {
-                "super_admin", "admin", "mod", "guest"
-            }:
-                allowed_paths = {
-                    "/no-access",
-                    "/logout",
-                    "/api/auth-status",
-                    "/api/users/requests",
-                    "/api/users/requests/me",
-                }
-                if path not in allowed_paths:
-                    if path.startswith("/api"):
-                        return JSONResponse({"detail": "Access request required"}, status_code=403)
-                    return RedirectResponse(url="/no-access", status_code=302)
+            if user.get("auth_provider") == "discord" and user.get("role") not in _ASSIGNED_PANEL_ROLES:
+                np = _normalize_request_path(path)
+                if np in ("/no-access", "/logout"):
+                    return await call_next(request)
+                if path.startswith("/api"):
+                    if _discord_pending_api_allowed(request):
+                        return await call_next(request)
+                    return JSONResponse({"detail": "Access request required"}, status_code=403)
+                return RedirectResponse(url="/no-access", status_code=302)
             return await call_next(request)
 
         return _unauthenticated_response(request, path, clear_session_cookie=bool(token))
@@ -350,10 +374,14 @@ async def zahul_logo():
 @app.get("/login", include_in_schema=False)
 async def get_login():
     db = Database()
-    panel_password = db.get_config("panel_password") or ""
-    if not panel_password:
+    if not _is_panel_auth_enabled(db):
         return RedirectResponse(url="/", status_code=302)
-    return FileResponse("static/login.html")
+    local_on = bool(db.get_config("local_login_enabled"))
+    discord_on = bool(db.get_config("discord_login_enabled"))
+    can_password_login = local_on and db.count_super_admins_with_password() > 0
+    if can_password_login or discord_on or _super_admin_setup_required(db):
+        return FileResponse("static/login.html")
+    return RedirectResponse(url="/", status_code=302)
 
 @app.post("/login", include_in_schema=False)
 async def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -388,13 +416,18 @@ async def setup_super_admin(payload: dict):
         raise HTTPException(status_code=400, detail="username and password are required")
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="password must be at least 8 characters")
-    if db.get_super_admin_account():
-        raise HTTPException(status_code=409, detail="super admin account already exists")
-    if db.get_user_by_username(username):
-        raise HTTPException(status_code=409, detail="username already exists")
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    created_user_id = db.create_local_user(username=username, password_hash=password_hash, role="super_admin")
+    try:
+        created_user_id = db.create_first_super_admin_if_absent(username, password_hash)
+    except ValueError as e:
+        code = str(e)
+        if code == "super_admin_exists":
+            raise HTTPException(status_code=409, detail="super admin account already exists")
+        if code == "username_exists":
+            raise HTTPException(status_code=409, detail="username already exists")
+        raise HTTPException(status_code=409, detail="Unable to create super admin account")
+
     db.log_admin("auth.super_admin.created", target=username, actor_user_id=created_user_id, actor_username=username)
     return {"ok": True}
 
@@ -431,7 +464,7 @@ async def auth_status(request: Request):
 
 
 @app.get("/api/auth-super-admin", include_in_schema=False)
-async def auth_super_admin():
+async def auth_super_admin(_: dict = Depends(require_role("super_admin"))):
     super_admin = Database().get_super_admin_account()
     db = Database()
     return {
