@@ -1,14 +1,61 @@
 document.addEventListener('DOMContentLoaded', () => {
     const esc = escapeHtml;
 
-    const ROLE_ICONS = { super_admin: 'fa-crown', admin: 'fa-shield-halved', mod: 'fa-user-shield', guest: 'fa-user' };
-    const ROLE_LABELS = { super_admin: 'super admin', admin: 'admin', mod: 'mod', guest: 'guest' };
-    const ROLE_SORT_ORDER = { super_admin: 1, admin: 2, mod: 3, guest: 4 };
+    const ROLE_ICONS = {
+        super_admin: 'fa-crown',
+        admin: 'fa-shield-halved',
+        mod: 'fa-gavel',
+        guest: 'fa-star',
+        pending: 'fa-hourglass-half',
+        rejected: 'fa-ban',
+        user: 'fa-hourglass-half',
+    };
+    const ROLE_LABELS = {
+        super_admin: 'super admin',
+        admin: 'admin',
+        mod: 'mod',
+        guest: 'guest',
+        pending: 'no access',
+        rejected: 'denied',
+        user: 'no access',
+    };
+    const ROLE_SORT_ORDER = { super_admin: 1, admin: 2, mod: 3, guest: 4, pending: 5, rejected: 6, user: 5 };
+    const EDIT_ROLE_LONG = {
+        super_admin: 'Super admin – full panel control',
+        guest: 'Guest – read only',
+        mod: 'Mod – assigned servers',
+        admin: 'Admin – full control',
+    };
     const DEFAULT_USER_AVATAR = '/static/avatars/default_user_avatar.png';
     let _currentUserRole = '';
     let _allUsers = [];
     let _requests = [];
     let _activeTab = 'users';
+
+    /** Local calendar date DD.MM.YYYY from ISO string */
+    function formatDateDdMmYyyy(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}.${mm}.${yyyy}`;
+    }
+
+    /** DD.MM.YYYY HH:mm (local) */
+    function formatDateTimeDdMmYyyy(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+    }
+
     function roleIcon(role) {
         const i = ROLE_ICONS[role] || 'fa-user';
         return `<i class="fas ${i}"></i> `;
@@ -37,6 +84,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function roleLabel(role) {
         return ROLE_LABELS[role] || role;
+    }
+
+    function fillEditRoleSelect(u) {
+        const sel = document.getElementById('edit-role');
+        sel.innerHTML = '';
+        const assignable = ['guest', 'mod', 'admin'];
+        if (_currentUserRole === 'super_admin') assignable.unshift('super_admin');
+        const fixed = u.role === 'user' && u.auth_provider === 'discord' ? 'pending' : u.role;
+
+        if (fixed === 'pending' || fixed === 'rejected') {
+            const o = document.createElement('option');
+            o.value = fixed;
+            o.textContent = fixed === 'pending'
+                ? 'No panel access (not approved yet)'
+                : 'Access request denied';
+            o.disabled = true;
+            sel.appendChild(o);
+        } else if (!assignable.includes(u.role)) {
+            const o = document.createElement('option');
+            o.value = u.role;
+            o.textContent = `Current: ${roleLabel(u.role)}`;
+            o.disabled = true;
+            sel.appendChild(o);
+        }
+        assignable.forEach(r => {
+            const o = document.createElement('option');
+            o.value = r;
+            o.textContent = EDIT_ROLE_LONG[r];
+            sel.appendChild(o);
+        });
+        if (fixed === 'pending' || fixed === 'rejected') sel.value = fixed;
+        else if (assignable.includes(u.role)) sel.value = u.role;
+        else sel.value = u.role;
     }
     function syncSuperAdminRoleOptions() {
         const allowSuperAdminRole = _currentUserRole === 'super_admin';
@@ -94,7 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-role').addEventListener('change', renderUsers);
     document.getElementById('filter-auth').addEventListener('change', renderUsers);
     document.getElementById('clear-filters-btn').addEventListener('click', () => {
-        document.getElementById('filter-user').value = '';
+        const fu = document.getElementById('filter-user');
+        if (fu) {
+            fu.value = '';
+            if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu);
+        }
         document.getElementById('filter-role').value = '';
         document.getElementById('filter-auth').value = '';
         document.getElementById('filter-user-dd').classList.add('hidden');
@@ -207,40 +291,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initUserCombobox() {
-        const input = document.getElementById('filter-user');
-        const dropdown = document.getElementById('filter-user-dd');
         function allNames() {
             return [...new Set(_allUsers.map(u => (
                 u.auth_provider === 'discord' ? (u.discord_username || u.username) : u.username
             )).filter(Boolean))].sort((a, b) => a.localeCompare(b));
         }
-        function showDropdown() {
-            const names = allNames();
-            const q = input.value.trim().toLowerCase();
-            const filtered = q ? names.filter(n => n.toLowerCase().includes(q)) : names;
-            if (!filtered.length) {
-                dropdown.classList.add('hidden');
-                return;
-            }
-            dropdown.innerHTML = filtered.map(n =>
-                `<div class="px-3 py-2 cursor-pointer hover:bg-gray-800 text-sm text-white" data-val="${esc(n)}">${esc(n)}</div>`
-            ).join('');
-            dropdown.querySelectorAll('[data-val]').forEach(item => {
-                item.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    input.value = item.dataset.val;
-                    dropdown.classList.add('hidden');
-                    renderUsers();
-                });
-            });
-            dropdown.classList.remove('hidden');
-        }
-        input.addEventListener('focus', showDropdown);
-        input.addEventListener('input', () => {
-            renderUsers();
-            showDropdown();
-        });
-        input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+        setupFilterCombobox(
+            'filter-user',
+            'filter-user-dd',
+            allNames,
+            () => renderUsers(),
+            () => renderUsers(),
+            'hover:bg-gray-800'
+        );
     }
 
     function userRow(u) {
@@ -248,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const authIcon = u.auth_provider === 'discord'
             ? '<i class="fab fa-discord text-indigo-400 text-xs" title="Discord"></i>'
             : '<i class="fas fa-key text-gray-500 text-xs" title="Local"></i>';
-        const created = u.created_at ? u.created_at.slice(0, 10) : '';
+        const created = formatDateDdMmYyyy(u.created_at);
         const avatarUrl = u.avatar_url || DEFAULT_USER_AVATAR;
         const safeAvatarUrl = esc(avatarUrl);
         const safeDefaultAvatar = esc(DEFAULT_USER_AVATAR);
@@ -256,11 +319,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="flex items-center gap-3 min-w-0">
                 <img src="${safeAvatarUrl}" onerror="this.onerror=null;this.src='${safeDefaultAvatar}'" alt="${esc(name)} avatar" class="w-8 h-8 rounded-full object-cover border border-gray-700 bg-gray-900 flex-shrink-0">
                 ${authIcon}
-                <span class="font-medium text-sm text-white truncate">${esc(name)}</span>
+                <span class="font-medium text-sm text-white truncate users-name">${esc(name)}</span>
             </div>
             <div class="flex items-center gap-3 flex-shrink-0">
-                <span class="role-badge role-${esc(u.role)}">${roleIcon(u.role)}${esc(roleLabel(u.role))}</span>
-                <span class="text-xs text-gray-600">${created}</span>
+                <span class="role-badge role-${esc(u.role)}">${roleIcon(u.role)}<span class="role-badge-label">${esc(roleLabel(u.role))}</span></span>
+                <span class="text-xs text-gray-600 users-date">${created}</span>
             </div>
         </div>`;
     }
@@ -278,10 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         list.innerHTML = _requests.map(r => {
-            const ts = r.requested_at ? new Date(r.requested_at).toLocaleString('sk-SK', { hour12: false }) : '';
+            const ts = formatDateTimeDdMmYyyy(r.requested_at);
             return `<div class="list-card flex flex-col md:flex-row md:items-center md:justify-between gap-3" data-request-id="${r.id}">
                 <div class="min-w-0">
-                    <p class="text-sm text-white font-medium truncate">${esc(r.discord_username || 'unknown')}</p>
+                    <p class="text-sm text-white font-medium truncate users-name">${esc(r.discord_username || 'unknown')}</p>
                     <p class="text-xs text-gray-500">${esc(ts)}</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
@@ -419,12 +482,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const canUploadAvatar = !isDiscord;
 
         document.getElementById('edit-modal-title').innerHTML =
-            `<span class="role-badge role-${esc(u.role)} mr-2">${roleIcon(u.role)}${esc(roleLabel(u.role))}</span>${esc(name)}`;
+            `<span class="role-badge role-${esc(u.role)} mr-2">${roleIcon(u.role)}<span class="role-badge-label">${esc(roleLabel(u.role))}</span></span>${esc(name)}`;
 
         // Role field — visible for all users
         const roleField = document.getElementById('edit-role-field');
         roleField.classList.remove('hidden');
-        document.getElementById('edit-role').value = u.role;
+        fillEditRoleSelect(u);
 
         // Servers field
         const serversField = document.getElementById('edit-servers-field');
@@ -464,14 +527,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const canUploadAvatar = u.auth_provider === 'local';
 
         try {
-            // Update role
+            // Update role (only real panel roles — not pending/rejected placeholders)
             const newRole = document.getElementById('edit-role').value;
-            if (newRole !== u.role) {
+            const assignableRoles = ['guest', 'mod', 'admin'];
+            if (_currentUserRole === 'super_admin') assignableRoles.unshift('super_admin');
+            if (assignableRoles.includes(newRole) && newRole !== u.role) {
                 const res = await fetch(`/api/users/${u.id}/role`, {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role: newRole })
                 });
-                    if (!res.ok) throw new Error(parseApiError(await res.json(), 'Role update failed'));
+                if (!res.ok) throw new Error(parseApiError(await res.json(), 'Role update failed'));
             }
 
             // Update server access for mod

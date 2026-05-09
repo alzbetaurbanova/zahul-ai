@@ -75,30 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function populateDefaultCharacterSelector(selectedCharacter = '') {
-        defaultCharacterInput.innerHTML = '';
-        const serverDefault = currentServer?.defaultCharacter || '';
-        let inheritedLabel;
-        if (serverDefault) {
-            inheritedLabel = `Inherit server default (${serverDefault})`;
-        } else if (globalDefaultCharacter) {
-            inheritedLabel = `Inherit server default → global (${globalDefaultCharacter})`;
-        } else {
-            inheritedLabel = 'Inherit server default (not set)';
-        }
-        const inheritedOption = document.createElement('option');
-        inheritedOption.value = '';
-        inheritedOption.textContent = inheritedLabel;
-        defaultCharacterInput.appendChild(inheritedOption);
-        availableCharacters.forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            defaultCharacterInput.appendChild(opt);
-        });
-        defaultCharacterInput.value = selectedCharacter || '';
-        if (selectedCharacter && !availableCharacters.includes(selectedCharacter)) {
-            defaultCharacterInput.value = '';
-        }
+        const sel = (selectedCharacter || '').trim();
+        const use = sel && availableCharacters.includes(sel) ? sel : '';
+        defaultCharacterInput.value = use;
+        if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(defaultCharacterInput);
     }
 
     function updateDefaultCharacterStatus() {
@@ -146,21 +126,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function populateSrvDefaultCharacterSelector(selectedCharacter = '') {
-        srvDefaultCharacterInput.innerHTML = '';
-        const inheritedLabel = globalDefaultCharacter
-            ? `Inherit global default (${globalDefaultCharacter})`
-            : 'Inherit global default (not set)';
-        const inheritedOption = document.createElement('option');
-        inheritedOption.value = '';
-        inheritedOption.textContent = inheritedLabel;
-        srvDefaultCharacterInput.appendChild(inheritedOption);
-        availableCharacters.forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            srvDefaultCharacterInput.appendChild(opt);
-        });
-        srvDefaultCharacterInput.value = selectedCharacter || '';
+        const sel = (selectedCharacter || '').trim();
+        const use = sel && availableCharacters.includes(sel) ? sel : '';
+        srvDefaultCharacterInput.value = use;
+        if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(srvDefaultCharacterInput);
     }
 
     function updateSrvDefaultCharacterStatus() {
@@ -195,7 +164,12 @@ document.addEventListener('DOMContentLoaded', function() {
     srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
     document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
         if (!currentServer) return;
-        const value = srvDefaultCharacterInput.value || null;
+        const raw = (srvDefaultCharacterInput.value || '').trim();
+        if (raw && !availableCharacters.includes(raw)) {
+            showToast('Choose a character from the list or clear the field to inherit global default.', 'error');
+            return;
+        }
+        const value = raw || null;
         try {
             const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
                 method: 'PATCH',
@@ -442,10 +416,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
+        const dcRaw = (defaultCharacterInput.value || '').trim();
+        if (dcRaw && !availableCharacters.includes(dcRaw)) {
+            showToast('Choose a character from the list or clear the field to inherit server default.', 'error');
+            return;
+        }
         const updatedData = {
             name: nameInput.value,
             instruction: currentChannel?.data?.instruction || null,
-            default_character: defaultCharacterInput.value || null,
+            default_character: dcRaw || null,
             global: null,
             whitelist: isDM ? [] : whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
             is_system_channel: isDM ? false : isSystemChannelInput.checked
@@ -467,7 +446,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) { showToast(`Error: ${error.message}`, 'error'); }
     }
     // Channel modal
-    addChannelBtn.addEventListener('click', () => addChannelModal.classList.remove('hidden'));
+    addChannelBtn.addEventListener('click', () => {
+        if (!canEditServers()) {
+            showToast('You do not have permission to add channels.', 'error');
+            return;
+        }
+        addChannelModal.classList.remove('hidden');
+    });
     closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));
 
     // Invite modal
@@ -502,9 +487,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
 
+    function wireDefaultCharacterCombos() {
+        if (typeof setupFilterCombobox !== 'function') return;
+        setupFilterCombobox(
+            'default-character',
+            'default-character-dd',
+            () => availableCharacters,
+            () => updateDefaultCharacterStatus(),
+            () => updateDefaultCharacterStatus(),
+            'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'srv-default-character',
+            'srv-default-character-dd',
+            () => availableCharacters,
+            () => updateSrvDefaultCharacterStatus(),
+            () => updateSrvDefaultCharacterStatus(),
+            'hover:bg-gray-700'
+        );
+    }
+
     // Form listener
     defaultCharacterInput.addEventListener('change', updateDefaultCharacterStatus);
     form.addEventListener('submit', handleFormSubmit);
+    wireDefaultCharacterCombos();
     closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
 
     // Initial Load
@@ -512,10 +518,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
-            if (!canEditServers()) {
-                addServerBtn.classList.add('hidden');
-                addChannelBtn.classList.add('hidden');
-            }
         })
         .catch(() => {})
         .finally(() => fetchServers());

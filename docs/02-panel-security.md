@@ -36,11 +36,16 @@ Both methods can be active at the same time. The login page shows whichever meth
 
 > It is recommended to enable and verify both login methods before turning on Protect panel.
 
-## Restricting Discord logins
+## Trusted Discord usernames (required with Discord login)
 
-Under **Discord OAuth login**, the **Allowed Discord usernames** field accepts a list of usernames (one per line). Only those accounts can log in via Discord. Leave empty to allow any Discord account that completes OAuth.
+When **Discord OAuth login** is enabled, **Trusted Discord usernames** must contain **at least one** Discord `@handle` (one per line, not display names). Saving security settings fails if the list is empty.
 
-Username means the `@handle` (e.g. `johndoe`), not the display name.
+| Field | Behaviour |
+|-------|-----------|
+| **Discord login off** | The list is optional; it is not validated. |
+| **Discord login on** | At least one non-empty line is required. Each listed handle gets **`super_admin` on first Discord sign-in** while the account is still `pending` (or legacy `user`). Handles **not** on the list can still complete OAuth and use **Request access** on `/no-access`. |
+
+This mirrors **unique account login**: you need a defined recovery path — locally that is a super admin with a password; with Discord, that is at least one trusted handle so someone can become super admin after OAuth.
 
 ## Disabling protection
 

@@ -118,7 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!superAdminRes.ok) return;
         const superAdminData = await superAdminRes.json();
         const username = (superAdminData.username || '').trim();
-        hasLocalSuperAdmin = !!superAdminData.has_local_super_admin;
+        hasLocalSuperAdmin =
+            !!superAdminData.has_local_super_admin || !!superAdminData.has_super_admin_password;
         currentSuperAdminUsername.textContent = username || 'Not set';
         if (username) {
             superAdminUsernameInput.value = username;
@@ -268,6 +269,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const allowedRaw = document.getElementById('discord_allowed_usernames')?.value || "";
+        const allowedList = allowedRaw.split('\n').map(s => s.trim()).filter(s => s);
+        if (discordLoginToggle.checked && allowedList.length < 1) {
+            showToast('Discord login requires at least one trusted username.', 'error');
+            return;
+        }
         const payload = {
             panel_auth_enabled: panelAuthToggle.checked,
             discord_login_enabled: discordLoginToggle.checked,
@@ -275,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
             discord_oauth_client_id: elements.discord_oauth_client_id?.value?.trim() || "",
             discord_oauth_client_secret: elements.discord_oauth_client_secret?.value?.trim() || "",
             discord_oauth_redirect_uri: elements.discord_oauth_redirect_uri?.value?.trim() || "",
-            discord_allowed_usernames: allowedRaw.split('\n').map(s => s.trim()).filter(s => s),
+            discord_allowed_usernames: allowedList,
         };
         try {
             const response = await fetch('/api/config/security/methods', {
@@ -366,7 +372,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('confirm-disable-discord-modal');
             const msg = document.getElementById('confirm-disable-discord-msg');
             msg.textContent = localLoginToggle.checked
-                ? 'Discord OAuth login will be disabled. You can still log in with your username and password.'
+                ? hasLocalSuperAdmin
+                    ? 'Discord OAuth login will be disabled. You can still log in with your username and password.'
+                    : 'Discord OAuth login will be disabled. Save a super admin username and password (Unique account login) first, or you may be locked out.'
                 : 'Discord OAuth login will be disabled. You have no other login method enabled - panel protection will be turned off.';
             modal.classList.remove('hidden');
             document.getElementById('confirm-disable-discord-cancel').onclick = () => {
@@ -374,6 +382,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 modal.classList.add('hidden');
             };
             document.getElementById('confirm-disable-discord-confirm').onclick = () => {
+                if (localLoginToggle.checked && !hasLocalSuperAdmin) {
+                    showToast(
+                        'Save a super admin username and password first, then disable Discord login.',
+                        'error',
+                    );
+                    discordLoginToggle.checked = true;
+                    modal.classList.add('hidden');
+                    return;
+                }
                 modal.classList.add('hidden');
                 updateMethodVisibility(true);
             };
@@ -383,7 +400,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     localLoginToggle.addEventListener('change', () => {
         if (localLoginToggle.checked && !hasLocalSuperAdmin) {
-            showToast('Local login requires at least one local super admin account. Create one first.', 'error');
+            showToast(
+                'Turn on unique account login only after saving a super admin username and password (below).',
+                'error',
+            );
             superAdminAccountSection.classList.remove('hidden');
             superAdminUsernameInput.focus();
         }
@@ -406,8 +426,25 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.discord_oauth_redirect_uri.addEventListener('input', updateDiscordOauthWarning);
     dmToggle.addEventListener('change', toggleDmFields);
 
+    async function loadDefaultCharacterCombobox() {
+        try {
+            const res = await fetch('/api/characters');
+            if (!res.ok) return;
+            const chars = await res.json();
+            const names = chars.map(c => c.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+            setupFilterCombobox(
+                'default_character',
+                'default-character-dd',
+                names,
+                null,
+                null,
+                'hover:bg-gray-700'
+            );
+        } catch (_) {}
+    }
+
     // --- Initial Load ---
-    loadConfig();
+    loadConfig().then(() => loadDefaultCharacterCombobox());
     loadPrompt();
     loadSecurityStatus();
 });

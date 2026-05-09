@@ -39,6 +39,13 @@
                 () => { currentPage = 1; fetchLogs(); },
                 () => { currentPage = 1; fetchLogs(); }
             );
+            setupFilterCombobox(
+                'af-user',
+                'af-user-dd',
+                data.admin_users || [],
+                () => { currentPage = 1; fetchLogs(); },
+                () => { currentPage = 1; fetchLogs(); }
+            );
         } catch (e) {}
     }
 
@@ -53,7 +60,6 @@
     }
 
     function activateTab(tab) {
-        if (!canViewLogs) return;
         currentTab = tab;
         document.querySelectorAll('.tab-btn').forEach(b => {
             const active = b.dataset.tab === tab;
@@ -108,7 +114,6 @@
     // --- Tab switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (!canViewLogs) return;
             currentPage = 1;
             activateTab(btn.dataset.tab);
             history.replaceState(null, '', `?tab=${currentTab}`);
@@ -129,13 +134,25 @@
     document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
-        ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
+        ['df-from','df-to','df-character','df-user'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(el);
+            }
+        });
         clearDd('df-source'); clearDd('df-status');
         document.querySelectorAll('#discord-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
     document.getElementById('admin-clear-btn').addEventListener('click', () => {
-        ['af-from','af-to'].forEach(id => document.getElementById(id).value = '');
+        ['af-from','af-to', 'af-user'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(el);
+            }
+        });
         clearDd('af-action');
         document.querySelectorAll('#admin-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
@@ -149,7 +166,10 @@
 
     // --- Export ---
     document.getElementById('export-btn').addEventListener('click', () => {
-        if (!canViewLogs) return;
+        if (!canViewLogs) {
+            showToast('You do not have permission to export logs.', 'error');
+            return;
+        }
         const params = buildParams();
         window.location.href = `/api/logs/${currentTab}/export?${params}`;
     });
@@ -173,6 +193,7 @@
             const v = id => document.getElementById(id).value;
             if (v('af-from')) p.set('from_date', v('af-from'));
             if (v('af-to')) p.set('to_date', v('af-to'));
+            if (v('af-user')) p.set('user', v('af-user'));
             getChecked('af-action-cb').forEach(s => p.append('action', s));
         }
         return p.toString();
@@ -243,6 +264,10 @@
             'access.request.approve': 'bg-emerald-900 text-emerald-300',
             'access.request.create': 'bg-purple-900 text-purple-300',
             'access.request.deny': 'bg-red-900 text-red-300',
+            'discord.dm.queued': 'bg-slate-800 text-slate-300',
+            'discord.dm.delivered': 'bg-emerald-950 text-emerald-200',
+            'discord.dm.retry': 'bg-amber-950 text-amber-200',
+            'discord.dm.queue_drop': 'bg-gray-800 text-gray-400',
             'auth.super_admin.created': 'bg-amber-900 text-amber-200',
             'channel.create': 'bg-teal-900 text-teal-300',
             'channel.delete': 'bg-red-900 text-red-300',
@@ -428,12 +453,6 @@
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
             canViewLogs = canReadLogs();
-            if (!canViewLogs) {
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.add('hidden'));
-                document.getElementById('discord-filters').classList.add('hidden');
-                document.getElementById('admin-filters').classList.add('hidden');
-                document.getElementById('export-btn').classList.add('hidden');
-            }
             activateTab(currentTab);
         })
         .catch(() => {})
@@ -443,7 +462,13 @@
                     const urlParams = new URLSearchParams(location.search);
                     const paramChar = urlParams.get('character');
                     const paramSource = urlParams.get('source');
-                    if (paramChar) document.getElementById('df-character').value = paramChar;
+                    if (paramChar) {
+                        const dc = document.getElementById('df-character');
+                        if (dc) {
+                            dc.value = paramChar;
+                            if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(dc);
+                        }
+                    }
                     if (paramSource) {
                         const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
                         if (cb) {

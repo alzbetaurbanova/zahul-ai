@@ -181,6 +181,13 @@ class Database:
                 conn.execute("UPDATE users SET role = 'super_admin' WHERE role = 'owner'")
             except Exception:
                 pass
+            # Discord "user" (no panel role) -> pending — clearer than generic "user"
+            try:
+                conn.execute(
+                    "UPDATE users SET role = 'pending' WHERE role = 'user' AND auth_provider = 'discord'"
+                )
+            except Exception:
+                pass
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS auth_sessions (
                     token TEXT PRIMARY KEY,
@@ -216,6 +223,22 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_requested_at ON access_requests(requested_at DESC)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS discord_dm_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    discord_user_id TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    last_attempt_at TEXT,
+                    last_error TEXT
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_discord_dm_queue_pending ON discord_dm_queue(status, id)"
+            )
             # Ensure security-related config keys exist with safe defaults for existing DBs
             security_defaults = [
                 ("panel_auth_enabled", "false"),
@@ -781,6 +804,15 @@ class Database:
         conditions, params = [], []
         if filters.get('from_date'): conditions.append("timestamp >= ?"); params.append(filters['from_date'])
         if filters.get('to_date'): conditions.append("timestamp <= ?"); params.append(filters['to_date'] + 'T23:59:59')
+        if filters.get('user'):
+            user_value = str(filters['user']).strip()
+            if user_value:
+                if user_value.isdigit():
+                    conditions.append("(actor_username = ? OR actor_user_id = ?)")
+                    params.extend([user_value, int(user_value)])
+                else:
+                    conditions.append("actor_username = ?")
+                    params.append(user_value)
         if filters.get('action'):
             vals = filters['action'] if isinstance(filters['action'], list) else [filters['action']]
             conditions.append(f"action IN ({','.join('?'*len(vals))})"); params.extend(vals)
@@ -802,6 +834,9 @@ class Database:
             users = [r[0] for r in conn.execute(
                 "SELECT DISTINCT user FROM discord_logs WHERE user IS NOT NULL AND user != 'system' ORDER BY user"
             ).fetchall()]
+            admin_users = [r[0] for r in conn.execute(
+                "SELECT DISTINCT actor_username FROM admin_logs WHERE actor_username IS NOT NULL AND TRIM(actor_username) != '' ORDER BY actor_username"
+            ).fetchall()]
             channel_rows = conn.execute(
                 "SELECT channel_id, server_name, data FROM channels"
             ).fetchall()
@@ -814,7 +849,12 @@ class Database:
                     'server_name': d['server_name'],
                     'channel_name': data.get('name', d['channel_id'])
                 }
-        return {"characters": characters, "users": users, "channels": channels}
+        return {
+            "characters": characters,
+            "users": users,
+            "admin_users": admin_users,
+            "channels": channels,
+        }
 
     # ------------------------------------------------------
     # Panel auth users & sessions
@@ -839,6 +879,19 @@ class Database:
         with self._get_connection() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND auth_provider = 'local'"
+            ).fetchone()
+            return int(row["c"]) if row else 0
+
+    def count_super_admins_with_password(self) -> int:
+        """Super admins who can use POST /login (includes Discord SA after owner password is saved)."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS c FROM users
+                WHERE role = 'super_admin'
+                AND password_hash IS NOT NULL
+                AND TRIM(password_hash) != ''
+                """
             ).fetchone()
             return int(row["c"]) if row else 0
 
@@ -924,7 +977,7 @@ class Database:
             cur.execute(
                 """
                 INSERT INTO users (username, role, discord_id, discord_username, discord_avatar_hash, auth_provider, created_at, updated_at)
-                VALUES (?, 'user', ?, ?, ?, 'discord', ?, ?)
+                VALUES (?, 'pending', ?, ?, ?, 'discord', ?, ?)
                 """,
                 (candidate, discord_id, discord_username, discord_avatar_hash, now, now),
             )
@@ -1091,3 +1144,54 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (now,))
             conn.commit()
+
+    # --- Panel Discord DM queue (when bot is offline or DM fails) ---
+    def enqueue_discord_dm(self, kind: str, discord_user_id: str, message: str) -> int:
+        now = self._utcnow_iso()
+        did = str(discord_user_id).strip()
+        with self._get_connection() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO discord_dm_queue (created_at, kind, discord_user_id, message, status, attempts)
+                VALUES (?, ?, ?, ?, 'pending', 0)
+                """,
+                (now, kind, did, message),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def list_pending_discord_dm_queue(self, limit: int = 200) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM discord_dm_queue
+                WHERE status = 'pending'
+                ORDER BY id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def delete_discord_dm_queue_item(self, queue_id: int):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM discord_dm_queue WHERE id = ?", (queue_id,))
+            conn.commit()
+
+    def increment_discord_dm_queue_attempt(self, queue_id: int, error: str) -> int:
+        now = self._utcnow_iso()
+        err = (error or "")[:500]
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE discord_dm_queue
+                SET attempts = attempts + 1, last_attempt_at = ?, last_error = ?
+                WHERE id = ?
+                """,
+                (now, err, queue_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT attempts FROM discord_dm_queue WHERE id = ?", (queue_id,)
+            ).fetchone()
+            return int(row["attempts"]) if row else 0

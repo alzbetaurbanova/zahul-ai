@@ -435,6 +435,7 @@ async def auth_super_admin():
         "auth_provider": super_admin["auth_provider"] if super_admin else "",
         "has_local_super_admin": db.count_local_super_admins() > 0,
         "local_super_admin_count": db.count_local_super_admins(),
+        "has_super_admin_password": db.count_super_admins_with_password() > 0,
     }
 
 
@@ -510,16 +511,24 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
         return RedirectResponse(url="/login?oauth_error=profile", status_code=302)
 
     allowed = db.get_config("discord_allowed_usernames") or []
-    if allowed and discord_username.lower() not in [u.lower() for u in allowed]:
-        return RedirectResponse(url="/login?oauth_error=unauthorized", status_code=302)
+    if not isinstance(allowed, list):
+        allowed = []
+    allowed_handles_lower = [str(u).strip().lower() for u in allowed if str(u).strip()]
+    allowlist_active = bool(allowed_handles_lower)
+    on_allowlist = allowlist_active and discord_username.lower() in allowed_handles_lower
 
     user_id = db.create_or_update_discord_user(
         discord_id=discord_id,
         discord_username=discord_username,
         discord_avatar_hash=discord_avatar_hash,
     )
-    if db.get_super_admin_account() is None:
-        db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
+    # Trusted Discord handles (non-empty allowlist): first-time Discord users on the list become super_admin.
+    # Anyone not on the list can still complete OAuth with role "pending" and request access on /no-access.
+    # With Discord login enabled, the panel requires at least one trusted handle (validated on save).
+    if allowlist_active and on_allowlist:
+        row_u = db.get_user_by_id(user_id)
+        if row_u and row_u.get("role") in ("pending", "user"):
+            db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
     token = secrets.token_hex(32)
     db.create_session(token, user_id, _make_session_expiry().isoformat())
     user = db.get_user_by_id(user_id)

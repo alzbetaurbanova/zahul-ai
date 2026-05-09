@@ -121,7 +121,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadCharacterForEdit(id) {
-        if (!canEditCharacters()) return;
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to edit characters.', 'error');
+            return;
+        }
         try {
             const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
@@ -563,12 +566,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Event Listeners ---
     form.addEventListener('submit', handleFormSubmit);
     newCharBtn.addEventListener('click', () => {
-        if (!canEditCharacters()) return;
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to create characters.', 'error');
+            return;
+        }
         resetForm();
         openModal();
     });
     importCardBtn.addEventListener('click', () => {
-        if (!canEditCharacters()) return;
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to import characters.', 'error');
+            return;
+        }
         openImportInfoModal();
     });
     deleteBtn.addEventListener('click', handleDelete);
@@ -583,10 +592,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
-            if (!canEditCharacters()) {
-                newCharBtn.classList.add('hidden');
-                importCardBtn.classList.add('hidden');
-            }
         })
         .catch(() => {})
         .finally(() => {

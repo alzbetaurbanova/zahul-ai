@@ -12,17 +12,17 @@
     <div id="toast-container" class="toast z-50"></div>
 
     <div id="navbar-container"></div>
-    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/users.js" defer></script>
 
     <main class="p-6">
         <div class="max-w-4xl mx-auto">
-            <div class="flex-between mb-6">
+            <div class="flex-between mb-6 users-header">
                 <h1 class="heading-page">Users</h1>
                 <button id="new-user-btn" class="btn-primary text-sm"><i class="fas fa-user-plus mr-2"></i>New User</button>
             </div>
-            <div class="tabs-bar">
+            <div class="tabs-bar users-tabs">
                 <button data-tab="users" class="tab-btn tab-active">Users</button>
                 <button data-tab="requests" type="button" class="tab-btn inline-flex items-center gap-2">
                     Requests
@@ -52,6 +52,8 @@
                                 <option value="admin">Admin</option>
                                 <option value="mod">Mod</option>
                                 <option value="guest">Guest</option>
+                                <option value="pending">No access (pending)</option>
+                                <option value="rejected">Access denied</option>
                             </select>
                             <button class="icon-clear-btn hidden" data-clear="filter-role" title="Clear"><i class="fas fa-times"></i></button>
                         </div>

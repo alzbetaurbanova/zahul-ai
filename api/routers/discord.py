@@ -96,8 +96,8 @@ async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
 
 
 @router.get("/status")
-async def check_bot_status(_: dict = Depends(require_role("mod"))):
-    # --- CHANGE THIS ---
+async def check_bot_status(_: dict = Depends(require_role("guest"))):
+    """Readable by any logged-in panel user (guest+) so dashboard and nav stay in sync."""
     if bot_state.bot_instance and bot_state.bot_instance.is_ready():
         return {"status": "active"}
     elif bot_state.bot_thread and bot_state.bot_thread.is_alive():

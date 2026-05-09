@@ -10,9 +10,7 @@ if (params.get('error')) {
     localStorage.removeItem('login_attempts');
 }
 
-if (params.get('oauth_error') === 'unauthorized') {
-    document.getElementById('oauth-unauthorized-msg').classList.remove('hidden');
-} else if (params.get('oauth_error')) {
+if (params.get('oauth_error')) {
     document.getElementById('oauth-error-msg').classList.remove('hidden');
 }
 

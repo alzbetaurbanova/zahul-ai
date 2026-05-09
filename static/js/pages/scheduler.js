@@ -238,18 +238,34 @@
         }
 
         function makeCombobox(inputId, dropdownId, options, initialId = '') {
-            const input = document.getElementById(inputId);
+            const oldInput = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
+            if (!oldInput || !dropdown) return;
 
-            // Set display value from id
+            const input = oldInput.cloneNode(true);
+            oldInput.parentNode.replaceChild(input, oldInput);
+
+            const wrapper = input.parentElement;
+            const clearBtn = wrapper?.querySelector(`button[data-clear="${inputId}"]`);
+            if (clearBtn) clearBtn.dataset.comboboxManaged = '1';
+
             const found = options.find(o => o.id === initialId);
             input.value = found ? found.label : (initialId || '');
             input.dataset.value = initialId;
 
+            function syncClearBtn() {
+                if (!clearBtn) return;
+                const hasText = input.value.trim() !== '';
+                const hasData = String(input.dataset.value || '').trim() !== '';
+                const hasValue = hasText || hasData;
+                const touched = input.dataset.comboboxClearTouched === '1';
+                clearBtn.classList.toggle('hidden', !hasValue || !touched);
+            }
+
             function showDropdown(filter = '') {
                 const q = filter.toLowerCase();
                 const filtered = q
-                    ? options.filter(o => o.label.toLowerCase().includes(q) || o.sub.toLowerCase().includes(q) || o.id.includes(q))
+                    ? options.filter(o => o.label.toLowerCase().includes(q) || (o.sub || '').toLowerCase().includes(q) || o.id.includes(q))
                     : options;
                 if (!filtered.length) { dropdown.classList.add('hidden'); return; }
                 dropdown.innerHTML = filtered.map(o => `
@@ -261,9 +277,11 @@
                 dropdown.querySelectorAll('.combobox-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
+                        input.dataset.comboboxClearTouched = '1';
                         input.value = item.dataset.label;
                         input.dataset.value = item.dataset.id;
                         dropdown.classList.add('hidden');
+                        syncClearBtn();
                         input.dispatchEvent(new Event('input', { bubbles: true }));
                         input.dispatchEvent(new Event('change', { bubbles: true }));
                     });
@@ -272,8 +290,29 @@
             }
 
             input.addEventListener('focus', () => showDropdown(input.value));
-            input.addEventListener('input', () => { input.dataset.value = ''; showDropdown(input.value); });
+            input.addEventListener('input', (e) => {
+                if (e.isTrusted) input.dataset.comboboxClearTouched = '1';
+                input.dataset.value = '';
+                syncClearBtn();
+                showDropdown(input.value);
+            });
             input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+            input.addEventListener('change', syncClearBtn);
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.value = '';
+                    input.dataset.value = '';
+                    input.dataset.comboboxClearTouched = '';
+                    dropdown.classList.add('hidden');
+                    syncClearBtn();
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            }
+            syncClearBtn();
         }
 
         function initChannelCombobox(currentId = '') {
@@ -646,7 +685,10 @@
 
         // --- Modal ---
         async function openModal(task = null) {
-            if (!canEditTasks()) return;
+            if (!canEditTasks()) {
+                showToast('You do not have permission to create or edit scheduler tasks.', 'error');
+                return;
+            }
             await loadTargetOptions();
             form.reset();
             statusField.classList.add('hidden');
@@ -867,6 +909,14 @@
             document.getElementById('filter-type').value = '';
             document.getElementById('filter-from').value = '';
             document.getElementById('filter-to').value = '';
+            const fc = document.getElementById('filter-character');
+            if (fc) {
+                fc.value = '';
+                if ('dataset' in fc && 'value' in fc.dataset) fc.dataset.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fc);
+                document.getElementById('filter-character-dd')?.classList.add('hidden');
+                fc.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             if (typeof clearCheckboxDropdownPrefix === 'function') {
                 clearCheckboxDropdownPrefix('filter-status');
             } else {
@@ -904,7 +954,6 @@
             .then(r => r.json())
             .then(d => {
                 currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
-                if (!canEditTasks()) createBtn.classList.add('hidden');
             })
             .catch(() => {})
             .finally(() => {

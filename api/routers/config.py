@@ -2,7 +2,7 @@
 """Bot configuration API endpoints, powered by the database."""
 
 from fastapi import APIRouter, Body, HTTPException, Depends, Request
-from typing import Set
+from typing import Any, List, Optional, Set
 from pydantic import BaseModel
 import bcrypt
 from api.db.database import Database
@@ -37,13 +37,41 @@ router = APIRouter(
     tags=["Bot Configuration"]
 )
 
-def _validate_panel_auth_prerequisites(panel_auth_enabled: bool, discord_login_enabled: bool, local_login_enabled: bool):
+
+def _normalized_discord_allowed(usernames: Any) -> List[str]:
+    if not usernames:
+        return []
+    if not isinstance(usernames, list):
+        return []
+    out: List[str] = []
+    for u in usernames:
+        s = str(u).strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def _validate_panel_auth_prerequisites(
+    panel_auth_enabled: bool,
+    discord_login_enabled: bool,
+    local_login_enabled: bool,
+    *,
+    discord_allowed_usernames: Optional[list] = None,
+):
+    if discord_login_enabled:
+        allowed = _normalized_discord_allowed(discord_allowed_usernames)
+        if len(allowed) < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Discord login requires at least one trusted username.",
+            )
     if not panel_auth_enabled:
         return
-    if local_login_enabled and db.count_local_super_admins() < 1:
+    if local_login_enabled and db.count_super_admins_with_password() < 1:
         raise HTTPException(
             status_code=400,
-            detail="Local login requires at least one local super admin account."
+            detail="Unique account login needs a super admin username and password (Panel Security). "
+            "Save the owner account first, especially if the only super admin is a Discord account.",
         )
     if not (discord_login_enabled or local_login_enabled):
         raise HTTPException(status_code=400, detail="Enable at least one login method before enabling panel protection.")
@@ -93,6 +121,7 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
             bool(new_config.get("panel_auth_enabled")),
             bool(new_config.get("discord_login_enabled")),
             bool(new_config.get("local_login_enabled")),
+            discord_allowed_usernames=existing_config.get("discord_allowed_usernames"),
         )
 
         # Write each key-value pair from the final, merged config to the database
@@ -163,6 +192,7 @@ async def update_security_methods(config: AuthMethodsConfig, current_user: dict 
             config.panel_auth_enabled,
             config.discord_login_enabled,
             config.local_login_enabled,
+            discord_allowed_usernames=config.discord_allowed_usernames,
         )
         db.set_config("panel_auth_enabled", config.panel_auth_enabled)
         db.set_config("discord_login_enabled", config.discord_login_enabled)

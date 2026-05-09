@@ -28,18 +28,20 @@ zahul-ai lets you run multiple AI personas on your Discord server. Each **charac
 
 ### Requirements
 
-- Python 3.11+
+- Python 3.12+
 - A Discord bot token
 - An OpenAI-compatible AI API key and endpoint
 
 ### Install
 
+Dependencies live in `pyproject.toml` / `uv.lock`. Use **uv** (same as Docker):
+
 ```bash
 git clone https://github.com/your-repo/zahul-ai.git
 cd zahul-ai
-python -m venv .venv
+pip install uv
+uv sync
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
 ```
 
 ### Run
@@ -84,7 +86,8 @@ Guides are in [`docs/`](docs/):
 | [AI Config](docs/05-ai-config.md) | Models, endpoints, rate limiting |
 | [Plugins](docs/06-plugins.md) | Dice, tarot, search, image generation |
 | [Multimodal](docs/07-multimodal.md) | Image description via vision model |
-| [Scheduler](docs/08-scheduler.md) | Scheduled and recurring messages |
+| [Scheduler](docs/08-scheduler.md) | Scheduled and recurring messages (channels and DMs) |
+| [Users and roles](docs/09-users-and-roles.md) | Panel accounts, roles (`super_admin`–`guest`), access requests |
 
 ---
 

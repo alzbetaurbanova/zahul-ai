@@ -12,8 +12,8 @@
     <div id="toast-container" class="toast"></div>
 
     <div id="navbar-container"></div>
-    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/scheduler.js" defer></script>
 
     <!-- Main Content -->
@@ -32,7 +32,7 @@
                     <label class="label-xs">Character</label>
                     <div class="relative">
                         <input type="text" id="filter-character" autocomplete="off" placeholder="any" class="input-field w-36 pr-8">
-                        <button class="icon-clear-btn hidden" data-clear="filter-character" title="Clear"><i class="fas fa-times"></i></button>
+                        <button type="button" class="icon-clear-btn hidden" data-clear="filter-character" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="filter-character-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
@@ -185,7 +185,7 @@
                         <div class="relative">
                             <input type="text" id="f-character" autocomplete="off" required placeholder="Select character..."
                                 class="input-field pr-8">
-                            <button type="button" class="icon-clear-btn hidden" data-clear="f-character" title="Clear"><i class="fas fa-times"></i></button>
+                            <button type="button" class="icon-clear-btn hidden" data-clear="f-character" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
                             <div id="f-character-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>

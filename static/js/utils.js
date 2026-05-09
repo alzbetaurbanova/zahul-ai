@@ -26,13 +26,42 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+/** Combobox clear (X) only after user types or picks from list — not on programmatic value. */
+function resetFilterComboboxTouch(inputId) {
+    const input = typeof inputId === 'string' ? document.getElementById(inputId) : inputId;
+    if (input) input.dataset.comboboxClearTouched = '';
+}
+
 function setupFilterCombobox(inputId, dropdownId, options, onSelect, onInput, optionHoverClass = 'hover:bg-gray-800') {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
+    if (input.dataset.filterComboboxWired === '1') return;
+    const wrapper = input.parentElement;
+    let clearBtn = wrapper ? wrapper.querySelector(`button[data-clear="${inputId}"]`) : null;
+    if (!clearBtn && wrapper) {
+        clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'icon-clear-btn hidden';
+        clearBtn.dataset.clear = inputId;
+        clearBtn.title = 'Clear';
+        clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+        const dd = wrapper.querySelector(`#${dropdownId}`);
+        if (dd) wrapper.insertBefore(clearBtn, dd);
+        else wrapper.appendChild(clearBtn);
+    }
+    if (clearBtn) {
+        clearBtn.dataset.comboboxManaged = '1';
+    }
+
+    function listOptions() {
+        return typeof options === 'function' ? options() : options;
+    }
 
     function showDropdown() {
+        const opts = listOptions();
         const q = input.value.toLowerCase();
-        const filtered = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
+        const filtered = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
         if (!filtered.length) {
             dropdown.classList.add('hidden');
             return;
@@ -44,6 +73,7 @@ function setupFilterCombobox(inputId, dropdownId, options, onSelect, onInput, op
             item.addEventListener('mousedown', e => {
                 e.preventDefault();
                 const selected = filtered[parseInt(item.dataset.index, 10)];
+                input.dataset.comboboxClearTouched = '1';
                 input.value = selected;
                 dropdown.classList.add('hidden');
                 input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -54,16 +84,45 @@ function setupFilterCombobox(inputId, dropdownId, options, onSelect, onInput, op
         dropdown.classList.remove('hidden');
     }
 
+    function syncClearBtn() {
+        if (!clearBtn) return;
+        const hasText = input.value.trim() !== '';
+        const hasData = String(input.dataset.value || '').trim() !== '';
+        const hasValue = hasText || hasData;
+        const touched = input.dataset.comboboxClearTouched === '1';
+        clearBtn.classList.toggle('hidden', !hasValue || !touched);
+    }
+
     input.addEventListener('focus', showDropdown);
-    input.addEventListener('input', () => {
+    input.addEventListener('input', (e) => {
+        if (e.isTrusted) input.dataset.comboboxClearTouched = '1';
         if (onInput) onInput(input.value);
+        syncClearBtn();
         showDropdown();
     });
     input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+    input.addEventListener('change', syncClearBtn);
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            input.value = '';
+            if ('dataset' in input && 'value' in input.dataset) input.dataset.value = '';
+            input.dataset.comboboxClearTouched = '';
+            dropdown.classList.add('hidden');
+            syncClearBtn();
+            if (onInput) onInput('');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+    syncClearBtn();
+    input.dataset.filterComboboxWired = '1';
 }
 
 function initFilterClear(onChangeFn, root = document) {
     root.querySelectorAll('button[data-clear]').forEach(btn => {
+        if (btn.dataset.comboboxManaged === '1') return;
         const target = document.getElementById(btn.dataset.clear);
         if (!target) return;
         const isSelect = target.tagName === 'SELECT';
@@ -186,7 +245,11 @@ function initCbDdInteractions(options = {}) {
                 if (!ddId) return;
                 const dd = document.getElementById(ddId);
                 if (!dd) return;
-                if (!btn.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hidden');
+                if (btn.contains(e.target) || dd.contains(e.target)) return;
+                const anchorId = dd.dataset.cbDdAnchor;
+                const anchor = anchorId ? document.getElementById(anchorId) : null;
+                if (anchor?.contains(e.target)) return;
+                dd.classList.add('hidden');
             });
         });
     }
@@ -217,6 +280,13 @@ function initSearchableCheckboxDropdown(options) {
 
     inp.addEventListener('input', filterRows);
 
+    function openDd() {
+        document.querySelectorAll('.cb-dd').forEach(d => { if (d !== dd) d.classList.add('hidden'); });
+        dd.classList.remove('hidden');
+    }
+
+    inp.addEventListener('focus', openDd);
+
     function reset() {
         inp.value = '';
         dd.querySelectorAll(itemSelector).forEach(row => row.classList.remove('hidden'));
@@ -237,7 +307,7 @@ function initSearchableCheckboxDropdown(options) {
     return { reset, filterRows };
 }
 
-const ROLE_LEVELS = { super_admin: 4, admin: 3, mod: 2, guest: 1 };
+const ROLE_LEVELS = { super_admin: 4, admin: 3, mod: 2, guest: 1, pending: 0, rejected: 0, user: 0 };
 
 function roleAtLeast(role, minRole) {
     return (ROLE_LEVELS[role] || 0) >= (ROLE_LEVELS[minRole] || 0);

@@ -87,14 +87,54 @@ async def _await_bot_coro(coro: Coroutine[Any, Any, Any]) -> Any:
         return None
 
 
+async def _try_dm_or_queue(discord_id: str, message: str, kind: str, log_detail: str) -> None:
+    """
+    Send a panel DM immediately if the bot is ready; otherwise enqueue for on_ready flush.
+    If send fails, enqueue so delivery is retried when the bot is available.
+    """
+    db = Database()
+    did = str(discord_id).strip()
+    if not did or not message.strip():
+        return
+    bot = bot_state.bot_instance
+
+    async def _send():
+        try:
+            b = bot_state.bot_instance
+            if not b or not b.is_ready():
+                return False
+            u = await b.fetch_user(int(did))
+            await u.send(message)
+            return True
+        except Exception as e:
+            _log.warning("Panel DM send failed discord_id=%s kind=%s: %s", did, kind, e, exc_info=True)
+            return False
+
+    if not bot or not bot.is_ready():
+        qid = db.enqueue_discord_dm(kind, did, message)
+        db.log_admin(
+            "discord.dm.queued",
+            target="discord",
+            detail=f"queue_id={qid} reason=bot_offline kind={kind} {log_detail}",
+        )
+        return
+    result = await _await_bot_coro(_send())
+    if result is True:
+        return
+    qid = db.enqueue_discord_dm(kind, did, message)
+    reason = "send_failed" if result is False else "bot_error"
+    db.log_admin(
+        "discord.dm.queued",
+        target="discord",
+        detail=f"queue_id={qid} reason={reason} kind={kind} {log_detail}",
+    )
+
+
 async def _notify_super_admins_new_access_request(requester_username: str):
     """
     DM all Discord-linked super admins when a new access request is submitted.
     Local-only super admins are not notified (no discord_id).
     """
-    bot = bot_state.bot_instance
-    if not bot or not bot.is_ready():
-        return
     db = Database()
     admins = db.list_discord_super_admins()
     if not admins:
@@ -104,39 +144,27 @@ async def _notify_super_admins_new_access_request(requester_username: str):
         f"Discord user: {requester_username}\n"
         "Review it under Users → Requests."
     )
-
-    async def _send_all():
-        for admin in admins:
-            discord_id = str(admin.get("discord_id") or "").strip()
-            if not discord_id:
-                continue
-            try:
-                u = await bot.fetch_user(int(discord_id))
-                await u.send(message)
-            except Exception as e:
-                _log.warning(
-                    "Discord DM to super_admin discord_id=%s failed: %s",
-                    discord_id,
-                    e,
-                    exc_info=True,
-                )
-                continue
-
-    await _await_bot_coro(_send_all())
+    for admin in admins:
+        discord_id = str(admin.get("discord_id") or "").strip()
+        if not discord_id:
+            continue
+        detail = f"requester={requester_username} target_discord_id={discord_id}"
+        await _try_dm_or_queue(discord_id, message, "access.request.admin", detail)
 
 
 async def _notify_access_request_resolution(user: dict, approved: bool, assigned_role: Optional[str] = None):
     """
-    Best-effort Discord DM notification for access request resolution.
-    Skips silently if bot isn't available or user has no discord_id.
+    Discord DM for access request resolution. Queued if bot is offline or send fails.
     """
     if not user:
         return
     discord_id = str(user.get("discord_id") or "").strip()
     if not discord_id:
-        return
-    bot = bot_state.bot_instance
-    if not bot or not bot.is_ready():
+        _log.warning(
+            "Panel access resolution DM skipped: user_id=%s has no discord_id (approved=%s)",
+            user.get("id"),
+            approved,
+        )
         return
     if approved:
         role_text = assigned_role or "guest"
@@ -146,21 +174,9 @@ async def _notify_access_request_resolution(user: dict, approved: bool, assigned
         )
     else:
         message = "Your access request to zahul-ai panel was denied."
-
-    async def _send():
-        try:
-            target_user = await bot.fetch_user(int(discord_id))
-            await target_user.send(message)
-        except Exception as e:
-            _log.warning(
-                "Discord DM for access request resolution discord_id=%s approved=%s failed: %s",
-                discord_id,
-                approved,
-                e,
-                exc_info=True,
-            )
-
-    await _await_bot_coro(_send())
+    uid = user.get("id")
+    detail = f"user_id={uid} approved={approved} role={assigned_role or ''} target_discord_id={discord_id}"
+    await _try_dm_or_queue(discord_id, message, "access.resolution", detail)
 
 
 @router.get("/")
@@ -342,6 +358,10 @@ async def create_access_request(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Only Discord users can request access.")
     if current_user.get("role") in ROLE_LEVEL:
         raise HTTPException(status_code=400, detail="You already have an assigned role.")
+    # Legacy rows or post-deny: normalize to pending when submitting a new request
+    if current_user.get("role") in ("rejected", "user"):
+        db.update_user(int(current_user["id"]), role="pending")
+        current_user = db.get_user_by_id(int(current_user["id"])) or current_user
     pending = db.get_pending_access_request(int(current_user["id"]))
     if pending:
         return {"ok": True, "request_id": int(pending["id"]), "already_pending": True}
@@ -376,7 +396,8 @@ async def approve_access_request(
         raise HTTPException(status_code=404, detail="User for this request no longer exists.")
     db.update_user(int(req["user_id"]), role=body.role)
     db.resolve_access_request(request_id, status="approved", reviewed_by=int(current_user["id"]))
-    await _notify_access_request_resolution(user, approved=True, assigned_role=body.role)
+    user_after = db.get_user_by_id(int(req["user_id"])) or user
+    await _notify_access_request_resolution(user_after, approved=True, assigned_role=body.role)
     db.log_admin("access.request.approve", detail=f"request_id={request_id}, user_id={req['user_id']}, role={body.role}", actor=current_user)
     return {"ok": True}
 
@@ -391,6 +412,8 @@ async def deny_access_request(request_id: int, current_user: dict = Depends(requ
         raise HTTPException(status_code=400, detail="Access request is already resolved.")
     user = db.get_user_by_id(int(req["user_id"]))
     db.resolve_access_request(request_id, status="denied", reviewed_by=int(current_user["id"]))
+    if user:
+        db.update_user(int(req["user_id"]), role="rejected")
     await _notify_access_request_resolution(user, approved=False)
     db.log_admin("access.request.deny", detail=f"request_id={request_id}, user_id={req['user_id']}", actor=current_user)
     return {"ok": True}

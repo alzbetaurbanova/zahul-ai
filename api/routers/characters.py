@@ -145,11 +145,9 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 async def save_avatar(
     current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
-    image: Annotated[UploadFile, File(description="Avatar image file")] = None
+    image: Annotated[UploadFile, File(..., description="Avatar image file")],
 ):
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
-    if not image:
-        raise HTTPException(status_code=400, detail="No image provided.")
     content_type = (image.content_type or "").lower()
     if content_type not in _ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type.")

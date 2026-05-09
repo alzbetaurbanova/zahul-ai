@@ -9,4 +9,5 @@
 | [AI Config](05-ai-config.md) | AI endpoint, models, temperature, rate limiting |
 | [Plugins](06-plugins.md) | Dice, tarot, battle, search, image generation |
 | [Multimodal](07-multimodal.md) | Setting up image reading via a vision model |
-| [Scheduler](08-scheduler.md) | Scheduled messages in Discord channels |
+| [Scheduler](08-scheduler.md) | Scheduled and recurring messages (channels and DMs) |
+| [Users and roles](09-users-and-roles.md) | Panel accounts, roles, `/no-access` requests |

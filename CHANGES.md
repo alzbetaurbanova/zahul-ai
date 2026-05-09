@@ -36,11 +36,14 @@ It is licensed under AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDG
 - Fallback token usage tracked separately and reset when fallback ends
 
 ### Panel authentication
-- Optional password protection for the web panel
-- Set a password via **AI Config → Panel Security**
-- Optional password hint — displayed on the login page after 3 failed attempts
-- Session persists for 7 days, logout button in navbar
-- Auth can be disabled at code level via `PANEL_AUTH_ENABLED` flag in `main.py`
+- **Protect panel** toggle — when enabled, routes require a valid session (except login/OAuth/static as documented)
+- **Local account** — super-admin username and password under **AI Config → Panel Security** (minimum 8 characters)
+- **Discord OAuth login** — optional; redirect URI and Client ID/secret configured in the same section
+- When Discord login is enabled, **Trusted Discord usernames** must list at least one `@handle` (see [Panel Security](docs/02-panel-security.md))
+- Pending Discord users without a role can use **Request access** on `/no-access`; admins manage users at `/users`
+- Session cookie lasts 7 days; logout in the navbar clears it
+- Panel auth feature can be turned off in code via `PANEL_AUTH_ENABLED` in `main.py` (middleware bypasses checks when `False`)
+- Lockout recovery: edit `panel_auth_enabled` in `data/bot.db` or use the `sqlite3` one-liner in [Panel Security](docs/02-panel-security.md)
 
 ### DM access control
 - `dm_list` field in AI Config — whitelist of Discord usernames allowed to DM the bot directly

@@ -10,8 +10,8 @@
 </head>
 <body class="bg-darker text-light min-h-screen" data-page="logs">
     <div id="navbar-container"></div>
-    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/logs.js" defer></script>
 
     <main class="p-6">
@@ -80,19 +80,23 @@
             <div id="admin-filters" class="filter-panel mb-5 hidden">
                 <div><label class="label-xs">From</label><div class="relative"><input type="date" id="af-from" class="input-field pr-8"><button id="af-from-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="label-xs">To</label><div class="relative"><input type="date" id="af-to" class="input-field pr-8"><button id="af-to-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
-                <div class="relative w-80">
+                <div><label class="label-xs">User</label>
+                    <div class="relative">
+                        <input type="text" id="af-user" autocomplete="off" placeholder="any" class="input-field w-40 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="af-user" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="af-user-dd" class="autocomplete-dd hidden"></div>
+                    </div>
+                </div>
+                <div class="relative w-80 min-w-[12rem]">
                     <label class="label-xs">Action</label>
-                    <button type="button" class="cb-dd-btn w-full" data-dd="dd-action">
-                        <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
-                        <span class="flex items-center gap-1.5 shrink-0 ml-auto">
-                            <i class="fas fa-times cb-dd-clear hidden" id="dd-action-clear" title="Clear"></i>
+                    <div id="af-action-anchor" class="relative">
+                        <input type="text" id="af-action-search" class="input-field w-full text-sm pr-[3.25rem]" placeholder="Search actions…" autocomplete="off">
+                        <button type="button" class="cb-dd-btn af-action-dd-trigger" data-dd="dd-action" title="Open action list">
+                            <span class="cb-dd-label sr-only">All</span>
+                            <i class="fas fa-times cb-dd-clear hidden" id="dd-action-clear" title="Clear selected"></i>
                             <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
-                        </span>
-                    </button>
-                    <div id="dd-action" class="cb-dd cb-dd-searchable hidden w-full">
-                        <div class="cb-dd-search-wrap">
-                            <input type="text" id="af-action-search" class="input-field text-sm py-2" placeholder="Search actions…" autocomplete="off">
-                        </div>
+                        </button>
+                        <div id="dd-action" class="cb-dd cb-dd-searchable cb-dd-scrollable hidden w-full" data-cb-dd-anchor="af-action-anchor">
                         <div class="cb-dd-search-list">
                         <label class="cb-dd-item"><input type="checkbox" value="access.request.approve" class="af-action-cb accent-indigo-500"> access.request.approve</label>
                         <label class="cb-dd-item"><input type="checkbox" value="access.request.create" class="af-action-cb accent-indigo-500"> access.request.create</label>
@@ -111,6 +115,10 @@
                         <label class="cb-dd-item"><input type="checkbox" value="config.security.methods.update" class="af-action-cb accent-indigo-500"> config.security.methods.update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="config.security.update" class="af-action-cb accent-indigo-500"> config.security.update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="config.update" class="af-action-cb accent-indigo-500"> config.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.delivered" class="af-action-cb accent-indigo-500"> discord.dm.delivered</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queued" class="af-action-cb accent-indigo-500"> discord.dm.queued</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queue_drop" class="af-action-cb accent-indigo-500"> discord.dm.queue_drop</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.retry" class="af-action-cb accent-indigo-500"> discord.dm.retry</label>
                         <label class="cb-dd-item"><input type="checkbox" value="log.delete" class="af-action-cb accent-indigo-500"> log.delete</label>
                         <label class="cb-dd-item"><input type="checkbox" value="plugins.reload" class="af-action-cb accent-indigo-500"> plugins.reload</label>
                         <label class="cb-dd-item"><input type="checkbox" value="preset.create" class="af-action-cb accent-indigo-500"> preset.create</label>
@@ -130,6 +138,7 @@
                         <label class="cb-dd-item"><input type="checkbox" value="user.delete" class="af-action-cb accent-indigo-500"> user.delete</label>
                         <label class="cb-dd-item"><input type="checkbox" value="user.password_update" class="af-action-cb accent-indigo-500"> user.password_update</label>
                         <label class="cb-dd-item"><input type="checkbox" value="user.role_update" class="af-action-cb accent-indigo-500"> user.role_update</label>
+                        </div>
                         </div>
                     </div>
                 </div>

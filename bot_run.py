@@ -52,6 +52,7 @@ class Zahul(discord.Client):
         self.queue = asyncio.Queue()
         self.plugin_manager = PluginManager(plugin_package_path="src.plugins")
         self.auto_reply_count = 0
+        self._panel_dm_runner_started = False
 
     async def setup_hook(self):
         """This is called when the bot is preparing to connect."""
@@ -93,6 +94,28 @@ class Zahul(discord.Client):
         invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
         print(f"Bot Invite Link: {invite_link}")
         print("Discord Bot is up and running.")
+        if not self._panel_dm_runner_started:
+            self._panel_dm_runner_started = True
+            asyncio.create_task(self._flush_panel_dm_queue_runner())
+
+    async def _flush_panel_dm_queue_runner(self):
+        """Drain panel notification DMs: early retries after connect, then periodic while online."""
+        from api.discord_panel_dm_queue import flush_discord_panel_dm_queue
+        for delay_sec in (2, 15, 45):
+            await asyncio.sleep(delay_sec)
+            try:
+                await flush_discord_panel_dm_queue(self)
+            except Exception as e:
+                print(f"Panel DM queue flush failed (delay={delay_sec}s): {e}")
+                traceback.print_exc()
+        while True:
+            await asyncio.sleep(120)
+            try:
+                if self.is_ready():
+                    await flush_discord_panel_dm_queue(self)
+            except Exception as e:
+                print(f"Panel DM periodic flush failed: {e}")
+                traceback.print_exc()
 
     async def on_message(self, message: discord.Message):
         # We pass the bot instance (self) and db instance (self.db) to the observer

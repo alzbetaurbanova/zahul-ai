@@ -102,9 +102,17 @@ def list_admin_logs(
     limit: int = Query(50, ge=1, le=200),
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    user: Optional[str] = None,
     action: List[str] = Query(default=[]),
 ):
-    return db.list_admin_logs(page=page, limit=limit, from_date=from_date, to_date=to_date, action=action)
+    return db.list_admin_logs(
+        page=page,
+        limit=limit,
+        from_date=from_date,
+        to_date=to_date,
+        user=user,
+        action=action,
+    )
 
 
 @router.get("/admin/export")
@@ -112,9 +120,17 @@ def export_admin_logs(
     _: dict = Depends(require_role("admin")),
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    user: Optional[str] = None,
     action: List[str] = Query(default=[]),
 ):
-    result = db.list_admin_logs(page=1, limit=100000, from_date=from_date, to_date=to_date, action=action)
+    result = db.list_admin_logs(
+        page=1,
+        limit=100000,
+        from_date=from_date,
+        to_date=to_date,
+        user=user,
+        action=action,
+    )
     return JSONResponse(
         content=result["items"],
         headers={"Content-Disposition": "attachment; filename=admin_logs.json"}

@@ -37,6 +37,7 @@ The redirect URI must match **exactly** — same protocol, domain, port, and pat
    - **Client ID** — from Step 2
    - **Client Secret** — from Step 2
    - **Redirect URI** — same URL you added in Step 3
+   - **Trusted Discord usernames** — at least your own `@handle` (one per line). Required while Discord login is on.
 4. Click **Save Security Settings**
 
 ## Step 5 — Test before enabling protection
@@ -48,15 +49,14 @@ The redirect URI must match **exactly** — same protocol, domain, port, and pat
 
 Once confirmed working, enable **Protect panel** and save.
 
-## First Discord login becomes the owner
+## Trusted Discord usernames (required when Discord login is on)
 
-If no local owner account exists when someone logs in via Discord, that Discord account is automatically set as the owner. This is the bootstrap path for Discord-only setups.
+In **AI Config → Panel Security**, **Trusted Discord usernames**:
 
-## Restricting access by username
+- **Discord login enabled** — You must add **at least one** `@handle` (one per line, not display names). Each listed account becomes **`super_admin` on first Discord sign-in** while the role is still `pending` (or legacy `user`). Accounts **not** listed can still sign in with Discord and submit **Request access** on `/no-access`.
+- **Discord login disabled** — The field is optional and not validated.
 
-In the **Allowed Discord usernames** field, add the `@handle` of each person allowed in (one per line). Leave empty to allow any Discord account.
-
-Example:
+Example allowlist:
 ```
 johndoe
 janedoe
@@ -67,6 +67,5 @@ janedoe
 | Error on `/login` | Cause |
 |---|---|
 | `Discord login failed. Please retry.` | OAuth state expired or invalid callback — try again |
-| `Your Discord account is not authorized` | Your username is not on the allowed list |
 | Redirect URI mismatch error from Discord | The URI in the panel doesn't match what's registered on the Developer Portal |
 | `Not Found` after OAuth redirect | Wrong domain — check that the redirect URI matches where the panel is actually running |
