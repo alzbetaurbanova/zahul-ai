@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110">
+                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110" onerror="this.src='/static/avatars/default_character_avatar.png'">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
                 `;
@@ -403,7 +403,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const updateAvatarPreview = (url) => { avatarPreview.src = url || '/static/avatars/default_character_avatar.png'; };
+    const updateAvatarPreview = (url) => {
+        const fallback = '/static/avatars/default_character_avatar.png';
+        avatarPreview.src = url || fallback;
+        avatarPreview.onerror = () => { avatarPreview.src = fallback; };
+    };
 
     // --- Import Info Modal ---
     const importInfoModal = document.getElementById('import-info-modal');

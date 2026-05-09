@@ -7,12 +7,22 @@ from typing import Optional, Dict, Any, List
 TRASH_DB_PATH = os.getenv("TRASH_DB_URL", "data/trash.db")
 
 
+def _ensure_db_directory(path: str) -> None:
+    if path in (":memory:", "") or path.startswith("file:"):
+        return
+
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+
 class TrashDB:
     def __init__(self, path: str = TRASH_DB_PATH):
         self.db_path = path
         self._init_db()
 
     def _get_connection(self):
+        _ensure_db_directory(self.db_path)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
