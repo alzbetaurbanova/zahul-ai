@@ -1,83 +1,142 @@
-# zahul-ai
+<p align="center">
+  <a href="https://www.gnu.org/licenses/agpl-3.0">
+    <img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3">
+  </a>
+  <a href="https://www.python.org/">
+    <img src="https://img.shields.io/badge/Python-3.12+-yellow.svg" alt="Python">
+  </a>
+  <a href="https://fastapi.tiangolo.com/">
+    <img src="https://img.shields.io/badge/Framework-FastAPI-009688.svg" alt="FastAPI">
+  </a>
+  <a href="https://www.sqlalchemy.org/">
+    <img src="https://img.shields.io/badge/ORM-SQLAlchemy-red.svg" alt="SQLAlchemy">
+  </a>
+</p>
+<h1 align="center">zahul-ai</h1>
 
-A self-hosted Discord bot with a web panel for managing AI characters, conversations, and server automation.
-
-Built and maintained by **zahul** (alzbet213@gmail.com).
+zahul-ai is a self-hosted Discord bot for immersive multi-character roleplay. You run it on your own machine, connect it to any AI provider you want, and control everything through a web panel.
 
 ---
 
 ## What it does
 
-zahul-ai lets you run multiple AI personas on your Discord server. Each **character** has its own name, system prompt, avatar, and trigger words — when someone mentions a trigger, the bot responds as that character via a webhook, making it appear as a real user.
+- Multi-character roleplay bot — each character has its own personality, avatar, and trigger words
+- Per-channel setup: assign characters, set persona and instructions, whitelist who can speak where
+- Web panel at `http://localhost:5666` — manage everything without touching code
+- Any OpenAI-compatible AI backend, with automatic fallback when the primary hits rate limits
+- Scheduler for recurring messages and one-time reminders
+- Activity and admin logs at `/logs`
+- Optional panel password protection
 
-**Features:**
-- Multiple AI characters with individual personalities, avatars, and settings
-- Any OpenAI-compatible AI backend (Groq, OpenRouter, local Ollama, etc.)
-- Web panel for configuration, character management, and logs
-- Panel login protection — local account and/or Discord OAuth
-- Scheduled messages (one-off reminders and recurring schedules)
-- Plugins: dice rolls, tarot readings, battle RP, web search, image generation
-- Multimodal support — the bot can read and describe images sent in Discord
-- Per-character overrides for temperature, history limit, and max tokens
-- DM support with an optional user allowlist
-- Automatic fallback model when the primary hits a rate limit
+See [CHANGES.md](CHANGES.md) for the full feature list and slash command reference.
 
 ---
 
-## Quick setup
+## Getting started
 
 ### Requirements
-
-- Python 3.12+
-- A Discord bot token
-- An OpenAI-compatible AI API key and endpoint
-
-### Install
-
-Dependencies live in `pyproject.toml` / `uv.lock`. Use **uv** (same as Docker):
-
-```bash
-git clone https://github.com/your-repo/zahul-ai.git
-cd zahul-ai
-pip install uv
-uv sync
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-```
-
-### Run
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port 5666
-```
-
-Open `http://localhost:5666`. The panel loads without a login prompt on first run.
-
-### First-time configuration
-
-1. Go to **AI Config → Keys & Integration**
-2. Enter your **Discord Bot Token** and **AI API Key**
-3. Set the **AI Endpoint URL** and **Primary Model**
-4. Hit **Save Configuration** — the bot connects automatically
-
-> For full setup instructions including panel security and Discord OAuth, see [`docs/`](docs/).
+- Python 3.12+ (or [uv](https://github.com/astral-sh/uv) — recommended)
+- A Discord bot token ([Discord Developer Portal](https://discord.com/developers/applications))
+- An API key for your chosen AI provider (Groq, OpenRouter, or any OpenAI-compatible endpoint)
 
 ---
 
-## Docker
+### 1. Install and run
 
+**With uv (recommended):**
 ```bash
-docker compose up -d
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
+cd zahul-ai
+uv sync
+uv run main.py
 ```
 
-The panel runs on port `5666`. Mount `./data` as a volume to persist the database across restarts.
+**With pip:**
+```bash
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
+cd zahul-ai
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+**With Docker (recommended for self-hosting):**
+```bash
+git clone https://github.com/alzbetaurbanova/zahul-ai.git
+cd zahul-ai
+docker-compose up -d
+```
+
+The panel is available at `http://localhost:5666`.
+
+On first run, the database is created automatically — a default character (Echo), a default prompt preset, and a baseline configuration are inserted. No manual database setup needed.
+
+---
+
+### 2. Create a Discord bot
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application
+2. Under the **Bot** tab, enable all three **Privileged Gateway Intents**:
+   - Presence Intent
+   - Server Members Intent
+   - Message Content Intent
+3. Copy your bot token — you'll need it in the next step
+
+---
+
+### 3. Configure via the web panel
+
+Open `http://localhost:5666` and go to **AI Config**. Fill in:
+
+| Field | What to put |
+|---|---|
+| **Discord Bot Token** | Token from the Developer Portal |
+| **AI Endpoint URL** | e.g. `https://api.groq.com/openai/v1` |
+| **AI API Key** | Your provider's API key |
+| **Primary Model** | e.g. `llama-3.3-70b-versatile` |
+| **Default Character** | `Echo` (pre-created) or your own |
+
+Save the config, then click **Start Bot** on the main panel. An invite link will appear — use it to add the bot to your server.
+
+---
+
+### 4. Register a channel
+
+In your Discord server, run the following slash command in the channel you want the bot to use:
+
+```
+/register_channel
+```
+
+The bot is now active in that channel.
+
+---
+
+### 5. Whitelist characters
+
+By default, no characters are allowed to speak in the channel. Run `/whitelist add` to enable them:
+
+```
+/whitelist add Echo
+/whitelist add Echo, Aria, Zara
+```
+
+Use `/whitelist view` to see who's active, and `/whitelist remove` to take someone out.
+
+---
+
+### 6. (Optional) Secure the panel
+
+Go to **AI Config → Panel Security**, enable the toggle, set a password, and save. All future panel access will require login.
 
 ---
 
 ## Documentation
 
-Guides are in [`docs/`](docs/):
+Complete guide here: [`docs/README.md`](docs/README.md).
 
-| Guide | |
+| Guide | What it covers |
 |---|---|
 | [Getting Started](docs/01-getting-started.md) | Installation, keys, first run |
 | [Panel Security](docs/02-panel-security.md) | Login protection, owner account |
@@ -93,8 +152,18 @@ Guides are in [`docs/`](docs/):
 
 ## Tech stack
 
-- **Backend:** Python, FastAPI
-- **Bot:** discord.py
-- **Database:** SQLite
-- **Frontend:** Tailwind CSS
-- **Reverse proxy:** Caddy (optional, for HTTPS)
+- **FastAPI** + **Uvicorn** — HTTP API and web panel
+- **discord.py** — Discord gateway (bot events, slash commands, webhooks)
+- **SQLite** — single-file database for characters, config, users, and logs
+- **Vanilla JS** + **Tailwind CSS** (CDN) + **custom CSS** (`static/css/styles.css`) — panel UI without a bundler or `node_modules`
+- **Jinja2** — prompt templates for AI requests (`src/models/prompts.py`)
+- **Caddy** (optional) — reverse proxy / HTTPS in front of the panel
+
+---
+
+## License
+
+- AGPL-3.0-only. See [LICENSE](LICENSE) and [PLEDGE.md](PLEDGE.md).
+
+- This project is based on [viel-ai](https://github.com/Iteranya/viel-ai) by [Artes Paradox](https://github.com/Iteranya/). Attribution is mandatory per the license. 
+- See [CHANGES.md](CHANGES.md) for what's different.
