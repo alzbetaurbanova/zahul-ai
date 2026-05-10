@@ -35,9 +35,14 @@ class BotConfig(BaseModel):
     fallback_duration: int = Field(7200, ge=0)
     token_limit_tpm: int = Field(12000, ge=0)
     token_limit_tpd: int = Field(100000, ge=0)
-    panel_password: str = ""
     panel_password_hint: str = ""
     public_url: str = ""
+    discord_oauth_client_id: str = ""
+    discord_oauth_client_secret: str = ""
+    discord_oauth_redirect_uri: str = ""
+    panel_auth_enabled: bool = False
+    discord_login_enabled: bool = False
+    local_login_enabled: bool = True
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)
@@ -111,6 +116,7 @@ class Character(BaseModel):
     name: str
     data: CharacterData  # The 'data' column is a validated JSON object
     triggers: List[str] = Field(default_factory=list)
+    created_by: Optional[str] = None
 
 class CharacterListItem(BaseModel):
     """A lightweight model for listing characters in the UI."""
@@ -171,6 +177,7 @@ class TaskCreate(BaseModel):
         return value
 
 class TaskUpdate(BaseModel):
+    type: Optional[Literal['schedule', 'reminder']] = None
     name: Optional[str] = None
     character: Optional[str] = None
     target_type: Optional[Literal['channel', 'dm']] = None

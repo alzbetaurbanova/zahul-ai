@@ -20,7 +20,19 @@
     }
     respond @sensitive 403
 
+    handle /static/img/* {
+        root * /srv
+        file_server
+    }
+
     reverse_proxy zahul:5666 {
         flush_interval -1
+    }
+
+    handle_errors {
+        rewrite * /{http.error.status_code}.html
+        file_server {
+            root /srv/errors
+        }
     }
 }

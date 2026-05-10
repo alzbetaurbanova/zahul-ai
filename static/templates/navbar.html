@@ -1,28 +1,42 @@
-<nav class="bg-darker border-b border-gray-800">
+<nav class="bg-darker border-b border-gray-800 site-nav">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex-between h-16">
-            <div class="flex items-center min-w-0 overflow-hidden">
+        <div class="flex-between h-16 nav-row">
+            <div class="flex items-center min-w-0 overflow-hidden nav-left">
                 <div class="flex-shrink-0">
                     <a href="/" class="flex items-center space-x-3 text-white">
                         <img class="h-8 w-8" src="/zahul" alt="zahul-ai" width="32" height="32">
                         <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
                     </a>
                 </div>
-                <div class="hidden md:block">
-                    <div class="ml-10 flex items-baseline space-x-4">
+                <div class="hidden md:block nav-desktop">
+                    <div class="ml-10 flex items-baseline space-x-4 nav-desktop-links">
                         <a href="/" data-page="dashboard" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
                         <a href="/characters" data-page="characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
                         <a href="/scheduler" data-page="scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-                        <a href="/ai-config" data-page="ai-config" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
+                        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-link nav-users-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
+                        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-link nav-admin-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
-                <span class="text-sm text-gray-400">Status:</span>
+            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap nav-right">
+                <span class="text-sm text-gray-400 nav-status-label">Status:</span>
                 <span id="bot-status-indicator" class="status-indicator"></span>
-                <span id="bot-status-text" class="text-sm text-gray-300"></span>
-                <div class="hidden md:block nav-logout-wrap">
-                    <a href="/logout" class="nav-logout text-sm text-gray-400 hover:text-white transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="nav-logout-icon"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
+                <span id="bot-status-text" class="text-sm text-gray-300 nav-status-text"></span>
+                <div class="hidden md:block nav-user-wrap">
+                    <button type="button" class="nav-user-btn hidden" aria-haspopup="true" aria-expanded="false" aria-label="Open user menu">
+                        <img class="nav-user-avatar" src="/static/avatars/default_user_avatar.png" alt="User avatar" width="32" height="32">
+                        <span class="nav-user-badge hidden" aria-label="User role" title="User role">
+                            <i class="fas fa-user"></i>
+                        </span>
+                    </button>
+                    <div class="nav-user-menu hidden" role="menu" aria-label="User menu">
+                        <div class="nav-user-name" role="presentation">user</div>
+                        <hr class="nav-user-divider" aria-hidden="true">
+                        <a href="/logout" class="nav-user-logout" role="menuitem">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>
+                            Logout
+                        </a>
+                    </div>
                 </div>
                 <button id="nav-hamburger" class="hamburger-btn md:hidden" aria-label="Open menu">
                     <i class="fas fa-bars"></i>
@@ -34,7 +48,8 @@
         <a href="/" data-page="dashboard" class="nav-mobile-link"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
         <a href="/characters" data-page="characters" class="nav-mobile-link"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
         <a href="/scheduler" data-page="scheduler" class="nav-mobile-link"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-        <a href="/ai-config" data-page="ai-config" class="nav-mobile-link"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
-        <a href="/logout" class="nav-mobile-logout nav-mobile-link hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" class="nav-mobile-logout-icon"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
+        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-mobile-link nav-users-mobile-link hidden"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
+        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-mobile-link nav-admin-mobile-link hidden"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
+        <a href="/logout" class="nav-mobile-logout nav-mobile-link hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:6px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
     </div>
 </nav>

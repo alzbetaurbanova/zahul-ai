@@ -33,14 +33,28 @@ _autocap_revert_task: Optional[asyncio.Task] = None
 from api.db.database import Database
 from api.models.models import BotConfig
 from src.models.dimension import ActiveChannel
+from src.models.aicharacter import ActiveCharacter
 import src.controller.observer as observer
 import src.controller.pipeline as pipeline
-from src.plugins.manager import PluginManager
+from src.controller.pipeline import generate_slash_tool_character_reply
+from src import tool_actions
 
 # --- Helper to load config from DB ---
 def get_bot_config(db: Database) -> BotConfig:
     """Fetches all config key-values from the DB and returns a BotConfig object."""
     return BotConfig(**db.list_configs())
+
+
+def _slash_channel_or_error(interaction: discord.Interaction, db: Database) -> tuple[Optional[ActiveChannel], Optional[str]]:
+    if isinstance(interaction.channel, discord.DMChannel):
+        cfg = BotConfig(**db.list_configs())
+        if interaction.user.name not in (cfg.dm_list or []):
+            return None, "🚫 You are not allowed to use the bot in DMs."
+        return ActiveChannel.from_dm(interaction.channel, interaction.user, db), None
+    ch = ActiveChannel.from_id(str(interaction.channel.id), db)
+    if not ch:
+        return None, "This channel is not registered. Use `/register_channel`."
+    return ch, None
 
 
 class Zahul(discord.Client):
@@ -50,8 +64,8 @@ class Zahul(discord.Client):
         self.db = Database()
         self.config = get_bot_config(self.db)
         self.queue = asyncio.Queue()
-        self.plugin_manager = PluginManager(plugin_package_path="src.plugins")
         self.auto_reply_count = 0
+        self._panel_dm_runner_started = False
 
     async def setup_hook(self):
         """This is called when the bot is preparing to connect."""
@@ -79,20 +93,47 @@ class Zahul(discord.Client):
         self.tree.add_command(tokens_command)
         self.tree.add_command(about_command(self.db))
         self.tree.add_command(reminder_command)
-        
+        self.tree.add_command(rolldice_command)
+        self.tree.add_command(random_slash_command)
+        self.tree.add_command(wheel_command)
+        self.tree.add_command(search_slash_command)
+        self.tree.add_command(image_slash_command)
+
         # Sync commands globally. For development, you might sync to a specific guild.
         await self.tree.sync()
 
-        self.think_task = asyncio.create_task(pipeline.think(self, self.db, self.queue, self.plugin_manager))
+        self.invite_link = None
+        self.think_task = asyncio.create_task(pipeline.think(self, self.db, self.queue))
         self.scheduler_task = asyncio.create_task(_run_scheduler(self))
 
     async def on_ready(self):
         print(f"Discord Bot is logged in as {self.user} (ID: {self.user.id})")
         app_info = await self.application_info()
-        self.invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot" # Set the attribute here
-        invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
-        print(f"Bot Invite Link: {invite_link}")
+        self.invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
+        print(f"Bot Invite Link: {self.invite_link}")
         print("Discord Bot is up and running.")
+        if not self._panel_dm_runner_started:
+            self._panel_dm_runner_started = True
+            asyncio.create_task(self._flush_panel_dm_queue_runner())
+
+    async def _flush_panel_dm_queue_runner(self):
+        """Drain panel notification DMs: early retries after connect, then periodic while online."""
+        from api.discord_panel_dm_queue import flush_discord_panel_dm_queue
+        for delay_sec in (2, 15, 45):
+            await asyncio.sleep(delay_sec)
+            try:
+                await flush_discord_panel_dm_queue(self)
+            except Exception as e:
+                print(f"Panel DM queue flush failed (delay={delay_sec}s): {e}")
+                traceback.print_exc()
+        while True:
+            await asyncio.sleep(120)
+            try:
+                if self.is_ready():
+                    await flush_discord_panel_dm_queue(self)
+            except Exception as e:
+                print(f"Panel DM periodic flush failed: {e}")
+                traceback.print_exc()
 
     async def on_message(self, message: discord.Message):
         # We pass the bot instance (self) and db instance (self.db) to the observer
@@ -215,21 +256,22 @@ class EditCaptionModal(discord.ui.Modal, title='Edit Image Caption'):
 
 # --- Standalone Commands ---
 def about_command(db: Database):
-    @app_commands.command(name="about", description="Zobrazí info o postave.")
-    async def _about(interaction: discord.Interaction, meno: str):
-        char = db.get_character(name=meno)
+    @app_commands.command(name="about", description="Show a character's public about text.")
+    @app_commands.describe(name="Character name")
+    async def _about(interaction: discord.Interaction, name: str):
+        char = db.get_character(name=name)
         if not char:
-            await interaction.response.send_message(f"Postava **{meno}** neexistuje.", ephemeral=True)
+            await interaction.response.send_message(f"Character **{name}** does not exist.", ephemeral=True)
             return
         about = char.get("data", {}).get("about", "").strip()
         if not about:
-            await interaction.response.send_message(f"**{meno}** nemá žiadne info.", ephemeral=True)
+            await interaction.response.send_message(f"**{name}** has no about text set.", ephemeral=True)
             return
-        await interaction.response.send_message(f"**{meno}**\n{about}", ephemeral=True)
+        await interaction.response.send_message(f"**{name}**\n{about}", ephemeral=True)
     return _about
 
 
-@app_commands.command(name="tokens", description="Zobrazí využitie tokenov.")
+@app_commands.command(name="tokens", description="Show token usage and active model.")
 async def tokens_command(interaction: discord.Interaction):
     from src.utils.llm_new import get_tokens_used_last_minute, get_daily_tokens_used, get_fallback_info
     bot: Zahul = interaction.client
@@ -239,58 +281,62 @@ async def tokens_command(interaction: discord.Interaction):
     info = get_fallback_info()
     primary = cfg.base_llm
     fallback = cfg.fallback_llm
-    model_line = f"🤖 Model: **{primary}** (primary)" if info is None else f"🤖 Model: **{fallback}** (fallback) — primary o **{info[0]}**"
+    model_line = (
+        f"🤖 Model: **{primary}** (primary)"
+        if info is None
+        else f"🤖 Model: **{fallback}** (fallback) — primary back at **{info[0]}**"
+    )
     msg = (
         f"{model_line}\n"
-        f"📊 **Tokeny za poslednú minútu:** {tpm_used}/{cfg.token_limit_tpm}\n"
-        f"📅 **Tokeny dnes:** {tpd_used}/{tpd_limit} (zostatok: {max(0, tpd_limit - tpd_used)})"
+        f"📊 **Tokens (last minute):** {tpm_used}/{cfg.token_limit_tpm}\n"
+        f"📅 **Tokens today:** {tpd_used}/{tpd_limit} (remaining: {max(0, tpd_limit - tpd_used)})"
     )
     await interaction.response.send_message(msg, ephemeral=True)
 
 
 class FallbackGroup(app_commands.Group):
     def __init__(self):
-        super().__init__(name="fallback", description="Správa fallback modelu")
+        super().__init__(name="fallback", description="Manage the fallback model")
 
-    @app_commands.command(name="status", description="Zobrazí stav fallback modelu.")
+    @app_commands.command(name="status", description="Show whether fallback mode is active.")
     async def status(self, interaction: discord.Interaction):
         from src.utils.llm_new import get_fallback_info, get_fallback_tokens_used
         info = get_fallback_info()
         if info is None:
-            await interaction.response.send_message("✅ Primary model aktívny, do fallbacku si ešte nespadla.", ephemeral=True)
+            await interaction.response.send_message("✅ Primary model is active (not in fallback).", ephemeral=True)
         else:
             back_at, remaining = info
             fb_tokens = get_fallback_tokens_used()
             await interaction.response.send_message(
-                f"⚠️ **Fallback aktívny**\n"
-                f"Primary späť o **{back_at}** (za ~{remaining} min)\n"
-                f"Tokeny spotrebované počas fallbacku: **{fb_tokens}**",
+                f"⚠️ **Fallback active**\n"
+                f"Primary returns at **{back_at}** (~{remaining} min)\n"
+                f"Tokens used during fallback: **{fb_tokens}**",
                 ephemeral=True
             )
 
-    @app_commands.command(name="on", description="Manuálne zapne fallback model.")
+    @app_commands.command(name="on", description="Manually enable fallback mode.")
     async def on(self, interaction: discord.Interaction):
         import src.utils.llm_new as llm
         if llm._fallback_active:
-            await interaction.response.send_message("⚠️ Fallback už beží.", ephemeral=True)
+            await interaction.response.send_message("⚠️ Fallback is already on.", ephemeral=True)
             return
         llm._fallback_active = True
         llm._fallback_end = time.time() + llm.FALLBACK_DURATION
         llm._save_fallback_state(llm._fallback_end)
         from datetime import datetime
         back_at = datetime.fromtimestamp(llm._fallback_end).strftime("%H:%M")
-        await interaction.response.send_message(f"✅ Fallback manuálne zapnutý do **{back_at}**.", ephemeral=True)
+        await interaction.response.send_message(f"✅ Fallback enabled manually until **{back_at}**.", ephemeral=True)
 
-    @app_commands.command(name="off", description="Manuálne vypne fallback model.")
+    @app_commands.command(name="off", description="Manually disable fallback mode.")
     async def off(self, interaction: discord.Interaction):
         import src.utils.llm_new as llm
         if not llm._fallback_active:
-            await interaction.response.send_message("✅ Fallback nie je aktívny.", ephemeral=True)
+            await interaction.response.send_message("✅ Fallback is not active.", ephemeral=True)
             return
         llm._fallback_active = False
         llm._clear_fallback_state()
         llm.reset_fallback_tokens()
-        await interaction.response.send_message("✅ Fallback vypnutý, prepínam na primary.", ephemeral=True)
+        await interaction.response.send_message("✅ Fallback turned off; switching to primary.", ephemeral=True)
 
 
 class AutocapGroup(app_commands.Group):
@@ -632,7 +678,7 @@ async def _run_scheduler(bot: 'Zahul'):
 @app_commands.command(name="reminder", description="Set a one-time reminder in this channel or DM.")
 @app_commands.describe(
     character="Character who will deliver the message",
-    when="Date and time (YYYY-MM-DD HH:MM) — Slovak time",
+    when="Date and time (YYYY-MM-DD HH:MM) in Europe/Bratislava",
     text="Message text (exact) or topic hint (generate)",
     mode="How the message is sent: exact text or generated in character",
 )
@@ -657,7 +703,10 @@ async def reminder_command(
         try:
             dt = datetime.strptime(when, "%Y-%m-%d %H:%M").replace(tzinfo=SK_TZ)
         except ValueError:
-            await interaction.response.send_message("❌ Invalid format. Use `YYYY-MM-DD HH:MM` or `YYYY-MM-DD HH:MM:SS` (Slovak time).", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ Invalid format. Use `YYYY-MM-DD HH:MM` or `YYYY-MM-DD HH:MM:SS` (Europe/Bratislava).",
+                ephemeral=True,
+            )
             return
     if dt <= datetime.now(SK_TZ):
         await interaction.response.send_message("❌ That time is already in the past.", ephemeral=True)
@@ -688,6 +737,258 @@ async def reminder_command(
         f"✅ Reminder set! **{character}** → {target_desc} at **{when}** (ID: {task_id}, mode: {message_mode}).",
         ephemeral=True
     )
+
+
+def _server_id_for_slash(interaction: discord.Interaction) -> Optional[str]:
+    return None if isinstance(interaction.channel, discord.DMChannel) else str(interaction.guild.id)
+
+
+async def _optional_character_slash(
+    bot: "Zahul",
+    interaction: discord.Interaction,
+    channel: ActiveChannel,
+    character_name: Optional[str],
+    synthetic: str,
+):
+    if not (character_name and character_name.strip()):
+        return
+    row = bot.db.get_character(character_name.strip())
+    if not row:
+        await interaction.followup.send(f"Character **{character_name.strip()}** does not exist.", ephemeral=True)
+        return
+    character = ActiveCharacter(row, bot.db)
+    await generate_slash_tool_character_reply(
+        bot, interaction, character, channel, synthetic, _server_id_for_slash(interaction)
+    )
+
+
+@app_commands.command(name="rolldice", description="Roll standard RPG dice (d4–d12, d20, d100).")
+@app_commands.choices(
+    die=[
+        app_commands.Choice(name="d4", value=4),
+        app_commands.Choice(name="d6", value=6),
+        app_commands.Choice(name="d8", value=8),
+        app_commands.Choice(name="d10", value=10),
+        app_commands.Choice(name="d12", value=12),
+        app_commands.Choice(name="d20", value=20),
+        app_commands.Choice(name="d100", value=100),
+    ]
+)
+@app_commands.describe(
+    die="Which die (default: d6).",
+    count="How many dice to roll (1–50). Default: 1.",
+    character="Optional in-character reaction.",
+)
+async def rolldice_command(
+    interaction: discord.Interaction,
+    die: Optional[app_commands.Choice[int]] = None,
+    count: int = 1,
+    character: Optional[str] = None,
+):
+    bot: Zahul = interaction.client
+    ch, err = _slash_channel_or_error(interaction, bot.db)
+    if err:
+        await interaction.response.send_message(err, ephemeral=True)
+        return
+    sides = 6 if die is None else int(die.value)
+    try:
+        rolls = tool_actions.roll_standard_die(sides, int(count))
+    except ValueError as e:
+        await interaction.response.send_message(str(e), ephemeral=True)
+        return
+    s = sum(rolls)
+    if len(rolls) == 1:
+        line = f"🎲 d{sides}: **{rolls[0]}**"
+    else:
+        shown = ", ".join(str(r) for r in rolls)
+        line = f"🎲 {len(rolls)}×d{sides}: {shown} · sum **{s}**"
+    if not (character and character.strip()):
+        await interaction.response.send_message(line, ephemeral=True)
+        return
+    if not bot.db.get_character(character.strip()):
+        await interaction.response.send_message(f"Character **{character.strip()}** does not exist.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    if len(rolls) == 1:
+        synthetic = (
+            f"[Slash /rolldice] {interaction.user.display_name} rolled **{rolls[0]}** on a d{sides}.\n"
+            "React briefly in character."
+        )
+    else:
+        synthetic = (
+            f"[Slash /rolldice] {interaction.user.display_name} rolled {len(rolls)}×d{sides}: "
+            f"{', '.join(str(r) for r in rolls)} (sum **{s}**).\n"
+            "React briefly in character."
+        )
+    await _optional_character_slash(bot, interaction, ch, character, synthetic)
+
+
+@app_commands.command(
+    name="random",
+    description="Random integer(s) in a range (inclusive). Wider than /rolldice; optional in-character reaction.",
+)
+@app_commands.describe(
+    maximum="Upper bound (inclusive). If minimum is omitted, the range is 0..maximum.",
+    minimum="Lower bound (inclusive). Omit to use 0..maximum only.",
+    count="How many independent numbers (1–100). Default: 1.",
+    character="Optional in-character reaction.",
+)
+async def random_slash_command(
+    interaction: discord.Interaction,
+    maximum: int,
+    minimum: Optional[int] = None,
+    count: int = 1,
+    character: Optional[str] = None,
+):
+    bot: Zahul = interaction.client
+    ch, err = _slash_channel_or_error(interaction, bot.db)
+    if err:
+        await interaction.response.send_message(err, ephemeral=True)
+        return
+    if minimum is None:
+        lo, hi, values = tool_actions.random_integers_inclusive(0, int(maximum), int(count))
+    else:
+        lo, hi, values = tool_actions.random_integers_inclusive(int(minimum), int(maximum), int(count))
+    if len(values) == 1:
+        line = f"🔮 [{lo}–{hi}]: **{values[0]}**"
+    else:
+        shown = ", ".join(str(v) for v in values)
+        line = f"🔮 [{lo}–{hi}] ×{len(values)}: {shown}"
+    if not (character and character.strip()):
+        await interaction.response.send_message(line, ephemeral=True)
+        return
+    if not bot.db.get_character(character.strip()):
+        await interaction.response.send_message(f"Character **{character.strip()}** does not exist.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    if len(values) == 1:
+        synthetic = (
+            f"[Slash /random] {interaction.user.display_name} drew **{values[0]}** from range {lo}–{hi}.\n"
+            "React briefly in character."
+        )
+    else:
+        synthetic = (
+            f"[Slash /random] {interaction.user.display_name} drew from {lo}–{hi}: "
+            f"{', '.join(str(v) for v in values)}.\n"
+            "React briefly in character."
+        )
+    await _optional_character_slash(bot, interaction, ch, character, synthetic)
+
+
+@app_commands.command(name="wheel", description="Pick one option at random from a comma-separated list.")
+@app_commands.describe(
+    choices="At least two options, e.g. A, B, C (commas or |).",
+    character="Optional character — reacts in-character (that persona), not voice chat.",
+)
+async def wheel_command(interaction: discord.Interaction, choices: str, character: Optional[str] = None):
+    bot: Zahul = interaction.client
+    ch, err = _slash_channel_or_error(interaction, bot.db)
+    if err:
+        await interaction.response.send_message(err, ephemeral=True)
+        return
+    try:
+        opts, winner = tool_actions.spin_wheel(choices)
+    except ValueError as e:
+        await interaction.response.send_message(str(e), ephemeral=True)
+        return
+    opt_str = ", ".join(opts)
+    if not (character and character.strip()):
+        await interaction.response.send_message(f"🎡 Wheel: **{winner}** (from: {opt_str})", ephemeral=True)
+        return
+    if not bot.db.get_character(character.strip()):
+        await interaction.response.send_message(f"Character **{character.strip()}** does not exist.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    synthetic = (
+        f"[Slash /wheel] Options: {opt_str}. Winner: **{winner}**.\n"
+        "Comment briefly in character."
+    )
+    await _optional_character_slash(bot, interaction, ch, character, synthetic)
+
+
+@app_commands.command(name="search", description="Web research (optional in-character summary or comment).")
+@app_commands.describe(
+    query="What to look up.",
+    character="Optional character — summarizes or comments in-character (that persona).",
+)
+async def search_slash_command(interaction: discord.Interaction, query: str, character: Optional[str] = None):
+    bot: Zahul = interaction.client
+    ch, err = _slash_channel_or_error(interaction, bot.db)
+    if err:
+        await interaction.response.send_message(err, ephemeral=True)
+        return
+    if not (character and character.strip()):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            result = await tool_actions.run_search(query, bot.db)
+        except Exception as e:
+            await interaction.followup.send(f"Search failed: {e}", ephemeral=True)
+            return
+        if len(result) > 1900:
+            result = result[:1900] + "…"
+        await interaction.followup.send(f"**Result**\n{result}", ephemeral=True)
+        return
+    if not bot.db.get_character(character.strip()):
+        await interaction.response.send_message(f"Character **{character.strip()}** does not exist.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    try:
+        result = await tool_actions.run_search(query, bot.db)
+    except Exception as e:
+        await interaction.followup.send(f"Search failed: {e}", ephemeral=True)
+        return
+    if len(result) > 6000:
+        result = result[:6000] + "…"
+    synthetic = (
+        f"[Slash /search] Query: {query.strip()}\n"
+        f"Research result:\n{result}\n"
+        "Summarize or comment briefly in character."
+    )
+    await _optional_character_slash(bot, interaction, ch, character, synthetic)
+
+
+@app_commands.command(name="image", description="Generate an image via ElectronHub (API key from AI Config).")
+@app_commands.describe(
+    prompt="Image description.",
+    character="Optional: post as this character’s webhook, then a short in-character comment.",
+)
+async def image_slash_command(interaction: discord.Interaction, prompt: str, character: Optional[str] = None):
+    bot: Zahul = interaction.client
+    ch, err = _slash_channel_or_error(interaction, bot.db)
+    if err:
+        await interaction.response.send_message(err, ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    try:
+        url = await tool_actions.generate_image_from_config(prompt, bot.db)
+    except Exception as e:
+        await interaction.followup.send(f"❌ Image generation failed: {e}", ephemeral=True)
+        return
+    embed = discord.Embed().set_image(url=url)
+    embed.set_footer(text=prompt[:200] + ("…" if len(prompt) > 200 else ""))
+    from src.controller.messenger import DiscordMessenger
+
+    messenger = DiscordMessenger(bot)
+    if character and character.strip():
+        row = bot.db.get_character(character.strip())
+        if not row:
+            await interaction.followup.send(f"Character **{character.strip()}** does not exist.", ephemeral=True)
+            return
+        character_obj = ActiveCharacter(row, bot.db)
+        try:
+            await messenger.send_embed_as_character(character_obj, interaction.channel, embed)
+        except Exception as e:
+            await interaction.followup.send(f"Could not post the image: {e}", ephemeral=True)
+            return
+        synthetic = (
+            f"[Slash /image] User generated an image (prompt: {prompt.strip()}). "
+            "The image is in the latest message. React briefly in character."
+        )
+        await generate_slash_tool_character_reply(
+            bot, interaction, character_obj, ch, synthetic, _server_id_for_slash(interaction)
+        )
+    else:
+        await interaction.followup.send(embed=embed)
 
 
 def register_channel_command(db: Database):

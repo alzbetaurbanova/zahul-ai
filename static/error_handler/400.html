@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Bad Request</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <div class="error-page-icon-wrap error-icon-amber mx-auto mb-4">
+                <i class="fas fa-circle-exclamation"></i>
+            </div>
+            <p class="error-page-code error-code-amber">400</p>
+            <h1 class="error-page-title">Bad Request</h1>
+            <p class="error-page-msg" style="margin-bottom:1rem">The server couldn't process your request.</p>
+            <pre class="log-pre-error text-left mb-6"><!-- ERROR_DETAIL --></pre>
+            <div class="error-page-actions">
+                <a href="/" class="btn-primary">Go home</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

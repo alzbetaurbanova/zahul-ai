@@ -8,16 +8,27 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body class="login-page">
-    <div class="login-shell">
-        <div class="login-brand">
-            <img src="/zahul" alt="zahul-ai" class="login-brand-logo">
-            <span class="login-brand-name">zahul-ai</span>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
         </div>
         <div class="modal-box p-8">
             <h2 class="heading-card mb-6 text-center">Panel Login</h2>
-            <form method="POST" action="/login">
-                <div class="mb-5">
+            <form id="login-form" method="POST" action="/login" class="hidden">
+                <div class="mb-4">
+                    <label for="username" class="label-form">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        required
+                        class="input-field"
+                        placeholder="Enter username"
+                    >
+                </div>
+                <div class="mb-4">
                     <label for="password" class="label-form">Password</label>
                     <input
                         type="password"
@@ -25,20 +36,30 @@
                         name="password"
                         autocomplete="off"
                         required
-                        autofocus
                         class="input-field"
                         placeholder="Enter panel password"
                     >
                 </div>
-                <button type="submit" class="btn-primary w-full">
-                    Login
+                <button type="submit" class="btn-gray w-full text-sm font-semibold flex items-center justify-center gap-2">
+                    <i class="fas fa-user"></i> Login with Username
                 </button>
             </form>
-            <div id="hint-msg" class="login-hint hidden">
-                Hint: <span id="hint-text"></span>
+            <div id="login-divider" class="flex items-center gap-3 mt-5 hidden">
+                <div class="flex-1 border-t border-gray-700"></div>
+                <span class="text-gray-500 text-xs">or</span>
+                <div class="flex-1 border-t border-gray-700"></div>
             </div>
-            <div id="error-msg" class="login-error hidden">
-                Incorrect password. Try again.
+            <a id="discord-login" href="/auth/discord/start" class="btn-discord w-full mt-5 text-center flex items-center justify-center gap-2 hidden">
+                <i class="fa-brands fa-discord"></i> Login with Discord
+            </a>
+            <div id="error-msg" class="mt-4 text-red-400 text-sm text-center hidden">
+                Login failed. Check your credentials and try again.
+            </div>
+            <div id="oauth-error-msg" class="mt-3 text-red-400 text-xs text-center hidden">
+                Discord login failed. Please retry.
+            </div>
+            <div id="auth-unavailable-msg" class="mt-3 text-yellow-400 text-xs text-center hidden">
+                No login method is currently enabled.
             </div>
         </div>
     </div>

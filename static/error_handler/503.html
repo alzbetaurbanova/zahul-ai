@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Service Unavailable</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <div class="error-page-icon-wrap error-icon-amber mx-auto mb-4">
+                <i class="fas fa-clock"></i>
+            </div>
+            <p class="error-page-code error-code-amber">503</p>
+            <h1 class="error-page-title">Service Unavailable</h1>
+            <p class="error-page-msg-sm">The server is starting up. Hang tight.</p>
+            <p class="error-page-countdown">Retrying automatically in <span id="countdown">8</span>s…</p>
+            <div class="error-page-actions">
+                <button onclick="location.reload()" class="btn-primary">Retry now</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let t = 8;
+        const el = document.getElementById('countdown');
+        const iv = setInterval(() => { el.textContent = --t; if (t <= 0) { clearInterval(iv); location.reload(); } }, 1000);
+    </script>
+</body>
+</html>

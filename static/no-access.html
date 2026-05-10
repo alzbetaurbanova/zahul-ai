@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Access Required</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <main class="p-6 w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <h1 class="heading-card mb-3">Access Restricted</h1>
+            <p class="text-secondary text-sm mb-5">
+                Your Discord account is authenticated, but no role is assigned yet.
+            </p>
+            <p id="request-status" class="text-hint mb-5">You can submit an access request for review.</p>
+            <button id="request-access-btn" class="btn-primary text-sm">
+                <i class="fas fa-paper-plane mr-2"></i>Request access
+            </button>
+            <p id="request-error" class="text-red-400 text-xs mt-4 hidden"></p>
+            <div class="mt-6">
+                <a href="/login" class="btn-primary text-sm inline-block mr-2">Try another way</a>
+                <a href="/logout" class="btn-gray text-sm inline-block">Logout</a>
+            </div>
+        </div>
+        </div>
+    </main>
+    <script src="/static/js/pages/no-access.js" defer></script>
+</body>
+</html>

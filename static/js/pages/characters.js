@@ -1,7 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
+    let currentUserRole = 'guest';
+    let currentUsername = '';
     let currentCharacterName = null;
     let currentCharacterId = null;
+    let currentCharCreatedBy = null;
 
     // --- DOM Elements ---
     const characterGrid = document.getElementById('character-grid');
@@ -25,6 +28,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('delete-btn');
     const exportBtn = document.getElementById('export-btn');
     const toastContainer = document.getElementById('toast-container');
+    const newCharBtn = document.getElementById('new-char-btn');
+    const importCardBtn = document.getElementById('import-card-btn');
+
+    function canCreateCharacter() {
+        return currentUserRole === 'mod' || currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
+
+    function canEditCurrentCharacter() {
+        if (currentUserRole === 'admin' || currentUserRole === 'super_admin') return true;
+        if (currentUserRole === 'mod') return currentCharCreatedBy === currentUsername;
+        return false;
+    }
     // --- Modal Management ---
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
     const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
@@ -73,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     serverFilter.addEventListener('change', applyFilter);
+    if (typeof initFilterClear === 'function') initFilterClear(() => applyFilter(), document.getElementById('characters-toolbar-filter'));
 
     // --- Core Functions ---
 
@@ -94,9 +110,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="character-card-img">
-                    <div class="character-card-overlay"></div>
-                    <h3 class="character-card-title">${char.name}</h3>
+                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110" onerror="this.src='/static/avatars/default_character_avatar.png'">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
                 `;
                 card.addEventListener('click', () => loadCharacterForEdit(char.id));
                 characterGrid.appendChild(card);
@@ -118,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
             resetForm();
             currentCharacterId = char.id;
             currentCharacterName = char.name;
+            currentCharCreatedBy = char.created_by || null;
 
             formTitle.textContent = `Editing: ${char.name}`;
             nameInput.value = char.name;
@@ -136,8 +153,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             updateAvatarPreview(char.data.avatar);
             if (isStaticAvatar) setAvatarMode('upload');
+
+            const canEdit = canEditCurrentCharacter();
             saveBtn.textContent = 'Save Changes';
-            deleteBtn.classList.remove('hidden');
+            saveBtn.classList.toggle('hidden', !canEdit);
+            deleteBtn.classList.toggle('hidden', !canEdit);
             exportBtn.classList.remove('hidden');
             openModal();
         } catch (error) {
@@ -148,14 +168,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const resetForm = () => {
         currentCharacterName = null;
         currentCharacterId = null;
+        currentCharCreatedBy = null;
         form.reset();
         nameInput.readOnly = false;
         nameInput.classList.remove('input-readonly');
         formTitle.textContent = 'Create New Character';
         saveBtn.textContent = 'Create Character';
+        saveBtn.classList.remove('hidden');
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
-        updateAvatarPreview('/static/avatars/default_avatar.png');
+        updateAvatarPreview('/static/avatars/default_character_avatar.png');
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
@@ -167,6 +189,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        if (currentCharacterId) {
+            if (!canEditCurrentCharacter()) {
+                showToast('You do not have permission to edit this character.', 'error');
+                return;
+            }
+        } else {
+            if (!canCreateCharacter()) {
+                showToast('You need at least mod role to create characters.', 'error');
+                return;
+            }
+        }
         
         const name = nameInput.value.trim();
         if (!name) {
@@ -267,6 +300,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleDelete() {
+        if (!canEditCurrentCharacter()) {
+            showToast('You do not have permission to delete this character.', 'error');
+            return;
+        }
         if (!currentCharacterId || !confirm(`Are you sure you want to delete '${nameInput.value}'? This cannot be undone.`)) {
             return;
         }
@@ -359,7 +396,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Avatar upload logic
     async function uploadFile(file) {
-            if (!file) return;
+        if (!file) return;
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            showToast('Unsupported file type. Allowed: PNG, JPG, WEBP, GIF.', 'error');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('File is too large. Maximum size is 5 MB.', 'error');
+            return;
+        }
         const formData = new FormData();
         formData.append('image', file);
         const originalUrl = avatarUrlInput.value;
@@ -381,7 +427,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const updateAvatarPreview = (url) => { avatarPreview.src = url || '/static/avatars/default_avatar.png'; };
+    const updateAvatarPreview = (url) => {
+        const fallback = '/static/avatars/default_character_avatar.png';
+        avatarPreview.src = url || fallback;
+        avatarPreview.onerror = () => { avatarPreview.src = fallback; };
+    };
 
     // --- Import Info Modal ---
     const importInfoModal = document.getElementById('import-info-modal');
@@ -543,8 +593,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Event Listeners ---
     form.addEventListener('submit', handleFormSubmit);
-    document.getElementById('new-char-btn').addEventListener('click', () => { resetForm(); openModal(); });
-    document.getElementById('import-card-btn').addEventListener('click', () => openImportInfoModal());
+    newCharBtn.addEventListener('click', () => {
+        resetForm();
+        openModal();
+    });
+    importCardBtn.addEventListener('click', () => {
+        if (!canCreateCharacter()) {
+            showToast('You need at least mod role to import characters.', 'error');
+            return;
+        }
+        openImportInfoModal();
+    });
     deleteBtn.addEventListener('click', handleDelete);
     exportBtn.addEventListener('click', handleExport);
     avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
@@ -553,6 +612,15 @@ document.addEventListener('DOMContentLoaded', function() {
     modalCloseBtn.addEventListener('click', closeModal);
 
     // --- Initial Load ---
-    loadServerFilter();
-    fetchAndDisplayCharacters();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            currentUsername = d?.current_user?.username || '';
+        })
+        .catch(() => {})
+        .finally(() => {
+            loadServerFilter();
+            fetchAndDisplayCharacters();
+        });
     });

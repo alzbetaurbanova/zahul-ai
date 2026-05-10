@@ -1,15 +1,32 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Any, Dict, List, Optional
 from api.db.database import Database
 from api.models.models import Task, TaskCreate, TaskUpdate
+from api.auth import require_role
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 db = Database()
 
 _SK_TZ = ZoneInfo("Europe/Bratislava")
 _REPEAT_TYPES = {"daily", "weekly", "monthly", "yearly"}
+
+
+def _can_access_task(user: dict, task: Dict[str, Any]) -> bool:
+    if (user or {}).get("role") != "mod":
+        return True
+    user_id = user.get("id")
+    if not user_id:
+        return False
+    # Mod scope is limited to assigned servers; DM/global tasks are excluded.
+    if task.get("target_type") != "channel":
+        return False
+    channel = db.get_channel(str(task.get("target_id") or ""))
+    if not channel:
+        return False
+    allowed_server_ids = set(db.get_user_server_access(int(user_id)))
+    return channel.get("server_id") in allowed_server_ids
 
 
 def _parse_iso_datetime(value: str) -> datetime:
@@ -136,12 +153,14 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
 
 
 @router.get("/")
-def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])):
+def list_tasks(user: dict = Depends(require_role("mod")), type: Optional[str] = None, status: List[str] = Query(default=[])):
     try:
         tasks = db.list_tasks(type=type, status=status)
         # Validate each task against the Task model to ensure data integrity
         validated_tasks = []
         for task in tasks:
+            if not _can_access_task(user, task):
+                continue
             try:
                 task['next_run'] = compute_next_run(task)
                 validated_tasks.append(Task(**task))
@@ -157,7 +176,7 @@ def list_tasks(type: Optional[str] = None, status: List[str] = Query(default=[])
 
 
 @router.post("/", response_model=Task, status_code=201)
-def create_task(body: TaskCreate):
+def create_task(body: TaskCreate, current_user: dict = Depends(require_role("admin"))):
     _validate_task_dependencies(body.type, body.character, body.target_type, body.target_id)
     if body.type == "reminder":
         if not body.scheduled_time:
@@ -196,15 +215,17 @@ def create_task(body: TaskCreate):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=500, detail="Failed to create task")
-    db.log_admin('task.create', target=body.name, detail=f"type={body.type} character={body.character}")
+    db.log_admin('task.create', target=body.name, detail=f"type={body.type} character={body.character}", actor=current_user)
     return task
 
 
 @router.get("/{task_id}", response_model=Task)
-def get_task(task_id: int):
+def get_task(task_id: int, user: dict = Depends(require_role("mod"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    if not _can_access_task(user, task):
+        raise HTTPException(status_code=403, detail="No access to this task")
     try:
         task['next_run'] = compute_next_run(task)
         return Task(**task)
@@ -215,7 +236,7 @@ def get_task(task_id: int):
 
 
 @router.put("/{task_id}", response_model=Task)
-def update_task(task_id: int, body: TaskUpdate):
+def update_task(task_id: int, body: TaskUpdate, current_user: dict = Depends(require_role("admin"))):
     if not db.get_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     existing = db.get_task(task_id)
@@ -224,7 +245,9 @@ def update_task(task_id: int, body: TaskUpdate):
 
     _validate_task_dependencies(merged["type"], merged["character"], merged["target_type"], merged["target_id"])
 
-    if merged["type"] == "reminder" and "scheduled_time" in updates:
+    if merged["type"] == "reminder":
+        if not merged.get("scheduled_time"):
+            raise HTTPException(status_code=400, detail="scheduled_time is required for reminder tasks")
         try:
             scheduled_dt = _parse_iso_datetime(merged["scheduled_time"])
         except ValueError:
@@ -236,7 +259,7 @@ def update_task(task_id: int, body: TaskUpdate):
         elif scheduled_dt.astimezone(_SK_TZ) <= now:
             raise HTTPException(status_code=400, detail="scheduled_time must be in the future")
 
-    if merged["type"] == "schedule" and "repeat_pattern" in updates:
+    elif merged["type"] == "schedule":
         if not merged.get("repeat_pattern"):
             raise HTTPException(status_code=400, detail="repeat_pattern is required for schedule tasks")
         _validate_repeat_pattern(merged["repeat_pattern"])
@@ -248,14 +271,14 @@ def update_task(task_id: int, body: TaskUpdate):
         db.update_task(task_id, **updates)
         changed = {k: v for k, v in updates.items() if str(existing.get(k)) != str(v)}
         if changed:
-            db.log_admin('task.update', detail=', '.join(f"{k}={v}" for k, v in changed.items()))
+            db.log_admin('task.update', detail=', '.join(f"{k}={v}" for k, v in changed.items()), actor=current_user)
     return db.get_task(task_id)
 
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: int):
+def delete_task(task_id: int, current_user: dict = Depends(require_role("admin"))):
     task = db.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete_task(task_id)
-    db.log_admin('task.delete', target=task.get('name', str(task_id)))
+    db.log_admin('task.delete', target=task.get('name', str(task_id)), actor=current_user)
