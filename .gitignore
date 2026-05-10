@@ -37,5 +37,9 @@ dummies/
 .claude/
 tasks/
 
+# Node / Tailwind build
+node_modules/
+static/css/tailwind.css
+
 # Cursor agent logs
 global

@@ -1,0 +1,11 @@
+{
+  "name": "zahul-ai",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i static/css/tailwind.css -o static/css/tailwind.min.css --minify",
+    "watch:css": "tailwindcss -i static/css/tailwind.css -o static/css/tailwind.min.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
