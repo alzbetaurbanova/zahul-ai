@@ -10,7 +10,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
 
 SECRET = os.environ.get("WEBHOOK_SECRET", "")
-BRANCH = os.environ.get("WEBHOOK_BRANCH", "refs/heads/main")
+BRANCH = os.environ.get("WEBHOOK_BRANCH", "refs/heads/master")
 
 
 class Handler(BaseHTTPRequestHandler):
