@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dmVal = elements['dm_list'] ? elements['dm_list'].value.trim() : '';
             dmToggle.checked = dmVal.length > 0;
             toggleDmFields();
+            updateRedirectUriHint();
         } catch (error) {
             showToast(error.message, 'error');
         }
@@ -191,6 +192,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!anyMethodEnabled) panelAuthToggle.checked = false;
     }
 
+    function updateRedirectUriHint() {
+        const base = (elements.public_url?.value || '').trim().replace(/\/$/, '');
+        const hintEl = document.getElementById('redirect-uri-hint');
+        const valueEl = document.getElementById('redirect-uri-value');
+        if (!base || !hintEl || !valueEl) { hintEl?.classList.add('hidden'); return; }
+        const full = `${base}/auth/discord/callback`;
+        valueEl.textContent = full;
+        valueEl.onclick = () => navigator.clipboard.writeText(full).then(() => {
+            const orig = valueEl.textContent;
+            valueEl.textContent = 'Copied!';
+            setTimeout(() => { valueEl.textContent = orig; }, 1200);
+        });
+        hintEl.classList.remove('hidden');
+    }
+
     function updateDiscordOauthWarning() {
         const configuredInForm = !!(elements.discord_oauth_client_id.value.trim()
             && elements.discord_oauth_redirect_uri.value.trim());
@@ -254,6 +270,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleSecuritySave() {
+        const redirectUri = elements.discord_oauth_redirect_uri?.value?.trim() || '';
+        if (redirectUri && !redirectUri.startsWith('https://')) {
+            showToast('Redirect URI must start with https://', 'error');
+            return;
+        }
         if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
             showToast('At least one login method must be enabled.', 'error');
             return;
@@ -413,7 +434,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMethodVisibility(true);
     });
     elements.discord_oauth_client_id.addEventListener('input', updateDiscordOauthWarning);
-    elements.discord_oauth_redirect_uri.addEventListener('input', updateDiscordOauthWarning);
+    elements.discord_oauth_redirect_uri.addEventListener('input', () => {
+        updateDiscordOauthWarning();
+        const val = elements.discord_oauth_redirect_uri.value.trim();
+        const warn = document.getElementById('redirect-uri-https-warn');
+        if (warn) warn.classList.toggle('hidden', !val || val.startsWith('https://'));
+    });
+    elements.public_url.addEventListener('input', updateRedirectUriHint);
     dmToggle.addEventListener('change', toggleDmFields);
 
     async function loadDefaultCharacterCombobox() {

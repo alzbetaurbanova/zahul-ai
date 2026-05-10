@@ -685,8 +685,8 @@
 
         // --- Modal ---
         async function openModal(task = null) {
-            if (!canEditTasks()) {
-                showToast('You do not have permission to create or edit scheduler tasks.', 'error');
+            if (task !== null && !canEditTasks()) {
+                showToast('You do not have permission to edit scheduler tasks.', 'error');
                 return;
             }
             await loadTargetOptions();

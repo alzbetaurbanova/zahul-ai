@@ -92,7 +92,8 @@ class Database:
                 CREATE TABLE IF NOT EXISTS characters (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
-                    data JSON NOT NULL
+                    data JSON NOT NULL,
+                    created_by TEXT
                 );
             """)
             # Character Triggers
@@ -135,6 +136,8 @@ class Database:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
             # Migrations for existing DBs
+            try: conn.execute("ALTER TABLE characters ADD COLUMN created_by TEXT")
+            except: pass
             for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
@@ -439,11 +442,11 @@ class Database:
     # ------------------------------------------------------
     # Characters & Triggers
     # ------------------------------------------------------
-    def create_character(self, name: str, data: Dict[str, Any], triggers: Optional[List[str]] = None) -> int:
+    def create_character(self, name: str, data: Dict[str, Any], triggers: Optional[List[str]] = None, created_by: Optional[str] = None) -> int:
         """Create a new character and optionally add its trigger words."""
         with self._get_connection() as conn:
             cur = conn.cursor()
-            cur.execute("INSERT INTO characters (name, data) VALUES (?, ?)", (name, json.dumps(data)))
+            cur.execute("INSERT INTO characters (name, data, created_by) VALUES (?, ?, ?)", (name, json.dumps(data), created_by))
             char_id = cur.lastrowid
             if triggers:
                 trigger_data = [(char_id, trigger) for trigger in triggers]
@@ -454,12 +457,12 @@ class Database:
     def get_character(self, name: str) -> Optional[Dict[str, Any]]:
         """Read a character's data and triggers by name."""
         with self._get_connection() as conn:
-            row = conn.execute("SELECT id, data FROM characters WHERE name = ?", (name,)).fetchone()
+            row = conn.execute("SELECT id, data, created_by FROM characters WHERE name = ?", (name,)).fetchone()
             if not row: return None
-            
+
             char_id = row["id"]
             triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
-            return {"id": char_id, "name": name, "data": json.loads(row["data"]), "triggers": triggers}
+            return {"id": char_id, "name": name, "data": json.loads(row["data"]), "triggers": triggers, "created_by": row["created_by"]}
 
     def update_character(self, name: str, **kwargs):
         """Update a character's data (e.g., data)."""
@@ -477,7 +480,7 @@ class Database:
     def list_characters(self) -> List[Dict[str, Any]]:
         """List all characters with their data and triggers."""
         with self._get_connection() as conn:
-            chars = [dict(row) for row in conn.execute("SELECT id, name, data FROM characters").fetchall()]
+            chars = [dict(row) for row in conn.execute("SELECT id, name, data, created_by FROM characters").fetchall()]
             for char in chars:
                 char['data'] = json.loads(char['data'])
                 triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char["id"],)).fetchall()]
@@ -487,10 +490,10 @@ class Database:
     def get_character_by_id(self, char_id: int) -> Optional[Dict[str, Any]]:
         """Read a character's data and triggers by ID."""
         with self._get_connection() as conn:
-            row = conn.execute("SELECT id, name, data FROM characters WHERE id = ?", (char_id,)).fetchone()
+            row = conn.execute("SELECT id, name, data, created_by FROM characters WHERE id = ?", (char_id,)).fetchone()
             if not row: return None
             triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
-            return {"id": char_id, "name": row["name"], "data": json.loads(row["data"]), "triggers": triggers}
+            return {"id": char_id, "name": row["name"], "data": json.loads(row["data"]), "triggers": triggers, "created_by": row["created_by"]}
 
     def update_character_by_id(self, char_id: int, name: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
         """Update a character by ID. Optionally update name and/or data."""

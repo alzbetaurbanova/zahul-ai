@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
 from typing import List
-from api.auth import require_role
+from api.auth import require_role, ROLE_LEVEL
 from api.url_safety import validate_proxy_image_url
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
@@ -146,7 +146,7 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 async def save_avatar(
     name: str = Query(..., description="Character name (used as filename)"),
     image: UploadFile = File(..., description="Avatar image file"),
-    current_user: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("mod")),
 ):
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
     content_type = (image.content_type or "").lower()
@@ -166,7 +166,7 @@ async def save_avatar(
 
 @router.post("/mirror_avatar")
 async def mirror_avatar_endpoint(
-    current_user: dict = Depends(require_role("admin")),
+    current_user: dict = Depends(require_role("mod")),
     name: str = Query(..., description="Character name (used as filename)"),
     url: str = Query(..., description="Image URL to download")
 ):
@@ -231,7 +231,7 @@ async def list_characters():
 @router.post("/", response_model=Character, status_code=status.HTTP_201_CREATED)
 async def create_character(
     character: CharacterCreate = Body(...),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("mod"))
 ):
     """
     Create a new character from a structured JSON object.
@@ -247,7 +247,8 @@ async def create_character(
         db.create_character(
             name=character.name,
             data=char_data,
-            triggers=character.triggers
+            triggers=character.triggers,
+            created_by=current_user.get("username")
         )
         db.log_admin('character.create', target=character.name, actor=current_user)
     except Exception as e:
@@ -276,12 +277,17 @@ async def get_character(character_id: int = Path(..., description="ID of the cha
 async def update_character(
     character_id: int = Path(...),
     character_update: CharacterUpdate = Body(...),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_role("mod"))
 ):
     """Update an existing character's data, name, and triggers in the database."""
     existing_char = db.get_character_by_id(character_id)
     if not existing_char:
         raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
+
+    user_role = current_user.get("role", "guest")
+    if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
+        if existing_char.get("created_by") != current_user.get("username"):
+            raise HTTPException(status_code=403, detail="You can only edit characters you created.")
 
     try:
         char_data = character_update.data.model_dump()
@@ -316,11 +322,16 @@ async def update_character(
 
 
 @router.delete("/{character_id}")
-async def delete_character(character_id: int = Path(...), current_user: dict = Depends(require_role("admin"))):
+async def delete_character(character_id: int = Path(...), current_user: dict = Depends(require_role("mod"))):
     """Delete a character from the database."""
     char = db.get_character_by_id(character_id)
     if not char:
         raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
+
+    user_role = current_user.get("role", "guest")
+    if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
+        if char.get("created_by") != current_user.get("username"):
+            raise HTTPException(status_code=403, detail="You can only delete characters you created.")
     try:
         db.delete_character_by_id(char_id=character_id)
         db.log_admin('character.delete', target=char['name'], actor=current_user)
@@ -332,7 +343,7 @@ async def delete_character(character_id: int = Path(...), current_user: dict = D
 # --- Utility and Import Endpoints ---
 
 @router.post("/import", response_model=Character, status_code=status.HTTP_201_CREATED)
-async def create_character_from_import(request: Request, current_user: dict = Depends(require_role("admin"))):
+async def create_character_from_import(request: Request, current_user: dict = Depends(require_role("mod"))):
     """
     Create a new character by importing from a raw JSON character card file.
     This is a secondary creation method, used by the 'Import Card' button.
@@ -340,12 +351,12 @@ async def create_character_from_import(request: Request, current_user: dict = De
     try:
         raw_data = await request.json()
         name, data_dict = parse_character_card(raw_data)
-        
+
         if db.get_character(name=name):
             raise HTTPException(status_code=409, detail=f"Character '{name}' already exists.")
-            
+
         # Card imports don't have triggers, so an empty list is passed
-        db.create_character(name=name, data=data_dict, triggers=[])
+        db.create_character(name=name, data=data_dict, triggers=[], created_by=current_user.get("username"))
         db.log_admin('character.import', target=name, actor=current_user)
 
         new_character = db.get_character(name=name)

@@ -292,10 +292,14 @@ app = FastAPI(
 app.add_middleware(AuthMiddleware)
 
 
-def _error_page(code: int) -> FileResponse:
+def _error_page(code: int, detail: str | None = None) -> Response:
     path = f"static/error_handler/{code}.html"
     if not os.path.exists(path):
         path = "static/error_handler/500.html"
+    if detail:
+        with open(path, encoding="utf-8") as f:
+            html = f.read().replace("<!-- ERROR_DETAIL -->", detail)
+        return HTMLResponse(html, status_code=code)
     return FileResponse(path, status_code=code)
 
 
@@ -303,7 +307,8 @@ def _error_page(code: int) -> FileResponse:
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     if request.url.path.startswith("/api"):
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
-    return _error_page(exc.status_code)
+    detail = str(exc.detail) if exc.detail else None
+    return _error_page(exc.status_code, detail)
 
 
 @app.exception_handler(Exception)

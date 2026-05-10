@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
     let currentUserRole = 'guest';
+    let currentUsername = '';
     let currentCharacterName = null;
     let currentCharacterId = null;
+    let currentCharCreatedBy = null;
 
     // --- DOM Elements ---
     const characterGrid = document.getElementById('character-grid');
@@ -29,10 +31,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const newCharBtn = document.getElementById('new-char-btn');
     const importCardBtn = document.getElementById('import-card-btn');
 
-    function canEditCharacters() {
-        return typeof window.canMutate === 'function'
-            ? window.canMutate(currentUserRole)
-            : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    function canCreateCharacter() {
+        return currentUserRole === 'mod' || currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
+
+    function canEditCurrentCharacter() {
+        if (currentUserRole === 'admin' || currentUserRole === 'super_admin') return true;
+        if (currentUserRole === 'mod') return currentCharCreatedBy === currentUsername;
+        return false;
     }
     // --- Modal Management ---
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -121,10 +127,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadCharacterForEdit(id) {
-        if (!canEditCharacters()) {
-            showToast('You do not have permission to edit characters.', 'error');
-            return;
-        }
         try {
             const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
@@ -132,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
             resetForm();
             currentCharacterId = char.id;
             currentCharacterName = char.name;
+            currentCharCreatedBy = char.created_by || null;
 
             formTitle.textContent = `Editing: ${char.name}`;
             nameInput.value = char.name;
@@ -150,8 +153,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             updateAvatarPreview(char.data.avatar);
             if (isStaticAvatar) setAvatarMode('upload');
+
+            const canEdit = canEditCurrentCharacter();
             saveBtn.textContent = 'Save Changes';
-            deleteBtn.classList.remove('hidden');
+            saveBtn.classList.toggle('hidden', !canEdit);
+            deleteBtn.classList.toggle('hidden', !canEdit);
             exportBtn.classList.remove('hidden');
             openModal();
         } catch (error) {
@@ -162,11 +168,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const resetForm = () => {
         currentCharacterName = null;
         currentCharacterId = null;
+        currentCharCreatedBy = null;
         form.reset();
         nameInput.readOnly = false;
         nameInput.classList.remove('input-readonly');
         formTitle.textContent = 'Create New Character';
         saveBtn.textContent = 'Create Character';
+        saveBtn.classList.remove('hidden');
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
         updateAvatarPreview('/static/avatars/default_character_avatar.png');
@@ -181,9 +189,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
-        if (!canEditCharacters()) {
-            showToast('You do not have permission to modify characters.', 'error');
-            return;
+        if (currentCharacterId) {
+            if (!canEditCurrentCharacter()) {
+                showToast('You do not have permission to edit this character.', 'error');
+                return;
+            }
+        } else {
+            if (!canCreateCharacter()) {
+                showToast('You need at least mod role to create characters.', 'error');
+                return;
+            }
         }
         
         const name = nameInput.value.trim();
@@ -285,8 +300,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleDelete() {
-        if (!canEditCharacters()) {
-            showToast('You do not have permission to delete characters.', 'error');
+        if (!canEditCurrentCharacter()) {
+            showToast('You do not have permission to delete this character.', 'error');
             return;
         }
         if (!currentCharacterId || !confirm(`Are you sure you want to delete '${nameInput.value}'? This cannot be undone.`)) {
@@ -381,7 +396,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Avatar upload logic
     async function uploadFile(file) {
-            if (!file) return;
+        if (!file) return;
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            showToast('Unsupported file type. Allowed: PNG, JPG, WEBP, GIF.', 'error');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('File is too large. Maximum size is 5 MB.', 'error');
+            return;
+        }
         const formData = new FormData();
         formData.append('image', file);
         const originalUrl = avatarUrlInput.value;
@@ -570,16 +594,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Event Listeners ---
     form.addEventListener('submit', handleFormSubmit);
     newCharBtn.addEventListener('click', () => {
-        if (!canEditCharacters()) {
-            showToast('You do not have permission to create characters.', 'error');
-            return;
-        }
         resetForm();
         openModal();
     });
     importCardBtn.addEventListener('click', () => {
-        if (!canEditCharacters()) {
-            showToast('You do not have permission to import characters.', 'error');
+        if (!canCreateCharacter()) {
+            showToast('You need at least mod role to import characters.', 'error');
             return;
         }
         openImportInfoModal();
@@ -596,6 +616,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            currentUsername = d?.current_user?.username || '';
         })
         .catch(() => {})
         .finally(() => {

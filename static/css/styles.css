@@ -2014,3 +2014,122 @@ body[data-page="logs"] #detail-modal .modal-box {
     padding: 0.5rem;
     cursor: pointer;
 }
+
+/* ========================================================================== */
+/* Brand Header (logo + name above cards)                                     */
+/* ========================================================================== */
+.brand-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    /* Optical correction: logo shifts visual center right, nudge left to compensate */
+    transform: translateX(-0.6rem);
+}
+
+.brand-header img {
+    height: 2.5rem;
+    width: auto;
+    margin-right: 0.5rem;
+}
+
+.brand-header span {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* ========================================================================== */
+/* Error Pages                                                                 */
+/* ========================================================================== */
+
+.error-page-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+
+.error-page-card {
+    background-color: var(--surface-deep);
+    border: 1px solid var(--surface);
+    border-radius: 0.75rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 2.5rem 2rem;
+    max-width: 22rem;
+    width: 100%;
+    text-align: center;
+}
+
+.error-page-brand {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+}
+
+.error-page-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 9999px;
+    margin-bottom: 1.25rem;
+    font-size: 1.5rem;
+}
+
+.error-page-code {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.error-page-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--light);
+    margin-bottom: 0.625rem;
+}
+
+.error-page-msg {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 1.75rem;
+}
+
+.error-page-msg-sm {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 0.25rem;
+}
+
+.error-page-countdown {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1.75rem;
+}
+
+.error-page-actions {
+    display: flex;
+    gap: 0.625rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.error-icon-indigo { background-color: rgba(99, 102, 241, 0.12); color: var(--primary-light); }
+.error-icon-red    { background-color: rgba(220, 38, 38, 0.12);  color: #f87171; }
+.error-icon-amber  { background-color: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+.error-icon-orange { background-color: rgba(234, 88, 12, 0.12);  color: #fb923c; }
+
+.error-code-indigo { color: var(--primary-light); }
+.error-code-red    { color: #f87171; }
+.error-code-amber  { color: #fbbf24; }
+.error-code-orange { color: #fb923c; }

@@ -6,15 +6,39 @@
     <title>zahul-ai - Update in Progress</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Inlined — Caddy serves this when the app is down, /static/css/styles.css unavailable */
+        :root { --primary-light:#818cf8; --primary-dark:#4f46e5; --surface-deep:#111827; --surface:#1f2937; --text-dim:#9ca3af; --text-muted:#6b7280; --light:#f8fafc; --darker:#0f172a; }
+        body { background-color:var(--darker); color:var(--light); font-family:sans-serif; }
+        .modal-box { background-color:var(--surface-deep); border-radius:0.75rem; border:1px solid var(--surface); box-shadow:0 25px 50px -12px rgba(0,0,0,.5); }
+        .error-page-icon-wrap { display:inline-flex; align-items:center; justify-content:center; width:4rem; height:4rem; border-radius:9999px; font-size:1.5rem; background-color:rgba(245,158,11,0.12); color:#fbbf24; }
+        .error-page-code { font-size:1rem; font-weight:700; letter-spacing:0.05em; color:#fbbf24; margin-bottom:0.5rem; }
+        .error-page-title { font-size:1.375rem; font-weight:700; color:var(--light); margin-bottom:0.625rem; }
+        .error-page-msg { font-size:0.875rem; color:var(--text-dim); line-height:1.6; margin-bottom:0.25rem; }
+        .error-page-countdown { font-size:0.8rem; color:var(--text-muted); margin-bottom:1.75rem; }
+        .btn-primary { display:inline-block; background-color:var(--primary-dark); color:white; padding:0.5rem 1rem; border-radius:0.5rem; border:none; cursor:pointer; font-weight:500; text-decoration:none; }
+        .btn-primary:hover { background-color:#4338ca; }
+        .brand-header { display:flex; justify-content:center; align-items:center; margin-bottom:1.5rem; transform:translateX(-0.6rem); }
+        .brand-header img { height:2.5rem; width:auto; margin-right:0.5rem; }
+        .brand-header span { font-size:1.5rem; font-weight:700; color:white; }
+    </style>
 </head>
-<body class="min-h-screen flex items-center justify-center" style="background:#0f172a;color:#f8fafc;font-family:sans-serif">
-    <div class="text-center p-10 max-w-md w-full mx-4 rounded-xl border" style="background:#1e293b;border-color:#374151">
-        <div class="text-5xl mb-4" style="color:#f59e0b"><i class="fas fa-arrows-rotate"></i></div>
-        <p class="text-7xl font-bold mb-2" style="color:#f59e0b">502</p>
-        <h1 class="text-xl font-semibold mb-3">Update in Progress</h1>
-        <p class="text-sm mb-2" style="color:#9ca3af">The server is restarting or updating. This usually takes a few seconds.</p>
-        <p class="text-sm mb-6" style="color:#6b7280">Retrying in <span id="countdown">10</span>s…</p>
-        <button onclick="location.reload()" class="inline-block px-6 py-2 rounded-lg text-sm font-medium text-white" style="background:#6366f1">Retry now</button>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/static/img/favicon.png" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <div class="error-page-icon-wrap mx-auto mb-4">
+                <i class="fas fa-arrows-rotate"></i>
+            </div>
+            <p class="error-page-code">502</p>
+            <h1 class="error-page-title">Update in Progress</h1>
+            <p class="error-page-msg">The server is restarting or deploying an update.</p>
+            <p class="error-page-countdown">Retrying automatically in <span id="countdown">10</span>s…</p>
+            <button onclick="location.reload()" class="btn-primary">Retry now</button>
+        </div>
     </div>
     <script>
         let t = 10;

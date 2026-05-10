@@ -8,10 +8,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body class="bg-darker text-light min-h-screen">
-    <main class="p-6 min-h-screen flex items-center justify-center">
-        <div class="config-panel p-8 max-w-lg w-full text-center">
-            <h1 class="heading-page text-2xl mb-3">Access Restricted</h1>
+<body class="min-h-screen flex items-center justify-center">
+    <main class="p-6 w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <h1 class="heading-card mb-3">Access Restricted</h1>
             <p class="text-secondary text-sm mb-5">
                 Your Discord account is authenticated, but no role is assigned yet.
             </p>
@@ -24,6 +28,7 @@
                 <a href="/login" class="btn-primary text-sm inline-block mr-2">Try another way</a>
                 <a href="/logout" class="btn-gray text-sm inline-block">Logout</a>
             </div>
+        </div>
         </div>
     </main>
     <script src="/static/js/pages/no-access.js" defer></script>

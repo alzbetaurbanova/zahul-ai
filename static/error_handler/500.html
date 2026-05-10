@@ -3,17 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - 500 Internal Server Error</title>
+    <title>zahul-ai - Server Error</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body class="min-h-screen flex items-center justify-center" style="background:#0f172a;color:#f8fafc;font-family:sans-serif">
-    <div class="text-center p-10 max-w-md w-full mx-4 rounded-xl border" style="background:#1e293b;border-color:#374151">
-        <div class="text-5xl mb-4" style="color:#dc2626"><i class="fas fa-triangle-exclamation"></i></div>
-        <p class="text-7xl font-bold mb-2" style="color:#dc2626">500</p>
-        <h1 class="text-xl font-semibold mb-3">Internal Server Error</h1>
-        <p class="text-sm mb-6" style="color:#9ca3af">Something went wrong on our end. Please try again later.</p>
-        <a href="/" class="inline-block px-6 py-2 rounded-lg text-sm font-medium text-white" style="background:#6366f1">Go home</a>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="brand-header">
+            <img src="/zahul" alt="zahul-ai">
+            <span>zahul-ai</span>
+        </div>
+        <div class="modal-box p-8 text-center">
+            <div class="error-page-icon-wrap error-icon-red mx-auto mb-4">
+                <i class="fas fa-triangle-exclamation"></i>
+            </div>
+            <p class="error-page-code error-code-red">500</p>
+            <h1 class="error-page-title">Something Went Wrong</h1>
+            <p class="error-page-msg">An unexpected error occurred on our end. Please try again in a moment.</p>
+            <div class="error-page-actions">
+                <a href="/" class="btn-primary">Go home</a>
+                <button onclick="location.reload()" class="btn-gray">Try again</button>
+            </div>
+        </div>
     </div>
 </body>
 </html>

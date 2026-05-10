@@ -116,6 +116,7 @@ class Character(BaseModel):
     name: str
     data: CharacterData  # The 'data' column is a validated JSON object
     triggers: List[str] = Field(default_factory=list)
+    created_by: Optional[str] = None
 
 class CharacterListItem(BaseModel):
     """A lightweight model for listing characters in the UI."""
