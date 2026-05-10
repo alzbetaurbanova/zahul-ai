@@ -298,7 +298,7 @@
                             <div>
                                 <label for="discord_oauth_redirect_uri" class="label-tt">Redirect URI <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Must be added under OAuth2 → Redirects on the Developer Portal. Must match exactly — including the path /auth/discord/callback.</span></span></label>
                                 <input type="url" id="discord_oauth_redirect_uri" class="input-field" placeholder="https://yourdomain.com/auth/discord/callback">
-                                <p id="redirect-uri-https-warn" class="mt-1 hidden" style="color:#f87171;font-size:0.75rem"><i class="fas fa-triangle-exclamation mr-1"></i>Discord requires <strong>https://</strong> for redirect URIs.</p>
+                                <p id="redirect-uri-https-warn" class="mt-1 hidden" style="color:#f87171;font-size:0.75rem"><i class="fas fa-triangle-exclamation mr-1"></i>Discord requires <strong>https://</strong> for redirect URIs (http:// is allowed only for localhost).</p>
                                 <p id="redirect-uri-hint" class="text-hint mt-1 hidden">Expected: <span id="redirect-uri-value" class="font-mono cursor-pointer hover:text-indigo-400" title="Click to copy"></span></p>
                             </div>
                             <div>
