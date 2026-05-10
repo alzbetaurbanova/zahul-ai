@@ -102,14 +102,15 @@ class Zahul(discord.Client):
         # Sync commands globally. For development, you might sync to a specific guild.
         await self.tree.sync()
 
+        self.invite_link = None
         self.think_task = asyncio.create_task(pipeline.think(self, self.db, self.queue))
         self.scheduler_task = asyncio.create_task(_run_scheduler(self))
 
     async def on_ready(self):
         print(f"Discord Bot is logged in as {self.user} (ID: {self.user.id})")
         app_info = await self.application_info()
-        invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
-        print(f"Bot Invite Link: {invite_link}")
+        self.invite_link = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=533113207808&scope=bot"
+        print(f"Bot Invite Link: {self.invite_link}")
         print("Discord Bot is up and running.")
         if not self._panel_dm_runner_started:
             self._panel_dm_runner_started = True
