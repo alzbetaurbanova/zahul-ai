@@ -106,9 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             await loadSuperAdmin();
             updateMethodVisibility();
-            if (!isSuperAdmin() && loginAccessSection) {
-                loginAccessSection.classList.add('hidden');
-            }
         } catch (error) {
             // Silently ignore
         }
