@@ -28,6 +28,7 @@
                     Requests
                     <span id="requests-tab-badge" class="tab-count-badge hidden" aria-live="polite"></span>
                 </button>
+                <button data-tab="sessions" type="button" class="tab-btn">Sessions</button>
             </div>
             <div class="config-panel p-5 md:p-6">
                 <div id="security-off-warning" class="hidden mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-200 text-sm">
@@ -71,8 +72,50 @@
                     </div>
                     <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
                 </div>
+                <div id="sessions-filters" class="filter-panel mb-5 hidden">
+                    <div>
+                        <label class="label-xs">Search user</label>
+                        <div class="relative">
+                            <input type="text" id="filter-session-user" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                            <button id="filter-session-user-clear" class="icon-clear-btn" data-clear="filter-session-user" title="Clear user search"><i class="fas fa-times"></i></button>
+                            <div id="filter-session-user-dd" class="autocomplete-dd hidden"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-xs">Browser</label>
+                        <div class="select-wrap">
+                            <select id="filter-session-browser" class="input-field">
+                                <option value="">All</option>
+                                <option value="Chrome">Chrome</option>
+                                <option value="Edge">Edge</option>
+                                <option value="Firefox">Firefox</option>
+                                <option value="Opera">Opera</option>
+                                <option value="Safari">Safari</option>
+                                <option value="Unknown">Unknown</option>
+                            </select>
+                            <button class="icon-clear-btn hidden" data-clear="filter-session-browser" title="Clear"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-xs">OS</label>
+                        <div class="select-wrap">
+                            <select id="filter-session-os" class="input-field">
+                                <option value="">All</option>
+                                <option value="Windows">Windows</option>
+                                <option value="macOS">macOS</option>
+                                <option value="Linux">Linux</option>
+                                <option value="Android">Android</option>
+                                <option value="iOS">iOS</option>
+                                <option value="Unknown">Unknown</option>
+                            </select>
+                            <button class="icon-clear-btn hidden" data-clear="filter-session-os" title="Clear"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <button id="clear-session-filters-btn" class="btn-clear-filter">Clear filters</button>
+                </div>
                 <div id="user-list" class="space-y-2"></div>
                 <div id="request-list" class="space-y-2 hidden"></div>
+                <div id="session-list" class="space-y-2 hidden"></div>
             </div>
         </div>
     </main>

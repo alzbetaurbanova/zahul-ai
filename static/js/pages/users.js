@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let _currentUserRole = '';
     let _allUsers = [];
     let _requests = [];
+    let _sessions = [];
     let _activeTab = 'users';
 
     /** Local calendar date DD.MM.YYYY from ISO string */
@@ -171,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bindPasswordToggle('new-password', 'new-password-toggle');
     bindPasswordToggle('edit-password', 'edit-password-toggle');
     initUserCombobox();
+    initSessionFilters();
     document.getElementById('filter-role').addEventListener('change', renderUsers);
     document.getElementById('filter-auth').addEventListener('change', renderUsers);
     document.getElementById('clear-filters-btn').addEventListener('click', () => {
@@ -250,9 +252,157 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('text-white', active);
         });
         document.getElementById('users-filters').classList.toggle('hidden', tab !== 'users');
+        document.getElementById('sessions-filters').classList.toggle('hidden', tab !== 'sessions');
         document.getElementById('user-list').classList.toggle('hidden', tab !== 'users');
         document.getElementById('request-list').classList.toggle('hidden', tab !== 'requests');
+        document.getElementById('session-list').classList.toggle('hidden', tab !== 'sessions');
         if (tab === 'requests') loadRequests();
+        if (tab === 'sessions') loadSessions();
+    }
+
+    function parseUA(ua) {
+        if (!ua) return null;
+        let browser = 'Unknown';
+        if (/Edg\//.test(ua)) browser = 'Edge';
+        else if (/OPR\/|Opera/.test(ua)) browser = 'Opera';
+        else if (/Chrome\//.test(ua)) browser = 'Chrome';
+        else if (/Firefox\//.test(ua)) browser = 'Firefox';
+        else if (/Safari\//.test(ua)) browser = 'Safari';
+
+        let os = 'Unknown';
+        if (/Windows NT/.test(ua)) os = 'Windows';
+        else if (/Android/.test(ua)) os = 'Android';
+        else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+        else if (/Mac OS X/.test(ua)) os = 'macOS';
+        else if (/Linux/.test(ua)) os = 'Linux';
+
+        return { browser, os };
+    }
+
+    function formatUA(parsed) {
+        if (!parsed) return null;
+        return `${parsed.browser} · ${parsed.os}`;
+    }
+
+    async function loadSessions() {
+        const list = document.getElementById('session-list');
+        list.innerHTML = '<div class="text-gray-500 text-center py-8">Loading...</div>';
+        try {
+            const res = await fetch('/api/users/sessions');
+            const data = await res.json();
+            if (!res.ok) throw new Error(parseApiError(data, 'Failed to load sessions.'));
+            _sessions = Array.isArray(data) ? data : [];
+            renderFilteredSessions();
+        } catch (e) {
+            list.innerHTML = `<div class="text-red-400 text-center py-8">Failed to load: ${esc(String(e))}</div>`;
+        }
+    }
+
+    function applySessionFilters(sessions) {
+        const q = (document.getElementById('filter-session-user')?.value || '').trim().toLowerCase();
+        const browser = document.getElementById('filter-session-browser')?.value || '';
+        const os = document.getElementById('filter-session-os')?.value || '';
+        return sessions.filter(s => {
+            if (q && !s.username.toLowerCase().includes(q)) return false;
+            if (browser || os) {
+                const parsed = parseUA(s.user_agent);
+                if (browser && (!parsed || parsed.browser !== browser)) return false;
+                if (os && (!parsed || parsed.os !== os)) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderFilteredSessions() {
+        renderSessions(applySessionFilters(_sessions));
+    }
+
+    function initSessionCombobox() {
+        function sessionUsernames() {
+            return [...new Set(_sessions.map(s => s.username).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        }
+        setupFilterCombobox(
+            'filter-session-user',
+            'filter-session-user-dd',
+            sessionUsernames,
+            () => renderFilteredSessions(),
+            () => renderFilteredSessions(),
+            'hover:bg-gray-800'
+        );
+    }
+
+    function initSessionFilters() {
+        initSessionCombobox();
+        document.getElementById('filter-session-browser')?.addEventListener('change', renderFilteredSessions);
+        document.getElementById('filter-session-os')?.addEventListener('change', renderFilteredSessions);
+        document.getElementById('clear-session-filters-btn')?.addEventListener('click', () => {
+            const fu = document.getElementById('filter-session-user');
+            if (fu) { fu.value = ''; if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu); }
+            document.getElementById('filter-session-browser').value = '';
+            document.getElementById('filter-session-os').value = '';
+            document.getElementById('filter-session-user-dd')?.classList.add('hidden');
+            document.querySelectorAll('#sessions-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
+            document.querySelectorAll('#sessions-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
+            renderFilteredSessions();
+        });
+        if (typeof initFilterClear === 'function') initFilterClear(() => {
+            document.getElementById('filter-session-user-dd')?.classList.add('hidden');
+            renderFilteredSessions();
+        }, document.getElementById('sessions-filters'));
+    }
+
+    function renderSessions(sessions) {
+        const list = document.getElementById('session-list');
+        if (!sessions.length) {
+            list.innerHTML = '<div class="text-gray-500 text-center py-12">No active sessions.</div>';
+            return;
+        }
+        const DEFAULT_AVATAR = '/static/avatars/default_user_avatar.png';
+        list.innerHTML = sessions.map(s => {
+            const authIcon = s.auth_provider === 'discord'
+                ? '<i class="fab fa-discord text-indigo-400 text-xs" title="Discord"></i>'
+                : '<i class="fas fa-key text-gray-500 text-xs" title="Local"></i>';
+            const since = formatDateTimeDdMmYyyy(s.created_at);
+            const expires = formatDateTimeDdMmYyyy(s.expires_at);
+            const safeAvatar = esc(s.avatar_url || DEFAULT_AVATAR);
+            const safeDefault = esc(DEFAULT_AVATAR);
+            const uaParsed = formatUA(parseUA(s.user_agent));
+            const uaTitle = s.user_agent ? ` title="${esc(s.user_agent)}"` : '';
+            const uaLine = uaParsed
+                ? `<span class="text-xs text-gray-500"${uaTitle}>${esc(uaParsed)}</span><span class="text-xs text-gray-600"> · </span>`
+                : '';
+            return `<div class="list-card flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img src="${safeAvatar}" onerror="this.onerror=null;this.src='${safeDefault}'" alt="avatar" class="w-8 h-8 rounded-full object-cover border border-gray-700 bg-gray-900 flex-shrink-0">
+                    ${authIcon}
+                    <div class="min-w-0">
+                        <span class="font-medium text-sm text-white truncate block">${esc(s.username)}</span>
+                        <span class="text-xs text-gray-500">${uaLine}since ${esc(since)} · expires ${esc(expires)}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span class="role-badge role-${esc(s.role)}">${roleIcon(s.role)}<span class="role-badge-label">${esc(roleLabel(s.role))}</span></span>
+                    <button class="btn-danger text-xs session-revoke-btn" data-user-id="${s.user_id}" title="Revoke all sessions for this user">
+                        <i class="fas fa-right-from-bracket mr-1"></i>Kick
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+        list.querySelectorAll('.session-revoke-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const userId = btn.dataset.userId;
+                btn.disabled = true;
+                try {
+                    const res = await fetch(`/api/users/${userId}/sessions`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
+                    showToast('Session revoked.', 'success');
+                    loadSessions();
+                } catch (e) {
+                    showToast(String(e), 'error');
+                    btn.disabled = false;
+                }
+            });
+        });
     }
 
     function renderUsers() {

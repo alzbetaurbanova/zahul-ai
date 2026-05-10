@@ -440,7 +440,8 @@ async def post_login(request: Request, username: str = Form(...), password: str 
     if user and user.get("password_hash"):
         if bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
             token = secrets.token_hex(32)
-            db.create_session(token, int(user["id"]), _make_session_expiry().isoformat())
+            ua = request.headers.get("user-agent")
+            db.create_session(token, int(user["id"]), _make_session_expiry().isoformat(), user_agent=ua)
             response = RedirectResponse(url="/", status_code=302)
             response.set_cookie(
                 "zahul_session",
@@ -618,7 +619,8 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
         if row_u and row_u.get("role") in ("pending", "user"):
             db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
     token = secrets.token_hex(32)
-    db.create_session(token, user_id, _make_session_expiry().isoformat())
+    ua = request.headers.get("user-agent")
+    db.create_session(token, user_id, _make_session_expiry().isoformat(), user_agent=ua)
     user = db.get_user_by_id(user_id)
     target_url = "/"
     if user and user.get("auth_provider") == "discord" and user.get("role") not in {"super_admin", "admin", "mod", "guest"}:

@@ -207,9 +207,14 @@ class Database:
                     user_id INTEGER NOT NULL,
                     created_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
+                    user_agent TEXT,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
+            try:
+                conn.execute("ALTER TABLE auth_sessions ADD COLUMN user_agent TEXT")
+            except Exception:
+                pass
             conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)")
             conn.execute("""
@@ -1033,12 +1038,12 @@ class Database:
             conn.commit()
             return int(cur.lastrowid)
 
-    def create_session(self, token: str, user_id: int, expires_at: str):
+    def create_session(self, token: str, user_id: int, expires_at: str, user_agent: str = None):
         created_at = self._utcnow_iso()
         with self._get_connection() as conn:
             conn.execute(
-                "REPLACE INTO auth_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token, user_id, created_at, expires_at),
+                "REPLACE INTO auth_sessions (token, user_id, created_at, expires_at, user_agent) VALUES (?, ?, ?, ?, ?)",
+                (token, user_id, created_at, expires_at, user_agent),
             )
             conn.commit()
 
@@ -1176,6 +1181,25 @@ class Database:
             conn.execute("DELETE FROM user_server_access WHERE user_id = ?", (user_id,))
             for sid in server_ids:
                 conn.execute("INSERT OR IGNORE INTO user_server_access (user_id, server_id) VALUES (?,?)", (user_id, sid))
+            conn.commit()
+
+    def list_active_sessions(self) -> List[Dict[str, Any]]:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            rows = conn.execute("""
+                SELECT s.user_id, s.created_at, s.expires_at, s.user_agent,
+                       u.username, u.role, u.auth_provider,
+                       u.discord_id, u.discord_avatar_hash, u.uploaded_avatar_url
+                FROM auth_sessions s
+                JOIN users u ON s.user_id = u.id
+                WHERE s.expires_at > ?
+                ORDER BY s.created_at DESC
+            """, (now,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def delete_user_sessions(self, user_id: int):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
             conn.commit()
 
     def delete_session(self, token: str):

@@ -192,6 +192,35 @@ async def list_users(_: dict = Depends(require_role("admin"))):
     return result
 
 
+@router.get("/sessions")
+async def list_sessions(_: dict = Depends(require_role("admin"))):
+    db = Database()
+    sessions = db.list_active_sessions()
+    result = []
+    for s in sessions:
+        result.append({
+            "user_id": s["user_id"],
+            "username": s["username"],
+            "role": s["role"],
+            "auth_provider": s["auth_provider"],
+            "avatar_url": _resolved_avatar_url(s),
+            "created_at": s["created_at"],
+            "expires_at": s["expires_at"],
+            "user_agent": s.get("user_agent"),
+        })
+    return result
+
+
+@router.delete("/{user_id}/sessions")
+async def revoke_user_sessions(user_id: int, current_user: dict = Depends(require_role("admin"))):
+    db = Database()
+    if not db.get_user_by_id(user_id):
+        raise HTTPException(status_code=404, detail="User not found.")
+    db.delete_user_sessions(user_id)
+    db.log_admin("user.sessions.revoke", detail=f"user_id={user_id}", actor=current_user)
+    return {"ok": True}
+
+
 @router.get("/me")
 async def get_me(current_user=Depends(get_current_user)):
     if not current_user:
