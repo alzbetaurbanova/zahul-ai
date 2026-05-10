@@ -33,6 +33,11 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
+/* Keep layout width stable between pages with/without vertical scrollbar. */
+html {
+    scrollbar-gutter: stable;
+}
+
 /* ========================================================================== */
 /* Shared Navigation                                                          */
 /* ========================================================================== */
@@ -95,6 +100,253 @@ body {
 .nav-mobile-link.active {
     color: white;
     background-color: rgba(99, 102, 241, 0.15);
+}
+
+.nav-mobile-logout {
+    margin-left: 0;
+    align-self: flex-start;
+}
+
+.nav-user-wrap {
+    min-width: 0;
+    text-align: left;
+    margin-left: 1.75rem;
+    position: relative;
+}
+
+.nav-user-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    border: 1px solid var(--surface-raised);
+    background-color: var(--surface);
+    overflow: visible;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+}
+
+.nav-user-btn:hover {
+    border-color: var(--primary);
+}
+
+.nav-user-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    object-fit: cover;
+    display: block;
+}
+
+.nav-user-badge {
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.25rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 9999px;
+    border: 1px solid var(--darker);
+    background: var(--surface-mid);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.nav-user-badge i {
+    font-size: 0.5rem;
+    line-height: 1;
+}
+
+.nav-user-badge.role-super_admin {
+    background: #eab308;
+    color: #1f2937;
+}
+
+/* Admin: slightly darker green for better contrast with the white icon */
+.nav-user-badge.role-admin {
+    background: #047857;
+    color: #fff;
+}
+
+/* Mod: blue chip + white icon */
+.nav-user-badge.role-mod {
+    background: #2563eb;
+    color: #fff;
+}
+
+.nav-user-badge.role-guest {
+    background: #4b5563;
+    color: #fff;
+}
+
+.nav-user-menu {
+    position: absolute;
+    right: 0;
+    left: auto;
+    top: calc(100% + 0.5rem);
+    z-index: 60;
+    min-width: 8.5rem;
+    width: fit-content;
+    max-width: min(22rem, calc(100vw - 1rem));
+    padding: 0.35rem 10px;
+    border-radius: 0.5rem;
+    border: 1px solid var(--surface-raised);
+    background-color: var(--surface-deep);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+
+.nav-user-name {
+    padding: 0.25rem 0.25rem 0.35rem;
+    margin-bottom: 0;
+    color: var(--light);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+}
+
+.nav-user-divider {
+    border: none;
+    height: 1px;
+    margin: 0.15rem 0.65rem 0.35rem;
+    background-color: var(--surface-raised);
+}
+
+.nav-user-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 0.375rem;
+    padding: 0.45rem 0.5rem;
+    color: var(--text-dim);
+    font-size: 0.8125rem;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.nav-user-logout:hover {
+    color: white;
+    background-color: rgba(99, 102, 241, 0.14);
+}
+
+@media (max-width: 1100px) {
+    .nav-desktop-links {
+        margin-left: 1rem !important;
+        gap: 0.35rem !important;
+    }
+
+    .nav-desktop-links .nav-link {
+        padding: 0.45rem 0.55rem;
+        font-size: 0.8125rem;
+    }
+
+    .nav-status-label,
+    .nav-status-text {
+        font-size: 0.8125rem;
+    }
+}
+
+/* Progressive squeeze before switching to hamburger. */
+@media (max-width: 1360px) {
+    .nav-desktop-links {
+        margin-left: 1.25rem !important;
+        gap: 0.5rem !important;
+    }
+
+    .nav-desktop-links .nav-link {
+        padding: 0.5rem 0.65rem;
+    }
+
+    .nav-user-wrap {
+        margin-left: 1.1rem;
+    }
+}
+
+@media (max-width: 1060px) {
+    .nav-desktop-links {
+        gap: 0.25rem !important;
+    }
+
+    .nav-desktop-links .nav-link {
+        font-size: 0.78rem;
+        padding: 0.45rem 0.5rem;
+    }
+
+    .nav-status-label,
+    .nav-status-text {
+        font-size: 0.68rem;
+    }
+
+    .nav-desktop-links .nav-link i {
+        display: none;
+    }
+}
+
+@media (max-width: 860px) {
+    .nav-desktop-links {
+        gap: 0.15rem !important;
+    }
+
+    .nav-desktop-links .nav-link {
+        font-size: 0.72rem;
+        padding: 0.4rem 0.42rem;
+    }
+
+    .nav-status-label,
+    .nav-status-text {
+        font-size: 0.62rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .site-nav .nav-row {
+        height: 3.5rem;
+    }
+
+    .site-nav .nav-left {
+        min-width: 0;
+        overflow: visible;
+    }
+
+    .site-nav .nav-right {
+        gap: 0.5rem;
+    }
+
+    .nav-status-label,
+    .nav-status-text {
+        display: none;
+    }
+
+    .site-nav .status-indicator {
+        width: 10px;
+        height: 10px;
+    }
+
+    .nav-mobile-menu {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.2rem;
+        padding: 0.5rem 0.75rem 0.7rem;
+    }
+
+    .nav-mobile-link {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 0.55rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+
+    .nav-mobile-logout {
+        margin-left: 0;
+    }
 }
 
 /* ========================================================================== */
@@ -294,8 +546,7 @@ textarea:disabled {
 /* Tabs                                                                       */
 /* ========================================================================== */
 .tab-active {
-    border-bottom: 2px solid var(--primary);
-    color: white;
+    color: var(--light);
 }
 
 /* ========================================================================== */
@@ -459,6 +710,40 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     display: inline-flex;
     align-items: center;
     cursor: pointer;
+}
+
+/* Reusable toggle switch track for checkbox sliders */
+.toggle-track {
+    width: 2.75rem;
+    height: 1.5rem;
+    background-color: #4b5563;
+    border-radius: 9999px;
+}
+
+.peer:focus ~ .toggle-track {
+    outline: none;
+}
+
+.toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    transition: all 0.15s;
+}
+
+.peer:checked ~ .toggle-track {
+    background-color: #4f46e5;
+}
+
+.peer:checked ~ .toggle-track::after {
+    transform: translateX(100%);
+    border-color: #ffffff;
 }
 
 .modal-backdrop {
@@ -642,6 +927,28 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     color: white;
 }
 
+/* ========================================================================== */
+/* Role Badges                                                                 */
+/* ========================================================================== */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+/* Users list: soft pills (avatar chips stay solid in .nav-user-badge) */
+.role-badge.role-super_admin { background: rgba(234,179,8,0.15); color: #fbbf24; }
+.role-badge.role-admin       { background: rgba(5, 150, 105, 0.2); color: #6ee7b7; }
+.role-badge.role-mod         { background: rgba(37, 99, 235, 0.22); color: #93c5fd; }
+.role-badge.role-guest       { background: rgba(107,114,128,0.15); color: #9ca3af; }
+.role-badge.role-pending     { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.role-badge.role-rejected    { background: rgba(220, 38, 38, 0.18); color: #f87171; }
+
 .legend-section {
     font-size: 1.125rem;
     font-weight: 600;
@@ -680,19 +987,66 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 .icon-clear-btn {
     position: absolute;
-    right: 0.5rem;
-    top: 0.5rem;
+    right: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--text-muted);
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.75rem;
+    font-size: 1rem;
     line-height: 1;
+    padding: 0 2px;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
     transition: color 0.15s;
+    z-index: 2;
+}
+
+.icon-clear-btn i {
+    font-size: 1em;
+    line-height: 1;
 }
 
 .icon-clear-btn:hover {
     color: var(--text-soft);
+}
+
+/* Select with custom chevron + clearable X */
+.select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.select-wrap select.input-field {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+
+.select-wrap::after {
+    content: '\f078';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    position: absolute;
+    right: 0.55rem;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.select-wrap.has-value::after {
+    opacity: 0;
+}
+
+.select-wrap .icon-clear-btn {
+    right: 0.45rem;
 }
 
 /* ========================================================================== */
@@ -704,6 +1058,10 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     margin-left: auto;
 }
 
+.cb-dd-chevron--btn {
+    margin-left: 0;
+}
+
 .cb-dd-btn {
     font-size: 0.875rem;
     padding: 0.5rem 0.75rem;
@@ -711,6 +1069,43 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    position: relative;
+}
+
+/* Admin logs Action: primary row is search input; trailing strip toggles list + clears selection */
+.af-action-dd-trigger {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    min-width: 2.75rem;
+    padding: 0 0.45rem;
+    justify-content: center;
+    gap: 0.35rem;
+    border: none;
+    border-left: 1px solid var(--surface-raised);
+    border-radius: 0 0.5rem 0.5rem 0;
+    background-color: var(--surface);
+}
+
+.af-action-dd-trigger:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.35);
+}
+
+.cb-dd-clear {
+    flex-shrink: 0;
+    font-size: 1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.cb-dd-clear:hover {
+    color: var(--text-soft);
 }
 
 .cb-dd {
@@ -723,6 +1118,38 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     border: 1px solid var(--surface-raised);
     border-radius: 0.5rem;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    padding: 0.25rem 0;
+}
+
+.cb-dd-scrollable {
+    max-height: min(20rem, 50vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.cb-dd.cb-dd-searchable {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: min(28rem, 55vh);
+}
+
+/* Ensure Tailwind's `hidden` always wins for dropdowns. */
+.cb-dd.hidden {
+    display: none !important;
+}
+
+.cb-dd-search-wrap {
+    flex-shrink: 0;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--surface-raised);
+}
+
+.cb-dd-search-list {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
     padding: 0.25rem 0;
 }
 
@@ -744,19 +1171,138 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 /* ========================================================================== */
 /* Tabs                                                                        */
 /* ========================================================================== */
-.tab-btn {
-    padding-bottom: 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-dim);
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.15s;
+body[data-page="logs"] .tabs-bar,
+body[data-page="users"] .tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--surface);
 }
 
-.tab-btn:hover {
-    color: white;
+body[data-page="logs"] .tab-btn,
+body[data-page="users"] .tab-btn {
+    min-height: 2.5rem;
+    padding: 0.625rem 0.125rem 0.7rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s ease;
+}
+
+body[data-page="logs"] .tab-btn::after,
+body[data-page="users"] .tab-btn::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.18s ease;
+}
+
+body[data-page="logs"] .tab-btn:hover,
+body[data-page="users"] .tab-btn:hover {
+    color: var(--text-soft);
+}
+
+body[data-page="logs"] .tab-btn.tab-active,
+body[data-page="users"] .tab-btn.tab-active {
+    color: var(--light);
+}
+
+body[data-page="logs"] .tab-btn.tab-active::after,
+body[data-page="users"] .tab-btn.tab-active::after {
+    transform: scaleX(1);
+}
+
+.tab-count-badge {
+    min-width: 0.8125rem;
+    height: 0.8125rem;
+    padding: 0 0.22rem;
+    border-radius: 9999px;
+    font-size: 0.5rem;
+    font-weight: 600;
+    line-height: 0.8125rem;
+    text-align: center;
+    background-color: #dc2626;
+    color: #fff;
+}
+
+
+@media (max-width: 640px) {
+    body[data-page="users"] .users-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    body[data-page="users"] #new-user-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    body[data-page="users"] .users-tabs {
+        gap: 0.85rem;
+    }
+
+    /* On small screens keep requests badge as compact dot. */
+    body[data-page="users"] .tab-count-badge {
+        min-width: 0.375rem;
+        width: 0.375rem;
+        height: 0.375rem;
+        padding: 0;
+        font-size: 0;
+        line-height: 0;
+        border-radius: 9999px;
+        color: transparent;
+    }
+
+    body[data-page="users"] .role-badge {
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
+    }
+
+    body[data-page="users"] .role-badge-label {
+        display: none;
+    }
+
+    body[data-page="users"] #users-filters > div {
+        width: 100%;
+    }
+
+    body[data-page="users"] #users-filters .input-field {
+        width: 100%;
+    }
+
+    body[data-page="users"] #clear-filters-btn {
+        width: 100%;
+        margin-left: 0;
+        text-align: center;
+    }
+
+    body[data-page="users"] .users-name {
+        font-size: 0.8125rem !important;
+    }
+
+    body[data-page="users"] .users-date {
+        display: none;
+    }
+}
+
+@media (max-width: 420px) {
+    body[data-page="users"] .users-name {
+        font-size: 0.75rem !important;
+    }
 }
 
 /* ========================================================================== */
@@ -1320,6 +1866,21 @@ body[data-page="logs"] #detail-modal .modal-box {
     border-radius: 0.5rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border: 1px solid var(--surface);
+}
+
+/* ========================================================================== */
+/* Shared List Cards (refactor-style)                                         */
+/* ========================================================================== */
+.list-card {
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: border-color 0.15s;
+}
+
+.list-card:hover {
+    border-color: #4b5563;
 }
 
 /* ========================================================================== */

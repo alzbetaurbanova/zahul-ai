@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Users</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-darker text-light min-h-screen" data-page="users">
+    <div id="toast-container" class="toast z-50"></div>
+
+    <div id="navbar-container"></div>
+    <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/users.js" defer></script>
+
+    <main class="p-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex-between mb-6 users-header">
+                <h1 class="heading-page">Users</h1>
+                <button id="new-user-btn" class="btn-primary text-sm"><i class="fas fa-user-plus mr-2"></i>New User</button>
+            </div>
+            <div class="tabs-bar users-tabs">
+                <button data-tab="users" class="tab-btn tab-active">Users</button>
+                <button data-tab="requests" type="button" class="tab-btn inline-flex items-center gap-2">
+                    Requests
+                    <span id="requests-tab-badge" class="tab-count-badge hidden" aria-live="polite"></span>
+                </button>
+            </div>
+            <div class="config-panel p-5 md:p-6">
+                <div id="security-off-warning" class="hidden mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-200 text-sm">
+                    Security is currently disabled. User management is accessible without authentication.
+                    Enable Security in <strong>AI Config</strong> to protect access to this page.
+                </div>
+                <div id="users-filters" class="filter-panel mb-5">
+                    <div>
+                        <label class="label-xs">Search user</label>
+                        <div class="relative">
+                            <input type="text" id="filter-user" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                            <button id="filter-user-clear" class="icon-clear-btn" data-clear="filter-user" title="Clear user search"><i class="fas fa-times"></i></button>
+                            <div id="filter-user-dd" class="autocomplete-dd hidden"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-xs">Role</label>
+                        <div class="select-wrap">
+                            <select id="filter-role" class="input-field">
+                                <option value="">All</option>
+                                <option value="super_admin">Super admin</option>
+                                <option value="admin">Admin</option>
+                                <option value="mod">Mod</option>
+                                <option value="guest">Guest</option>
+                                <option value="pending">No access (pending)</option>
+                                <option value="rejected">Access denied</option>
+                            </select>
+                            <button class="icon-clear-btn hidden" data-clear="filter-role" title="Clear"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-xs">Type</label>
+                        <div class="select-wrap">
+                            <select id="filter-auth" class="input-field">
+                                <option value="">All</option>
+                                <option value="local">Local</option>
+                                <option value="discord">Discord</option>
+                            </select>
+                            <button class="icon-clear-btn hidden" data-clear="filter-auth" title="Clear"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
+                </div>
+                <div id="user-list" class="space-y-2"></div>
+                <div id="request-list" class="space-y-2 hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- New User Modal -->
+    <div id="new-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
+                <h2 class="heading-section"><i class="fas fa-user-plus mr-2 text-indigo-400"></i>New User</h2>
+                <button class="btn-icon modal-close" data-modal="new-modal"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="label-form">Auth method</label>
+                    <div class="flex rounded-lg overflow-hidden border border-gray-700 text-xs w-fit">
+                        <button type="button" id="auth-tab-local" class="mode-tab mode-tab-on">Local</button>
+                        <button type="button" id="auth-tab-discord" class="mode-tab mode-tab-off">Discord</button>
+                    </div>
+                </div>
+                <div id="local-fields">
+                    <div class="mb-3">
+                        <label class="label-form">Username</label>
+                        <input type="text" id="new-username" class="input-field" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="label-form">Password</label>
+                        <div class="relative">
+                            <input type="password" id="new-password" class="input-field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                            <button type="button" id="new-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="discord-fields" class="hidden">
+                    <label class="label-form">Discord username</label>
+                    <input type="text" id="new-discord-username" class="input-field" autocomplete="off">
+                </div>
+                <div>
+                    <label class="label-form">Role</label>
+                    <select id="new-role" class="input-field">
+                        <option value="super_admin">Super admin - full panel control</option>
+                        <option value="guest">Guest – read only</option>
+                        <option value="mod" selected>Mod – assigned servers</option>
+                        <option value="admin">Admin – full control</option>
+                    </select>
+                </div>
+                <div id="new-servers-field" class="hidden">
+                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
+                    <input type="text" id="new-server-ids" class="input-field" placeholder="e.g. 123456,789012">
+                </div>
+                <p id="new-modal-error" class="text-red-400 text-xs hidden"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-gray text-sm modal-close" data-modal="new-modal">Cancel</button>
+                <button id="new-modal-save" class="btn-primary text-sm"><i class="fas fa-check mr-2"></i>Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
+                <h2 id="edit-modal-title" class="heading-section"></h2>
+                <button class="btn-icon modal-close" data-modal="edit-modal"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div id="edit-avatar-field" class="hidden">
+                    <label class="label-form">Profile picture</label>
+                    <div class="flex items-center gap-3">
+                        <img id="edit-avatar-preview" src="/static/avatars/default_user_avatar.png" alt="Profile avatar preview" class="w-12 h-12 rounded-full object-cover border border-gray-700 bg-gray-900">
+                        <input id="edit-avatar-file" type="file" accept="image/*" class="input-field text-sm py-2 px-3">
+                    </div>
+                    <p class="text-hint mt-1">Supported formats: PNG, JPG, WEBP, GIF (max 5MB)</p>
+                </div>
+                <div id="edit-role-field">
+                    <label class="label-form">Role</label>
+                    <select id="edit-role" class="input-field">
+                        <option value="super_admin">Super admin - full panel control</option>
+                        <option value="guest">Guest – read only</option>
+                        <option value="mod">Mod – assigned servers</option>
+                        <option value="admin">Admin – full control</option>
+                    </select>
+                </div>
+                <div id="edit-servers-field" class="hidden">
+                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
+                    <input type="text" id="edit-server-ids" class="input-field" placeholder="e.g. 123456,789012">
+                </div>
+                <div id="edit-pw-field">
+                    <label class="label-form">New password <span class="text-hint">(leave empty to keep)</span></label>
+                    <div class="relative">
+                        <input type="password" id="edit-password" class="input-field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                        <button type="button" id="edit-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <p id="edit-modal-error" class="text-red-400 text-xs hidden"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="edit-delete-btn" class="btn-danger text-sm mr-auto"><i class="fas fa-trash mr-2"></i>Delete</button>
+                <button class="btn-gray text-sm modal-close" data-modal="edit-modal">Cancel</button>
+                <button id="edit-modal-save" class="btn-primary text-sm"><i class="fas fa-save mr-2"></i>Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="delete-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
+                <h2 class="heading-section text-red-400"><i class="fas fa-trash mr-2"></i>Delete User</h2>
+                <button class="btn-icon modal-close" data-modal="delete-modal"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="p-5">
+                <p id="delete-modal-message" class="text-secondary text-sm">
+                    <span id="delete-modal-prefix">Delete</span>
+                    <strong id="delete-modal-name" class="text-light"></strong>
+                    <span id="delete-modal-suffix">? This cannot be undone.</span>
+                </p>
+                <p id="delete-modal-error" class="text-red-400 text-xs mt-3 hidden"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-gray text-sm modal-close" data-modal="delete-modal">Cancel</button>
+                <button id="delete-modal-confirm" class="btn-danger text-sm"><i class="fas fa-trash mr-2"></i>Delete</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

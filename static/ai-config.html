@@ -13,9 +13,9 @@
     <div id="toast-container" class="toast z-50"></div>
     
     <div id="navbar-container"></div>
-    <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/utils.js" defer></script>
-    <script src="/static/js/pages/ai-config.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/ai-config.js?v=2" defer></script>
 
     <!-- Main Content -->
     <main class="flex-grow p-6">
@@ -86,6 +86,9 @@
                     <!-- Keys & Integration -->
                     <fieldset class="fieldset-section">
                         <legend class="legend-section">Keys & Integration</legend>
+                        <p class="text-hint mb-4">
+                            Note: after saving, tokens/secrets are not shown again in the UI. Store them safely before saving.
+                        </p>
                         <div class="form-grid">
                             <div>
                                 <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
@@ -117,7 +120,10 @@
                         <legend class="legend-section">DM Access Control</legend>
                         <div class="mt-2 mb-4">
                             <label for="default_character" class="label-tt">Default Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
-                            <input type="text" id="default_character" class="input-field" required>
+                            <div class="relative">
+                                <input type="text" id="default_character" autocomplete="off" class="input-field pr-8" required placeholder="Select character…">
+                                <div id="default-character-dd" class="autocomplete-dd hidden"></div>
+                            </div>
                         </div>
                         <div class="flex-between divider pt-4">
                             <div>
@@ -126,7 +132,7 @@
                             </div>
                             <label class="toggle-wrap">
                                 <input type="checkbox" id="dm_toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div class="toggle-track"></div>
                             </label>
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
@@ -146,7 +152,7 @@
                                 </div>
                                 <label class="toggle-wrap">
                                     <input id="use_prefill" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="toggle-track"></div>
                                 </label>
                             </div>
                             <div class="divider"></div>
@@ -157,7 +163,7 @@
                                 </div>
                                 <label class="toggle-wrap">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="toggle-track"></div>
                                 </label>
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
@@ -204,43 +210,140 @@
                     </div>
                 </fieldset>
 
-                <!-- Panel Security -->
-                <fieldset class="fieldset-section">
-                    <legend class="legend-section">Panel Security</legend>
-                    <div class="flex-between mt-2">
+                <!-- Login & Access -->
+                <fieldset id="login-access-section" class="fieldset-section">
+                    <legend class="legend-section">Login &amp; Access</legend>
+
+                    <!-- Master toggle -->
+                    <div id="panel-auth-master-wrap" class="flex-between mt-2">
                         <div>
-                            <p class="flex items-center gap-1.5 label-inline">Enable Panel Password <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Adds a login screen to this admin panel. Recommended on any publicly accessible server.</span></span></p>
+                            <p class="flex items-center gap-1.5 label-inline">Require login <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When enabled, the panel is protected — only logged-in users with an account can access it. Disable to allow open access without authentication.</span></span></p>
+                            <p id="panel-auth-master-note" class="text-hint hidden mt-1">Enable at least one login method first.</p>
+                            <p class="text-hint mt-1">Set up and verify a login method below before enabling, to avoid being locked out.</p>
                         </div>
                         <label class="toggle-wrap">
-                            <input type="checkbox" id="security_toggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <input type="checkbox" id="panel_auth_enabled" class="sr-only peer">
+                            <div class="toggle-track"></div>
                         </label>
                     </div>
-                    <div id="security-fields" class="hidden">
-                        <div class="mt-4">
-                            <label for="panel_password" class="label-tt">Panel Password <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to keep the existing password. Only fill in when setting or changing it.</span></span></label>
-                            <div class="relative">
-                                <input type="password" id="panel_password" autocomplete="off" minlength="8" class="input-field pr-10" placeholder="Enter new password">
-                                <button type="button" onclick="toggleVisibility('panel_password', this)" class="btn-eye">
-                                    <i class="fas fa-eye"></i>
-                                </button>
+
+                    <!-- Unique account login -->
+                    <div class="mt-5 divider pt-4 space-y-4">
+                        <div class="flex-between">
+                            <div>
+                                <p class="label-inline">Unique account login</p>
+                                <p class="text-hint">Login via username and password.</p>
+                            </div>
+                            <label class="toggle-wrap">
+                                <input type="checkbox" id="local_login_enabled" class="sr-only peer">
+                                <div class="toggle-track"></div>
+                            </label>
+                        </div>
+                        <!-- Super admin account — shown only when unique login is ON -->
+                        <div id="super-admin-account-section" class="pl-6 border-l-2 border-gray-700 space-y-4 hidden">
+                            <p class="label-inline">Super admin account <span class="text-hint font-normal">(super admin cannot be deleted or demoted)</span></p>
+                            <p class="text-hint">Current super admin: <span id="current-super-admin-username">Not set</span></p>
+                            <div>
+                                <label for="super_admin_username" class="label-tt">Username</label>
+                                <input type="text" id="super_admin_username" class="input-field" placeholder="e.g. admin">
+                            </div>
+                            <div>
+                                <label for="panel_password" class="label-tt">Password</label>
+                                <div class="relative">
+                                    <input type="password" id="panel_password" autocomplete="off" minlength="8" class="input-field pr-10" placeholder="Minimum 8 characters">
+                                    <button type="button" onclick="toggleVisibility('panel_password', this)" class="btn-eye">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button id="save-admin-btn" class="btn-primary px-6">Save super admin account</button>
                             </div>
                         </div>
-                        <div class="mt-4">
-                            <label for="panel_password_hint" class="label-tt">Password Hint <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Optional reminder shown on the login page. Keep it vague enough that it doesn't give the password away.</span></span></label>
-                            <input type="text" id="panel_password_hint" class="input-field" placeholder="e.g. Check your notes">
+                    </div>
+
+                    <!-- Discord OAuth2 -->
+                    <div class="mt-5 divider pt-4 space-y-4">
+                        <div class="flex-between">
+                            <div>
+                                <p class="label-inline">Discord OAuth2</p>
+                                <p class="text-hint">
+                                    Login via Discord account.
+                                    <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Client Secret is hidden after save. Keep a secure backup before saving changes.</span></span>
+                                </p>
+                                <p id="discord-oauth-warning" class="text-hint hidden mt-1">Discord OAuth credentials are not fully configured yet.</p>
+                            </div>
+                            <label class="toggle-wrap">
+                                <input type="checkbox" id="discord_login_enabled" class="sr-only peer">
+                                <div class="toggle-track"></div>
+                            </label>
+                        </div>
+                        <div id="discord-oauth-fields" class="pl-6 border-l-2 border-gray-700 space-y-4 hidden">
+                            <p class="text-xs text-gray-500">These values come from your app on the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" class="link-indigo-sm">Discord Developer Portal</a>.</p>
+                            <div>
+                                <label for="discord_oauth_client_id" class="label-tt">Client ID <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found on the General Information page of your app on the Discord Developer Portal.</span></span></label>
+                                <input type="text" id="discord_oauth_client_id" class="input-field" placeholder="Discord app client ID">
+                            </div>
+                            <div>
+                                <label for="discord_oauth_client_secret" class="label-tt">Client Secret <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found under OAuth2 on the Developer Portal. If lost, reset it there. Never share this value.</span></span></label>
+                                <div class="relative">
+                                    <input type="password" id="discord_oauth_client_secret" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing">
+                                    <button type="button" onclick="toggleVisibility('discord_oauth_client_secret', this)" class="btn-eye">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="discord_oauth_redirect_uri" class="label-tt">Redirect URI <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Must be added under OAuth2 → Redirects on the Developer Portal. Must match exactly — including the path /auth/discord/callback.</span></span></label>
+                                <input type="url" id="discord_oauth_redirect_uri" class="input-field" placeholder="https://yourdomain.com/auth/discord/callback">
+                            </div>
+                            <div>
+                                <label for="discord_allowed_usernames" class="label-tt">Trusted Discord usernames <span class="text-hint font-normal">(--> super admins – one username per line)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">With Discord login enabled you must list at least one username. Each listed account becomes super admin on first sign-in. Users who are not on the list can still sign in with Discord and request access.</span></span></label>
+                                <textarea id="discord_allowed_usernames" rows="3" class="input-field font-mono" placeholder="e.g. johndoe&#10;janedoe"></textarea>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex justify-end pt-4">
-                        <button id="save-security-btn" class="btn-red px-6">
-                            Save Security
-                        </button>
+
+                    <!-- Save Security -->
+                    <div class="mt-5 flex justify-end">
+                        <button id="save-security-btn" class="btn-red px-6">Save Access Settings</button>
                     </div>
                 </fieldset>
             </div>
         </div>
     </main>
 
-    
+    <!-- Confirm disable Discord OAuth modal -->
+    <div id="confirm-disable-discord-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
+                <h3 class="modal-heading">Disable Discord login?</h3>
+            </div>
+            <div class="p-5">
+                <p class="text-hint" id="confirm-disable-discord-msg">Discord OAuth login will be disabled.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-disable-discord-cancel" class="btn-gray px-4">Cancel</button>
+                <button id="confirm-disable-discord-confirm" class="btn-red px-4">Disable</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm disable unique login modal -->
+    <div id="confirm-disable-local-modal" class="modal-backdrop hidden">
+        <div class="modal-box modal-sm">
+            <div class="modal-header p-5">
+                <h3 class="modal-heading">Disable password login?</h3>
+            </div>
+            <div class="p-5">
+                <p class="text-hint">Unique account login will be disabled. You will only be able to log in via Discord OAuth. Make sure Discord is configured before continuing.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-disable-local-cancel" class="btn-gray px-4">Cancel</button>
+                <button id="confirm-disable-local-confirm" class="btn-red px-4">Disable</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

@@ -9,7 +9,6 @@ from src.models.aicharacter import ActiveCharacter
 from src.models.dimension import ActiveChannel
 from src.models.prompts import PromptEngineer
 from src.models.queue import QueueItem
-from src.plugins.manager import PluginManager
 from src.utils.llm_new import generate_response
 from api.models.models import BotConfig
 from api.db.database import Database
@@ -52,13 +51,23 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
     return triggered_characters
 
 
+class SlashMessageProxy:
+    """Minimal message stand-in for slash-command LLM replies (channel, author, content)."""
+
+    __slots__ = ("channel", "author", "content")
+
+    def __init__(self, interaction: discord.Interaction, content: str):
+        self.channel = interaction.channel
+        self.author = interaction.user
+        self.content = content
+
+
 async def _generate_and_send_for_character(
     character: ActiveCharacter,
     zahul, db: Database,
     message: discord.Message,
     channel: ActiveChannel,
     messenger: DiscordMessenger,
-    plugin_manager: PluginManager,
     server_id: str = None,
 ):
     """
@@ -70,7 +79,7 @@ async def _generate_and_send_for_character(
 
     print(f"Processing chat for {character.name} in {channel.name}...")
     
-    prompter = PromptEngineer(character, message, channel, plugin_manager, messenger)
+    prompter = PromptEngineer(character, message, channel, messenger)
     prompt = await prompter.create_prompt()
 
     queue_item = QueueItem(
@@ -117,8 +126,82 @@ async def _generate_and_send_for_character(
     await messenger.send_message(character, message, queue_item)
 
 
+async def generate_slash_tool_character_reply(
+    zahul,
+    interaction: discord.Interaction,
+    character: ActiveCharacter,
+    channel: ActiveChannel,
+    synthetic_user_text: str,
+    server_id: str | None = None,
+):
+    """Run the normal LLM + webhook path using a synthetic user message (slash tool context)."""
+    if character.name.lower() == interaction.user.display_name.lower():
+        await interaction.followup.send(
+            "This character has the same display name as you — pick another character.", ephemeral=True
+        )
+        return
+
+    db = zahul.db
+    messenger = DiscordMessenger(zahul)
+    proxy = SlashMessageProxy(interaction, synthetic_user_text)
+
+    print(f"Slash tool → LLM for {character.name} in {channel.name}...")
+    prompter = PromptEngineer(character, proxy, channel, messenger)
+    prompt = await prompter.create_prompt()
+
+    queue_item = QueueItem(
+        prompt=prompt,
+        bot=character.name,
+        user=interaction.user.display_name,
+        stop=prompter.stopping_strings,
+        message=proxy,
+        history_count=getattr(prompter, "history_count", 0),
+        server_id=server_id,
+    )
+
+    queue_item = await generate_response(queue_item, db)
+
+    if not queue_item.result:
+        queue_item.result = "//[OOC: The AI failed to generate a response.]"
+
+    clean_up(queue_item)
+
+    is_error = queue_item.result.startswith("//[OOC:")
+    channel_id = "dm" if isinstance(interaction.channel, discord.DMChannel) else str(interaction.channel.id)
+    request_messages = [
+        {"role": "system", "content": queue_item.prompt},
+        {"role": "user", "content": synthetic_user_text},
+    ]
+    db.log_discord(
+        character=character.name,
+        channel_id=channel_id,
+        user=interaction.user.name,
+        trigger=synthetic_user_text[:2000],
+        response=queue_item.result,
+        model=queue_item.model_used or "",
+        input_tokens=queue_item.input_tokens,
+        output_tokens=queue_item.output_tokens,
+        conversation_history=request_messages,
+        source="slash",
+        status="error" if is_error else "ok",
+        error_message=queue_item.result if is_error else None,
+        temperature=queue_item.temperature,
+        history_count=queue_item.history_count,
+    )
+
+    try:
+        await messenger.send_message(character, proxy, queue_item)
+    except Exception as e:
+        await interaction.followup.send(f"Could not send the reply: {e}", ephemeral=True)
+        return
+    try:
+        await interaction.followup.send("_(character reply above)_", ephemeral=True)
+    except Exception:
+        pass
+
+
 # --- CORRECT WORKER FUNCTION ---
-async def process_message(zahul, db: Database, message: discord.Message, messenger: DiscordMessenger, queue: asyncio.Queue, plugin_manager:PluginManager):
+async def process_message(zahul, db: Database, message: discord.Message, messenger: DiscordMessenger, queue: asyncio.Queue):
     try:
         bot_config = BotConfig(**db.list_configs())
 
@@ -167,7 +250,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         generation_tasks = []
         for character in responding_characters:
             task = _generate_and_send_for_character(
-                character, zahul, db, message, channel, messenger, plugin_manager, server_id
+                character, zahul, db, message, channel, messenger, server_id
             )
             generation_tasks.append(task)
         
@@ -192,7 +275,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         queue.task_done()
 
 # --- MANAGER FUNCTION (This part was already correct) ---
-async def think(zahul, db: Database, queue: asyncio.Queue, plugin_manager:PluginManager) -> None:
+async def think(zahul, db: Database, queue: asyncio.Queue) -> None:
     messenger = DiscordMessenger(zahul)
     
     # Keep track of running tasks
@@ -223,7 +306,7 @@ async def think(zahul, db: Database, queue: asyncio.Queue, plugin_manager:Plugin
 
         # 5. Spawn Worker
         task = asyncio.create_task(
-            process_message(zahul, db, message, messenger, queue,plugin_manager)
+            process_message(zahul, db, message, messenger, queue)
         )
         
         background_tasks.add(task)

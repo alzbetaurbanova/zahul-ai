@@ -19,7 +19,8 @@ temp.jpg
 
 # User-uploaded images (generated at runtime)
 static/avatars/*
-!static/avatars/default_avatar.png
+!static/avatars/default_character_avatar.png
+!static/avatars/default_user_avatar.png
 static/uploads/
 
 # Data directory (contains database and secrets)
@@ -27,7 +28,7 @@ data/
 data/token_usage.txt
 
 #Documents
-docs/
+docs/moje/
 
 # Dummy test scripts
 dummies/

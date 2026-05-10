@@ -19,7 +19,7 @@ TOKEN_USAGE_FILE = "/app/data/token_usage.txt"
 FALLBACK_TOKEN_FILE = "/app/data/fallback_tokens.txt"
 
 # Token usage tracking
-_token_window = []  # list of (timestamp, token_count) pre minútový limit
+_token_window = []  # list of (timestamp, token_count) for per-minute TPM window
 
 def track_tokens(count: int, is_fallback: bool = False):
     now = time.time()
@@ -90,7 +90,7 @@ def get_daily_tokens_used(limit: int = None) -> tuple:
     return 0, effective_limit
 
 def get_fallback_info():
-    """Vráti (back_at_str, minutes_remaining) alebo None ak nie je aktívny."""
+    """Returns (back_at_str, minutes_remaining) or None if fallback is not active."""
     if not _fallback_active:
         return None
     from datetime import datetime
@@ -148,7 +148,7 @@ async def generate_response(task: QueueItem, db: Database):
     Conditionally adds an assistant prefill message if enabled in the config.
     """
     bot_config = get_effective_config(db, getattr(task, 'server_id', None))
-    # Použi temperature z postavy ak je nastavená, inak globálna
+    # Per-character temperature/max_tokens override global config when set
     char_data = db.get_character(task.bot)
     temperature = bot_config.temperature
     max_tokens = bot_config.max_tokens
@@ -209,12 +209,12 @@ async def generate_response(task: QueueItem, db: Database):
         fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
         fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
 
-        # Skontroluj či fallback už vypršal
+        # End fallback window if it expired
         if _fallback_active and time.time() >= _fallback_end:
             _fallback_active = False
             _clear_fallback_state()
             reset_fallback_tokens()
-            print(f"Fallback skončil, prepínam späť na {bot_config.base_llm}")
+            print(f"Fallback ended, switching back to {bot_config.base_llm}")
 
         just_switched = False
         try:
@@ -228,7 +228,7 @@ async def generate_response(task: QueueItem, db: Database):
                 just_switched = True
                 from datetime import datetime
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
-                print(f"Rate limit — prepínam na fallback ({fallback_model}) do {back_at}")
+                print(f"Rate limit — switching to fallback ({fallback_model}) until {back_at}")
             completion = await _call(fallback_model)
 
         result = completion.choices[0].message.content if completion.choices else "//[OOC: AI returned no response.]"
@@ -237,7 +237,7 @@ async def generate_response(task: QueueItem, db: Database):
         if just_switched:
             from datetime import datetime
             back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
-            result = f"⚠️ FALLBACK (primary späť o {back_at}): {result}"
+            result = f"⚠️ FALLBACK (primary back at {back_at}): {result}"
         if completion.usage:
             track_tokens(completion.usage.total_tokens, is_fallback=(_fallback_active and not just_switched) or just_switched)
             task.input_tokens = completion.usage.prompt_tokens or 0

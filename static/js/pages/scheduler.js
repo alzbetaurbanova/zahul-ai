@@ -1,5 +1,6 @@
 (() => {
         const API = '/api/tasks';
+        let currentUserRole = 'guest';
         const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         const esc = escapeHtml;
 
@@ -14,6 +15,13 @@
         const statusField = document.getElementById('status-field');
         const toastContainer = document.getElementById('toast-container');
         const dayCheckboxes = document.getElementById('day-checkboxes');
+        const createBtn = document.getElementById('create-btn');
+
+        function canEditTasks() {
+            return typeof window.canMutate === 'function'
+                ? window.canMutate(currentUserRole)
+                : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+        }
 
         // Build day pill buttons
         DAYS.forEach((d, i) => {
@@ -230,18 +238,34 @@
         }
 
         function makeCombobox(inputId, dropdownId, options, initialId = '') {
-            const input = document.getElementById(inputId);
+            const oldInput = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
+            if (!oldInput || !dropdown) return;
 
-            // Set display value from id
+            const input = oldInput.cloneNode(true);
+            oldInput.parentNode.replaceChild(input, oldInput);
+
+            const wrapper = input.parentElement;
+            const clearBtn = wrapper?.querySelector(`button[data-clear="${inputId}"]`);
+            if (clearBtn) clearBtn.dataset.comboboxManaged = '1';
+
             const found = options.find(o => o.id === initialId);
             input.value = found ? found.label : (initialId || '');
             input.dataset.value = initialId;
 
+            function syncClearBtn() {
+                if (!clearBtn) return;
+                const hasText = input.value.trim() !== '';
+                const hasData = String(input.dataset.value || '').trim() !== '';
+                const hasValue = hasText || hasData;
+                const touched = input.dataset.comboboxClearTouched === '1';
+                clearBtn.classList.toggle('hidden', !hasValue || !touched);
+            }
+
             function showDropdown(filter = '') {
                 const q = filter.toLowerCase();
                 const filtered = q
-                    ? options.filter(o => o.label.toLowerCase().includes(q) || o.sub.toLowerCase().includes(q) || o.id.includes(q))
+                    ? options.filter(o => o.label.toLowerCase().includes(q) || (o.sub || '').toLowerCase().includes(q) || o.id.includes(q))
                     : options;
                 if (!filtered.length) { dropdown.classList.add('hidden'); return; }
                 dropdown.innerHTML = filtered.map(o => `
@@ -253,17 +277,42 @@
                 dropdown.querySelectorAll('.combobox-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
+                        input.dataset.comboboxClearTouched = '1';
                         input.value = item.dataset.label;
                         input.dataset.value = item.dataset.id;
                         dropdown.classList.add('hidden');
+                        syncClearBtn();
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
                     });
                 });
                 dropdown.classList.remove('hidden');
             }
 
             input.addEventListener('focus', () => showDropdown(input.value));
-            input.addEventListener('input', () => { input.dataset.value = ''; showDropdown(input.value); });
+            input.addEventListener('input', (e) => {
+                if (e.isTrusted) input.dataset.comboboxClearTouched = '1';
+                input.dataset.value = '';
+                syncClearBtn();
+                showDropdown(input.value);
+            });
             input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
+            input.addEventListener('change', syncClearBtn);
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.value = '';
+                    input.dataset.value = '';
+                    input.dataset.comboboxClearTouched = '';
+                    dropdown.classList.add('hidden');
+                    syncClearBtn();
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            }
+            syncClearBtn();
         }
 
         function initChannelCombobox(currentId = '') {
@@ -451,11 +500,25 @@
             const char = _charCache[t.character] || {};
             const avatar = char.avatar;
             const avatarHtml = avatar
-                ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}" onerror="this.src='/static/avatars/default_avatar.png'">`
+                ? `<img src="${esc(avatar)}" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="${esc(t.character)}" onerror="this.src='/static/avatars/default_character_avatar.png'">`
                 : `<div class="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot text-gray-400 text-xs"></i></div>`;
             const titleHtml = t.type === 'schedule'
                 ? `<div class="flex flex-wrap gap-3 mt-0.5"><span class="font-bold text-white text-sm">${esc(normalizeTaskName(t.name))}</span></div>`
                 : '';
+            const actionButtons = canEditTasks() ? `
+                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
+                        <i class="fas ${toggleIcon}"></i>
+                    </button>
+                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+            ` : '';
             return `
             <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-gray-600 transition-colors" data-action="detail" data-id="${t.id}">
                 ${avatarHtml}
@@ -479,18 +542,7 @@
                     ${t.instructions ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(t.instructions)}</p>` : ''}
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0">
-                    <button class="${toggleColor} text-sm" data-action="toggle" data-id="${t.id}" title="${toggleLabel}">
-                        <i class="fas ${toggleIcon}"></i>
-                    </button>
-                    <button class="text-gray-400 hover:text-gray-200 text-sm" data-action="duplicate" data-id="${t.id}" title="Duplicate">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button class="text-indigo-400 hover:text-indigo-300 text-sm" data-action="edit" data-id="${t.id}" title="Edit">
-                        <i class="fas fa-pen"></i>
-                    </button>
-                    <button class="text-red-400 hover:text-red-300 text-sm" data-action="delete" data-id="${t.id}" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    ${actionButtons}
                 </div>
             </div>`;
         }
@@ -525,7 +577,7 @@
             const char = _charCache[task.character] || {};
             const avatar = char.avatar;
             document.getElementById('detail-avatar').innerHTML = avatar
-                ? `<img src="${esc(avatar)}" class="w-11 h-11 rounded-full object-cover" onerror="this.src='/static/avatars/default_avatar.png'">`
+                ? `<img src="${esc(avatar)}" class="w-11 h-11 rounded-full object-cover" onerror="this.src='/static/avatars/default_character_avatar.png'">`
                 : `<div class="w-11 h-11 rounded-full bg-gray-700 flex items-center justify-center"><i class="fas fa-robot text-gray-400"></i></div>`;
             document.getElementById('detail-badges').innerHTML = typeBadge(task.type) + ' ' + modeBadge(task.message_mode || 'exact');
             document.getElementById('detail-name').textContent = task.type === 'reminder' ? task.character : normalizeTaskName(task.name);
@@ -576,6 +628,10 @@
 
         // --- Actions ---
         async function handleAction(action, id) {
+            if (action !== 'detail' && !canEditTasks()) {
+                showToast('You do not have permission to modify scheduler tasks.', 'error');
+                return;
+            }
             if (action === 'delete') {
                 if (!confirm('Delete this task?')) return;
                 await fetch(`${API}/${id}`, { method: 'DELETE' });
@@ -629,6 +685,10 @@
 
         // --- Modal ---
         async function openModal(task = null) {
+            if (!canEditTasks()) {
+                showToast('You do not have permission to create or edit scheduler tasks.', 'error');
+                return;
+            }
             await loadTargetOptions();
             form.reset();
             statusField.classList.add('hidden');
@@ -648,7 +708,7 @@
                 else initDmCombobox(task.target_id || '');
                 document.getElementById('f-instructions').value = task.instructions || '';
                 if (task.scheduled_time) {
-                    // Use stored string directly — it's already in Slovak time, no conversion needed
+                    // Use stored string as-is (Europe/Bratislava wall time, no conversion)
                     document.getElementById('f-scheduled-time').value = task.scheduled_time.slice(0, 16);
                 }
                 if (task.repeat_pattern) {
@@ -703,6 +763,10 @@
         // --- Form Submit ---
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!canEditTasks()) {
+                showToast('You do not have permission to modify scheduler tasks.', 'error');
+                return;
+            }
             const id = taskIdInput.value;
             const type = document.getElementById('selected-type').value;
             const character = document.getElementById('f-character').value;
@@ -787,21 +851,28 @@
             } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
         });
 
-        // --- Status checkbox dropdown ---
-        function updateStatusDdLabel() {
-            const checked = [...document.querySelectorAll('.filter-status-cb:checked')].map(el => el.value);
-            document.getElementById('filter-status-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
+        // --- Filter toolbar: checkbox dropdowns + filter clears + status dropdown ---
+        const schedulerFiltersEl = document.getElementById('scheduler-filters');
+        if (typeof initCbDdInteractions === 'function') {
+            initCbDdInteractions({
+                containers: [schedulerFiltersEl].filter(Boolean),
+                onCheckboxChange: () => {
+                    currentPage = 1;
+                    fetchTasks();
+                },
+            });
         }
-        const statusBtn = document.getElementById('filter-status-btn');
-        const statusDd = document.getElementById('filter-status-dd');
-        statusBtn.addEventListener('click', () => statusDd.classList.toggle('hidden'));
-        document.addEventListener('click', e => {
-            if (!statusBtn.contains(e.target) && !statusDd.contains(e.target))
-                statusDd.classList.add('hidden');
-        });
-        document.querySelectorAll('.filter-status-cb').forEach(cb => {
-            cb.addEventListener('change', () => { updateStatusDdLabel(); currentPage = 1; fetchTasks(); });
-        });
+        if (typeof wireCbDdClear === 'function') {
+            wireCbDdClear('filter-status-clear', 'filter-status-dd', () => {
+                currentPage = 1;
+                fetchTasks();
+            });
+        }
+
+        function updateStatusDdLabel() {
+            const btn = document.getElementById('filter-status-btn');
+            if (btn && typeof updateCbDdLabel === 'function') updateCbDdLabel(btn);
+        }
 
         function updateStatusOptions() {
             const selectedType = document.getElementById('filter-type').value;
@@ -836,12 +907,36 @@
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';
-            document.getElementById('filter-status').value = '';
             document.getElementById('filter-from').value = '';
             document.getElementById('filter-to').value = '';
+            const fc = document.getElementById('filter-character');
+            if (fc) {
+                fc.value = '';
+                if ('dataset' in fc && 'value' in fc.dataset) fc.dataset.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fc);
+                document.getElementById('filter-character-dd')?.classList.add('hidden');
+                fc.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (typeof clearCheckboxDropdownPrefix === 'function') {
+                clearCheckboxDropdownPrefix('filter-status');
+            } else {
+                document.querySelectorAll('.filter-status-cb').forEach(cb => { cb.checked = false; });
+                updateStatusDdLabel();
+            }
+            document.querySelectorAll('#scheduler-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
+            document.querySelectorAll('#scheduler-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
             currentPage = 1;
             fetchTasks();
         });
+        if (typeof initFilterClear === 'function') {
+            initFilterClear(() => { currentPage = 1; fetchTasks(); }, document.getElementById('scheduler-filters'));
+            initFilterClear((id) => {
+                if (id === 'f-channel-input' || id === 'f-dm-input') {
+                    const el = document.getElementById(id);
+                    if (el) el.dataset.value = '';
+                }
+            }, document.getElementById('task-form'));
+        }
         document.getElementById('clear-from-btn').addEventListener('click', () => {
             document.getElementById('filter-from').value = '';
             currentPage = 1;
@@ -855,16 +950,24 @@
 
         // --- Toast ---
         // Init
-        loadCharacters();
-        loadTargetOptions().then(async () => {
-            await fetchTasks();
-            const openId = new URLSearchParams(location.search).get('open');
-            if (openId) {
-                try {
-                    const res = await fetch(`${API}/${openId}`);
-                    if (res.ok) openDetail(await res.json());
-                    else if (res.status === 404) showToast('This task no longer exists.', 'error');
-                } catch {}
-            }
-        });
+        fetch('/api/auth-status')
+            .then(r => r.json())
+            .then(d => {
+                currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            })
+            .catch(() => {})
+            .finally(() => {
+                loadCharacters();
+                loadTargetOptions().then(async () => {
+                    await fetchTasks();
+                    const openId = new URLSearchParams(location.search).get('open');
+                    if (openId) {
+                        try {
+                            const res = await fetch(`${API}/${openId}`);
+                            if (res.ok) openDetail(await res.json());
+                            else if (res.status === 404) showToast('This task no longer exists.', 'error');
+                        } catch {}
+                    }
+                });
+            });
     })();

@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
+    let currentUserRole = 'guest';
     let currentCharacterName = null;
     let currentCharacterId = null;
 
@@ -25,6 +26,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('delete-btn');
     const exportBtn = document.getElementById('export-btn');
     const toastContainer = document.getElementById('toast-container');
+    const newCharBtn = document.getElementById('new-char-btn');
+    const importCardBtn = document.getElementById('import-card-btn');
+
+    function canEditCharacters() {
+        return typeof window.canMutate === 'function'
+            ? window.canMutate(currentUserRole)
+            : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
     // --- Modal Management ---
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
     const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
@@ -73,6 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     serverFilter.addEventListener('change', applyFilter);
+    if (typeof initFilterClear === 'function') initFilterClear(() => applyFilter(), document.getElementById('characters-toolbar-filter'));
 
     // --- Core Functions ---
 
@@ -94,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110" onerror="this.src='/static/avatars/default_avatar.png'">
+                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110" onerror="this.src='/static/avatars/default_character_avatar.png'">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
                 `;
@@ -111,6 +121,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadCharacterForEdit(id) {
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to edit characters.', 'error');
+            return;
+        }
         try {
             const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
@@ -155,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.textContent = 'Create Character';
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
-        updateAvatarPreview('/static/avatars/default_avatar.png');
+        updateAvatarPreview('/static/avatars/default_character_avatar.png');
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
@@ -167,6 +181,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to modify characters.', 'error');
+            return;
+        }
         
         const name = nameInput.value.trim();
         if (!name) {
@@ -267,6 +285,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleDelete() {
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to delete characters.', 'error');
+            return;
+        }
         if (!currentCharacterId || !confirm(`Are you sure you want to delete '${nameInput.value}'? This cannot be undone.`)) {
             return;
         }
@@ -382,8 +404,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const updateAvatarPreview = (url) => {
-        avatarPreview.src = url || '/static/avatars/default_avatar.png';
-        avatarPreview.onerror = () => { avatarPreview.src = '/static/avatars/default_avatar.png'; };
+        const fallback = '/static/avatars/default_character_avatar.png';
+        avatarPreview.src = url || fallback;
+        avatarPreview.onerror = () => { avatarPreview.src = fallback; };
     };
 
     // --- Import Info Modal ---
@@ -546,8 +569,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Event Listeners ---
     form.addEventListener('submit', handleFormSubmit);
-    document.getElementById('new-char-btn').addEventListener('click', () => { resetForm(); openModal(); });
-    document.getElementById('import-card-btn').addEventListener('click', () => openImportInfoModal());
+    newCharBtn.addEventListener('click', () => {
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to create characters.', 'error');
+            return;
+        }
+        resetForm();
+        openModal();
+    });
+    importCardBtn.addEventListener('click', () => {
+        if (!canEditCharacters()) {
+            showToast('You do not have permission to import characters.', 'error');
+            return;
+        }
+        openImportInfoModal();
+    });
     deleteBtn.addEventListener('click', handleDelete);
     exportBtn.addEventListener('click', handleExport);
     avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
@@ -556,6 +592,14 @@ document.addEventListener('DOMContentLoaded', function() {
     modalCloseBtn.addEventListener('click', closeModal);
 
     // --- Initial Load ---
-    loadServerFilter();
-    fetchAndDisplayCharacters();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+        })
+        .catch(() => {})
+        .finally(() => {
+            loadServerFilter();
+            fetchAndDisplayCharacters();
+        });
     });

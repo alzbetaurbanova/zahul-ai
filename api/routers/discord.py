@@ -7,8 +7,9 @@ import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
+from api.auth import require_role
 
 # Adjust import paths to match your project structure
 from bot_run import Zahul
@@ -64,21 +65,21 @@ def _run_bot_in_thread():
 
 
 @router.post("/activate")
-async def activate_bot():
+async def activate_bot(current_user: dict = Depends(require_role("admin"))):
     # Check the shared state object
     if (bot_state.bot_instance and bot_state.bot_instance.is_ready()) or (bot_state.bot_thread and bot_state.bot_thread.is_alive()):
         raise HTTPException(status_code=400, detail="Bot is already active or starting.")
     
     logging.info("Bot activation requested via API.")
     db = Database()
-    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.")
+    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.", actor=current_user)
     bot_state.bot_thread = threading.Thread(target=_run_bot_in_thread, daemon=True)
     bot_state.bot_thread.start()
     return {"success": True, "message": "Bot activation initiated."}
 
 
 @router.post("/deactivate")
-async def deactivate_bot():
+async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
@@ -87,7 +88,7 @@ async def deactivate_bot():
         future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), bot_state.bot_instance.loop)
         future.result(timeout=10)
         db = Database()
-        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.")
+        db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.", actor=current_user)
         return {"success": True, "message": "Bot deactivation initiated."}
     except Exception as e:
         logging.error(f"Error during bot deactivation: {e}", exc_info=True)
@@ -95,8 +96,8 @@ async def deactivate_bot():
 
 
 @router.get("/status")
-async def check_bot_status():
-    # --- CHANGE THIS ---
+async def check_bot_status(_: dict = Depends(require_role("guest"))):
+    """Readable by any logged-in panel user (guest+) so dashboard and nav stay in sync."""
     if bot_state.bot_instance and bot_state.bot_instance.is_ready():
         return {"status": "active"}
     elif bot_state.bot_thread and bot_state.bot_thread.is_alive():
@@ -106,7 +107,7 @@ async def check_bot_status():
 
 
 @router.get("/invite")
-async def get_discord_invite():
+async def get_discord_invite(_: dict = Depends(require_role("mod"))):
     # --- CHANGE THIS ---
     if bot_state.bot_instance and bot_state.bot_instance.invite_link:
         return {"status": "active", "invite": bot_state.bot_instance.invite_link}
@@ -115,7 +116,7 @@ async def get_discord_invite():
 
 
 @router.get("/stream-logs")
-async def stream_logs(request: Request):
+async def stream_logs(request: Request, _: dict = Depends(require_role("admin"))):
     """
     Streams the bot's log file using Server-Sent Events.
     Starts with the last 10 lines of the file and then continues to

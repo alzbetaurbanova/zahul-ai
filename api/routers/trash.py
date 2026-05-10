@@ -1,6 +1,7 @@
 import json
 import sqlite3
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from api.auth import require_role
 
 router = APIRouter(prefix="/api/trash", tags=["Trash"])
 
@@ -16,12 +17,12 @@ def _get_trash_db():
 
 
 @router.get("")
-def list_trash():
+def list_trash(_: dict = Depends(require_role("admin"))):
     return _get_trash_db().list_all()
 
 
 @router.get("/{trash_id}")
-def get_trash_item(trash_id: int):
+def get_trash_item(trash_id: int, _: dict = Depends(require_role("admin"))):
     item = _get_trash_db().get(trash_id)
     if not item:
         raise HTTPException(status_code=404, detail="Trash item not found")
@@ -29,7 +30,7 @@ def get_trash_item(trash_id: int):
 
 
 @router.post("/{trash_id}/restore")
-def restore(trash_id: int):
+def restore(trash_id: int, current_user: dict = Depends(require_role("admin"))):
     trash_db = _get_trash_db()
     item = trash_db.get(trash_id)
     if not item:
@@ -44,7 +45,7 @@ def restore(trash_id: int):
         raise HTTPException(status_code=400, detail=str(e))
 
     trash_db.delete(trash_id)
-    db.log_admin('trash.restore', target=f"{item['source_table']}:{trash_id}")
+    db.log_admin('trash.restore', target=f"{item['source_table']}:{trash_id}", actor=current_user)
     return restored
 
 
@@ -141,8 +142,16 @@ def _restore_record(db, source_table: str, data: dict):
     elif source_table == "admin_logs":
         with db._get_connection() as conn:
             conn.execute(
-                "INSERT INTO admin_logs (id, timestamp, action, target, detail) VALUES (?,?,?,?,?)",
-                (data.get("id"), data["timestamp"], data["action"], data.get("target"), data.get("detail"))
+                "INSERT INTO admin_logs (id, timestamp, action, target, detail, actor_user_id, actor_username) VALUES (?,?,?,?,?,?,?)",
+                (
+                    data.get("id"),
+                    data["timestamp"],
+                    data["action"],
+                    data.get("target"),
+                    data.get("detail"),
+                    data.get("actor_user_id"),
+                    data.get("actor_username") or "system",
+                )
             )
             conn.commit()
         return db.get_admin_log(data["id"])

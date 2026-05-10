@@ -16,9 +16,11 @@ import asyncio
 import os
 import httpx
 from urllib.parse import urlparse
-from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query
+from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
-from typing import List, Annotated
+from typing import List
+from api.auth import require_role
+from api.url_safety import validate_proxy_image_url
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -143,11 +145,10 @@ def parse_character_card(raw_data: dict) -> tuple[str, dict]:
 @router.post("/save_avatar")
 async def save_avatar(
     name: str = Query(..., description="Character name (used as filename)"),
-    image: Annotated[UploadFile, File(description="Avatar image file")] = None
+    image: UploadFile = File(..., description="Avatar image file"),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """Saves an avatar image to static/avatars/{name}.png and returns the URL."""
-    if not image:
-        raise HTTPException(status_code=400, detail="No image provided.")
     content_type = (image.content_type or "").lower()
     if content_type not in _ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type.")
@@ -159,12 +160,13 @@ async def save_avatar(
         raise HTTPException(status_code=400, detail="Avatar file too large (max 5MB).")
     with open(file_path, "wb") as f:
         f.write(contents)
-    db.log_admin('character.avatar.upload', target=safe_name)
+    db.log_admin('character.avatar.upload', target=safe_name, actor=current_user)
     return {"url": f"/static/avatars/{safe_name}.png"}
 
 
 @router.post("/mirror_avatar")
 async def mirror_avatar_endpoint(
+    current_user: dict = Depends(require_role("admin")),
     name: str = Query(..., description="Character name (used as filename)"),
     url: str = Query(..., description="Image URL to download")
 ):
@@ -174,20 +176,28 @@ async def mirror_avatar_endpoint(
     local_path = await _mirror_avatar(name, url)
     if local_path == url:
         raise HTTPException(status_code=400, detail="Failed to download image from URL.")
-    db.log_admin('character.avatar.mirror', target=name)
+    db.log_admin('character.avatar.mirror', target=name, actor=current_user)
     return {"url": local_path}
 
 
 @router.get("/proxy_image")
-async def proxy_image(url: str = Query(..., description="External image URL to proxy")):
+async def proxy_image(
+    url: str = Query(..., description="External image URL to proxy"),
+    _: dict = Depends(require_role("guest")),
+):
     """Fetches an external image server-side and returns it, bypassing browser CORS restrictions."""
+    await asyncio.to_thread(validate_proxy_image_url, url)
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
         async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
-            content_type = resp.headers.get("content-type", "image/png").split(";")[0]
+            content_type = (resp.headers.get("content-type") or "image/png").split(";")[0].strip().lower()
+            if not content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="URL did not return an image.")
             return Response(content=resp.content, media_type=content_type)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch image: {e}")
 
@@ -220,7 +230,8 @@ async def list_characters():
 
 @router.post("/", response_model=Character, status_code=status.HTTP_201_CREATED)
 async def create_character(
-    character: CharacterCreate = Body(..., description="The character to create, including name, data, and triggers.")
+    character: CharacterCreate = Body(...),
+    current_user: dict = Depends(require_role("admin"))
 ):
     """
     Create a new character from a structured JSON object.
@@ -238,7 +249,7 @@ async def create_character(
             data=char_data,
             triggers=character.triggers
         )
-        db.log_admin('character.create', target=character.name)
+        db.log_admin('character.create', target=character.name, actor=current_user)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -263,8 +274,9 @@ async def get_character(character_id: int = Path(..., description="ID of the cha
 
 @router.put("/{character_id}", response_model=Character)
 async def update_character(
-    character_id: int = Path(..., description="ID of the character to update"),
-    character_update: CharacterUpdate = Body(..., description="The full character data, optional new name, and triggers to update")
+    character_id: int = Path(...),
+    character_update: CharacterUpdate = Body(...),
+    current_user: dict = Depends(require_role("admin"))
 ):
     """Update an existing character's data, name, and triggers in the database."""
     existing_char = db.get_character_by_id(character_id)
@@ -294,7 +306,7 @@ async def update_character(
         new_triggers = sorted(character_update.triggers or [])
         if old_triggers != new_triggers:
             changed.append('triggers')
-        db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None)
+        db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None, actor=current_user)
 
         return db.get_character_by_id(character_id)
     except HTTPException:
@@ -304,14 +316,14 @@ async def update_character(
 
 
 @router.delete("/{character_id}")
-async def delete_character(character_id: int = Path(..., description="ID of the character")):
+async def delete_character(character_id: int = Path(...), current_user: dict = Depends(require_role("admin"))):
     """Delete a character from the database."""
     char = db.get_character_by_id(character_id)
     if not char:
         raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
     try:
         db.delete_character_by_id(char_id=character_id)
-        db.log_admin('character.delete', target=char['name'])
+        db.log_admin('character.delete', target=char['name'], actor=current_user)
         return {"message": f"Character '{char['name']}' deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete character: {e}")
@@ -320,7 +332,7 @@ async def delete_character(character_id: int = Path(..., description="ID of the 
 # --- Utility and Import Endpoints ---
 
 @router.post("/import", response_model=Character, status_code=status.HTTP_201_CREATED)
-async def create_character_from_import(request: Request):
+async def create_character_from_import(request: Request, current_user: dict = Depends(require_role("admin"))):
     """
     Create a new character by importing from a raw JSON character card file.
     This is a secondary creation method, used by the 'Import Card' button.
@@ -334,7 +346,7 @@ async def create_character_from_import(request: Request):
             
         # Card imports don't have triggers, so an empty list is passed
         db.create_character(name=name, data=data_dict, triggers=[])
-        db.log_admin('character.import', target=name)
+        db.log_admin('character.import', target=name, actor=current_user)
 
         new_character = db.get_character(name=name)
         if not new_character:
@@ -349,7 +361,8 @@ async def create_character_from_import(request: Request):
 
 @router.post("/upload_image", response_model=dict)
 async def upload_image(
-    image: Annotated[UploadFile, File(description="The image file to upload.")]
+    image: UploadFile = File(...),
+    current_user: dict = Depends(require_role("admin")),
 ):
     """
     Accepts an image file, uploads it via the Discord bot, and returns the permanent Discord CDN link.
@@ -375,5 +388,5 @@ async def upload_image(
             detail="Failed to upload image. Check server logs for Discord API errors or misconfigurations."
         )
 
-    db.log_admin('character.image.upload', target=image.filename)
+    db.log_admin('character.image.upload', target=image.filename, actor=current_user)
     return {"filename": image.filename, "cdn_url": cdn_url}

@@ -5,18 +5,25 @@ import argparse
 import asyncio
 import os
 import secrets
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+
+import bcrypt
+import httpx
 import uvicorn
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException, Request, Depends
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # --- Local Imports ---
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
+from api.routers import users as users_router
 from api.db.database import Database
-from src.plugins.manager import PluginManager
+from api.auth import require_role
 
 # --- Default Data for First-Time Setup ---
 
@@ -89,7 +96,15 @@ async def initialize_database():
         "multimodal_enable": False,
         "multimodal_ai_endpoint": "https://openrouter.ai/api/v1",
         "multimodal_ai_api": "", 
-        "multimodal_ai_model": "google/gemini-pro-vision"
+        "multimodal_ai_model": "google/gemini-pro-vision",
+        "panel_password_hint": "",
+        "discord_oauth_client_id": "",
+        "discord_oauth_client_secret": "",
+        "discord_oauth_redirect_uri": "",
+        "panel_auth_enabled": False,
+        "discord_login_enabled": False,
+        "local_login_enabled": True,
+        "discord_allowed_usernames": [],
     }
     for key, value in default_config.items():
         db.set_config(key, value)
@@ -99,12 +114,86 @@ async def initialize_database():
     print("--- Database initialization complete! ---")
 
 # --- Panel Auth ---
-# Set to True to require a password to access the web panel.
-# Password is configured via the AI Config panel (panel_password field).
 PANEL_AUTH_ENABLED = True
+SESSION_MAX_AGE_SECONDS = 86400 * 7
+DISCORD_OAUTH_AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
+DISCORD_OAUTH_TOKEN_URL = "https://discord.com/api/oauth2/token"
+DISCORD_OAUTH_ME_URL = "https://discord.com/api/users/@me"
+DISCORD_OAUTH_SCOPE = "identify"
+_oauth_states: dict[str, datetime] = {}
 
-# In-memory session tokens (cleared on restart)
-_sessions: set = set()
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _make_session_expiry() -> datetime:
+    return _utc_now() + timedelta(seconds=SESSION_MAX_AGE_SECONDS)
+
+
+def _cookie_secure(request: Request) -> bool:
+    if request.url.scheme == "https":
+        return True
+    # Reverse proxies (e.g. Caddy) may speak HTTP to the app while the client used HTTPS.
+    xf = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    return xf == "https"
+
+
+def _is_panel_auth_enabled(db: Database) -> bool:
+    return bool(db.get_config("panel_auth_enabled"))
+
+
+def _super_admin_setup_required(db: Database) -> bool:
+    return _is_panel_auth_enabled(db) and db.get_super_admin_account() is None
+
+
+def _clear_session_cookie(response: Response, request: Request) -> None:
+    """
+    Remove zahul_session. Emit both Secure variants — mismatch prevents deletion in browsers
+    when the cookie was set over HTTP :port vs HTTPS behind a proxy.
+    """
+    common = {"key": "zahul_session", "path": "/", "httponly": True, "samesite": "lax"}
+    response.delete_cookie(**common, secure=False)
+    response.delete_cookie(**common, secure=True)
+
+
+def _unauthenticated_response(request: Request, path: str, *, clear_session_cookie: bool) -> Response:
+    """401/redirect to login; optionally strip stale session cookie from the browser."""
+    if path.startswith("/api"):
+        resp: Response = JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    else:
+        resp = RedirectResponse(url="/login", status_code=302)
+    if clear_session_cookie:
+        _clear_session_cookie(resp, request)
+    return resp
+
+
+_ASSIGNED_PANEL_ROLES = frozenset({"super_admin", "admin", "mod", "guest"})
+
+
+def _normalize_request_path(path: str) -> str:
+    p = path.rstrip("/")
+    return p if p else "/"
+
+
+def _discord_pending_api_allowed(request: Request) -> bool:
+    """
+    Minimal API/method surface for Discord accounts without an assigned panel role yet
+    (pending / legacy rows). Browsers may send OPTIONS preflight without cookies.
+    """
+    method = request.method.upper()
+    if method == "OPTIONS":
+        return True
+    path = _normalize_request_path(request.url.path)
+    if method == "GET" and path in (
+        "/api/auth-status",
+        "/api/users/me",
+        "/api/users/requests/me",
+    ):
+        return True
+    if method == "POST" and path == "/api/users/requests":
+        return True
+    return False
 
 
 # --- Auth Middleware ---
@@ -112,48 +201,50 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not PANEL_AUTH_ENABLED:
             return await call_next(request)
+        db = Database()
+        if not _is_panel_auth_enabled(db):
+            return await call_next(request)
 
         path = request.url.path
-        # Always allow login page and static assets
-        if path.startswith("/login") or path.startswith("/static") or path in ("/favicon.ico", "/zahul", "/api/panel-hint", "/api/auth-enabled"):
+        if path.startswith("/login") or path.startswith("/static") or path in (
+            "/favicon.ico",
+            "/zahul",
+            "/logout",
+            "/no-access",
+            "/api/panel-hint",
+            "/api/auth-enabled",
+            "/api/auth-status",
+            "/api/auth/setup-super-admin",
+            "/auth/discord/start",
+            "/auth/discord/callback",
+        ):
             return await call_next(request)
 
-        # Check session cookie
-        token = request.cookies.get("zahul_session")
-        if token and token in _sessions:
+        db.purge_expired_sessions()
+        if _super_admin_setup_required(db):
+            if path.startswith("/api"):
+                return JSONResponse({"detail": "Super admin account setup required"}, status_code=403)
+            return RedirectResponse(url="/login?setup=1", status_code=302)
+
+        raw_token = request.cookies.get("zahul_session")
+        token = (raw_token or "").strip() or None
+        user = db.get_user_from_session_token(token) if token else None
+
+        if user:
+            request.state.auth_user = user
+            if user.get("auth_provider") == "discord" and user.get("role") not in _ASSIGNED_PANEL_ROLES:
+                np = _normalize_request_path(path)
+                if np in ("/no-access", "/logout"):
+                    return await call_next(request)
+                if path.startswith("/api"):
+                    if _discord_pending_api_allowed(request):
+                        return await call_next(request)
+                    return JSONResponse({"detail": "Access request required"}, status_code=403)
+                return RedirectResponse(url="/no-access", status_code=302)
             return await call_next(request)
 
-        # Check if password is set - if not, skip auth (first-run setup)
-        db = Database()
-        panel_password = db.get_config("panel_password") or ""
-        if not panel_password:
-            return await call_next(request)
+        return _unauthenticated_response(request, path, clear_session_cookie=bool(token))
 
-        # Not authenticated - redirect HTML pages, return 401 for API
-        if path.startswith("/api"):
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-        return RedirectResponse(url="/login", status_code=302)
-
-
-# --- FastAPI App Setup ---
-
-app = FastAPI(
-    title="zahul-ai Configuration API",
-    description="API for managing character, channel, and bot configurations",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url="/api/openapi.json",
-)
-
-app.add_middleware(AuthMiddleware)
-
-@app.on_event("startup")
-async def startup_event():
-    """Run the database initialization when the app starts."""
-    await initialize_database()
-    from api.db.trash import TrashDB
-    TrashDB().purge_old()
-    asyncio.create_task(_auto_activate())
 
 async def _auto_activate():
     """Try to activate the bot automatically on startup, retrying for up to 60 seconds."""
@@ -166,6 +257,39 @@ async def _auto_activate():
         except Exception:
             pass
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: DB init, housekeeping, background bot activation. Shutdown: cancel background task."""
+    await initialize_database()
+    from api.db.trash import TrashDB
+
+    TrashDB().purge_old()
+    Database().purge_expired_sessions()
+    auto_task = asyncio.create_task(_auto_activate())
+    try:
+        yield
+    finally:
+        auto_task.cancel()
+        try:
+            await auto_task
+        except asyncio.CancelledError:
+            pass
+
+
+# --- FastAPI App Setup ---
+
+app = FastAPI(
+    title="zahul-ai Configuration API",
+    description="API for managing character, channel, and bot configurations",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan,
+)
+
+app.add_middleware(AuthMiddleware)
+
 # Include routers
 app.include_router(characters.router)
 app.include_router(servers.router)
@@ -175,12 +299,13 @@ app.include_router(preset.router)
 app.include_router(tasks_router.router)
 app.include_router(logs_router.router)
 app.include_router(trash_router.router)
+app.include_router(users_router.router)
 
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -230,8 +355,7 @@ async def get_servers_html():
     return "static/servers.html"
 
 @app.get("/ai-config", response_class=FileResponse)
-async def get_servers_html():
-    """Serve the servers.html page."""
+async def get_ai_config_html():
     return "static/ai-config.html"
 
 @app.get("/scheduler", response_class=FileResponse)
@@ -261,38 +385,242 @@ async def zahul_logo():
 @app.get("/login", include_in_schema=False)
 async def get_login():
     db = Database()
-    panel_password = db.get_config("panel_password") or ""
-    if not panel_password:
+    if not _is_panel_auth_enabled(db):
         return RedirectResponse(url="/", status_code=302)
-    return FileResponse("static/login.html")
+    local_on = bool(db.get_config("local_login_enabled"))
+    discord_on = bool(db.get_config("discord_login_enabled"))
+    can_password_login = local_on and db.count_super_admins_with_password() > 0
+    if can_password_login or discord_on or _super_admin_setup_required(db):
+        return FileResponse("static/login.html")
+    return RedirectResponse(url="/", status_code=302)
 
 @app.post("/login", include_in_schema=False)
-async def post_login(password: str = Form(...)):
+async def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
     db = Database()
-    panel_password = db.get_config("panel_password") or ""
-    if panel_password and password == panel_password:
-        token = secrets.token_hex(32)
-        _sessions.add(token)
-        response = RedirectResponse(url="/", status_code=302)
-        response.set_cookie("zahul_session", token, httponly=True, secure=True, samesite="lax", max_age=86400 * 7)
-        return response
+    if not bool(db.get_config("local_login_enabled")):
+        return RedirectResponse(url="/login?error=method_disabled", status_code=302)
+    user = db.get_user_by_username(username.strip())
+    if user and user.get("password_hash"):
+        if bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+            token = secrets.token_hex(32)
+            db.create_session(token, int(user["id"]), _make_session_expiry().isoformat())
+            response = RedirectResponse(url="/", status_code=302)
+            response.set_cookie(
+                "zahul_session",
+                token,
+                httponly=True,
+                secure=_cookie_secure(request),
+                samesite="lax",
+                max_age=SESSION_MAX_AGE_SECONDS,
+            )
+            return response
     return RedirectResponse(url="/login?error=1", status_code=302)
+
+
+@app.post("/api/auth/setup-super-admin", include_in_schema=False)
+async def setup_super_admin(payload: dict):
+    db = Database()
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", "")).strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password are required")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="password must be at least 8 characters")
+
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    try:
+        created_user_id = db.create_first_super_admin_if_absent(username, password_hash)
+    except ValueError as e:
+        code = str(e)
+        if code == "super_admin_exists":
+            raise HTTPException(status_code=409, detail="super admin account already exists")
+        if code == "username_exists":
+            raise HTTPException(status_code=409, detail="username already exists")
+        raise HTTPException(status_code=409, detail="Unable to create super admin account")
+
+    db.log_admin("auth.super_admin.created", target=username, actor_user_id=created_user_id, actor_username=username)
+    return {"ok": True}
+
+
+@app.get("/api/auth-status", include_in_schema=False)
+async def auth_status(request: Request):
+    db = Database()
+    oauth_configured = bool(
+        (db.get_config("discord_oauth_client_id") or "").strip()
+        and (db.get_config("discord_oauth_client_secret") or "").strip()
+        and (db.get_config("discord_oauth_redirect_uri") or "").strip()
+    )
+    raw_token = request.cookies.get("zahul_session")
+    token = (raw_token or "").strip() or None
+    user = db.get_user_from_session_token(token) if token else None
+    payload = {
+        "super_admin_setup_required": _super_admin_setup_required(db),
+        "discord_login_enabled": bool(db.get_config("discord_login_enabled")),
+        "local_login_enabled": bool(db.get_config("local_login_enabled")),
+        "panel_auth_enabled": bool(db.get_config("panel_auth_enabled")),
+        "discord_oauth_configured": oauth_configured,
+        "discord_allowed_usernames": db.get_config("discord_allowed_usernames") or [],
+        "current_user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+        } if user else None,
+    }
+    response = JSONResponse(payload)
+    # Allowlisted route: scrub stale cookies here so the UI cannot look "logged in" with a dead session.
+    if token and not user:
+        _clear_session_cookie(response, request)
+    return response
+
+
+@app.get("/api/auth-super-admin", include_in_schema=False)
+async def auth_super_admin(_: dict = Depends(require_role("super_admin"))):
+    super_admin = Database().get_super_admin_account()
+    db = Database()
+    return {
+        "username": super_admin["username"] if super_admin else "",
+        "auth_provider": super_admin["auth_provider"] if super_admin else "",
+        "has_local_super_admin": db.count_local_super_admins() > 0,
+        "local_super_admin_count": db.count_local_super_admins(),
+        "has_super_admin_password": db.count_super_admins_with_password() > 0,
+    }
+
+
+@app.get("/auth/discord/start", include_in_schema=False)
+async def discord_oauth_start():
+    db = Database()
+    if not bool(db.get_config("discord_login_enabled")):
+        return RedirectResponse(url="/login?oauth_error=disabled", status_code=302)
+    client_id = str(db.get_config("discord_oauth_client_id") or "").strip()
+    redirect_uri = str(db.get_config("discord_oauth_redirect_uri") or "").strip()
+    if not client_id or not redirect_uri:
+        return RedirectResponse(url="/login?oauth_error=config", status_code=302)
+
+    now = _utc_now()
+    for k in [k for k, exp in list(_oauth_states.items()) if exp <= now]:
+        del _oauth_states[k]
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = now + timedelta(minutes=10)
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": DISCORD_OAUTH_SCOPE,
+        "state": state,
+        "prompt": "none",
+    }
+    return RedirectResponse(url=f"{DISCORD_OAUTH_AUTHORIZE_URL}?{urlencode(params)}", status_code=302)
+
+
+@app.get("/auth/discord/callback", include_in_schema=False)
+async def discord_oauth_callback(request: Request, code: str = "", state: str = ""):
+    db = Database()
+    if not bool(db.get_config("discord_login_enabled")):
+        return RedirectResponse(url="/login?oauth_error=disabled", status_code=302)
+    expires_at = _oauth_states.pop(state, None)
+    if not state or not expires_at or expires_at <= _utc_now():
+        return RedirectResponse(url="/login?oauth_error=state", status_code=302)
+
+    client_id = str(db.get_config("discord_oauth_client_id") or "").strip()
+    client_secret = str(db.get_config("discord_oauth_client_secret") or "").strip()
+    redirect_uri = str(db.get_config("discord_oauth_redirect_uri") or "").strip()
+    if not client_id or not client_secret or not redirect_uri or not code:
+        return RedirectResponse(url="/login?oauth_error=config", status_code=302)
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            token_resp = await client.post(
+                DISCORD_OAUTH_TOKEN_URL,
+                data={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            token_resp.raise_for_status()
+            access_token = token_resp.json().get("access_token")
+            if not access_token:
+                raise ValueError("Missing access token")
+
+            me_resp = await client.get(
+                DISCORD_OAUTH_ME_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            me_resp.raise_for_status()
+            discord_user = me_resp.json()
+    except Exception:
+        return RedirectResponse(url="/login?oauth_error=exchange", status_code=302)
+
+    discord_id = str(discord_user.get("id") or "")
+    discord_username = str(discord_user.get("username") or "").strip()
+    discord_avatar_hash = str(discord_user.get("avatar") or "").strip() or None
+    if not discord_id or not discord_username:
+        return RedirectResponse(url="/login?oauth_error=profile", status_code=302)
+
+    allowed = db.get_config("discord_allowed_usernames") or []
+    if not isinstance(allowed, list):
+        allowed = []
+    allowed_handles_lower = [str(u).strip().lower() for u in allowed if str(u).strip()]
+    allowlist_active = bool(allowed_handles_lower)
+    on_allowlist = allowlist_active and discord_username.lower() in allowed_handles_lower
+
+    user_id = db.create_or_update_discord_user(
+        discord_id=discord_id,
+        discord_username=discord_username,
+        discord_avatar_hash=discord_avatar_hash,
+    )
+    # Trusted Discord handles (non-empty allowlist): first-time Discord users on the list become super_admin.
+    # Anyone not on the list can still complete OAuth with role "pending" and request access on /no-access.
+    # With Discord login enabled, the panel requires at least one trusted handle (validated on save).
+    if allowlist_active and on_allowlist:
+        row_u = db.get_user_by_id(user_id)
+        if row_u and row_u.get("role") in ("pending", "user"):
+            db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())
+    token = secrets.token_hex(32)
+    db.create_session(token, user_id, _make_session_expiry().isoformat())
+    user = db.get_user_by_id(user_id)
+    target_url = "/"
+    if user and user.get("auth_provider") == "discord" and user.get("role") not in {"super_admin", "admin", "mod", "guest"}:
+        target_url = "/no-access"
+    response = RedirectResponse(url=target_url, status_code=302)
+    response.set_cookie(
+        "zahul_session",
+        token,
+        httponly=True,
+        secure=_cookie_secure(request),
+        samesite="lax",
+        max_age=SESSION_MAX_AGE_SECONDS,
+    )
+    return response
 
 @app.get("/logout", include_in_schema=False)
 async def logout(request: Request):
     token = request.cookies.get("zahul_session")
-    _sessions.discard(token)
+    if token:
+        Database().delete_session(token)
     response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("zahul_session")
+    _clear_session_cookie(response, request)
     return response
+
+@app.get("/users", response_class=FileResponse, include_in_schema=False)
+async def get_users_html():
+    return "static/users.html"
+
+
+@app.get("/no-access", response_class=FileResponse, include_in_schema=False)
+async def get_no_access_html():
+    return "static/no-access.html"
 
 @app.get("/api/auth-enabled", include_in_schema=False)
 async def auth_enabled():
     if not PANEL_AUTH_ENABLED:
         return {"enabled": False}
     db = Database()
-    panel_password = db.get_config("panel_password") or ""
-    return {"enabled": bool(panel_password)}
+    return {"enabled": _is_panel_auth_enabled(db)}
 
 @app.get("/api/panel-hint", include_in_schema=False)
 async def panel_hint():

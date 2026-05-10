@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/servers';
+    let currentUserRole = 'guest';
     let currentServer = null;
     let currentChannel = null;
     let availableCharacters = [];
@@ -22,6 +23,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const serverEditTitle = document.getElementById('server-edit-title');
     const srvDefaultCharacterInput = document.getElementById('srv-default-character');
     const srvDefaultCharacterStatus = document.getElementById('srv-default-character-status');
+
+    function canEditServers() {
+        return typeof window.canMutate === 'function'
+            ? window.canMutate(currentUserRole)
+            : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
 
     // Form fields
     const nameInput = document.getElementById('name');
@@ -68,30 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function populateDefaultCharacterSelector(selectedCharacter = '') {
-        defaultCharacterInput.innerHTML = '';
-        const serverDefault = currentServer?.defaultCharacter || '';
-        let inheritedLabel;
-        if (serverDefault) {
-            inheritedLabel = `Inherit server default (${serverDefault})`;
-        } else if (globalDefaultCharacter) {
-            inheritedLabel = `Inherit server default → global (${globalDefaultCharacter})`;
-        } else {
-            inheritedLabel = 'Inherit server default (not set)';
-        }
-        const inheritedOption = document.createElement('option');
-        inheritedOption.value = '';
-        inheritedOption.textContent = inheritedLabel;
-        defaultCharacterInput.appendChild(inheritedOption);
-        availableCharacters.forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            defaultCharacterInput.appendChild(opt);
-        });
-        defaultCharacterInput.value = selectedCharacter || '';
-        if (selectedCharacter && !availableCharacters.includes(selectedCharacter)) {
-            defaultCharacterInput.value = '';
-        }
+        const sel = (selectedCharacter || '').trim();
+        const use = sel && availableCharacters.includes(sel) ? sel : '';
+        defaultCharacterInput.value = use;
+        if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(defaultCharacterInput);
     }
 
     function updateDefaultCharacterStatus() {
@@ -139,21 +126,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function populateSrvDefaultCharacterSelector(selectedCharacter = '') {
-        srvDefaultCharacterInput.innerHTML = '';
-        const inheritedLabel = globalDefaultCharacter
-            ? `Inherit global default (${globalDefaultCharacter})`
-            : 'Inherit global default (not set)';
-        const inheritedOption = document.createElement('option');
-        inheritedOption.value = '';
-        inheritedOption.textContent = inheritedLabel;
-        srvDefaultCharacterInput.appendChild(inheritedOption);
-        availableCharacters.forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            srvDefaultCharacterInput.appendChild(opt);
-        });
-        srvDefaultCharacterInput.value = selectedCharacter || '';
+        const sel = (selectedCharacter || '').trim();
+        const use = sel && availableCharacters.includes(sel) ? sel : '';
+        srvDefaultCharacterInput.value = use;
+        if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(srvDefaultCharacterInput);
     }
 
     function updateSrvDefaultCharacterStatus() {
@@ -169,6 +145,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function openServerEditModal(server) {
+        if (!canEditServers()) {
+            showToast('You do not have permission to edit server settings.', 'error');
+            return;
+        }
         currentServer = { ...currentServer, id: server.server_id, name: server.server_name };
         serverEditTitle.textContent = server.server_name;
         serverEditModal.classList.remove('hidden');
@@ -184,7 +164,12 @@ document.addEventListener('DOMContentLoaded', function() {
     srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
     document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
         if (!currentServer) return;
-        const value = srvDefaultCharacterInput.value || null;
+        const raw = (srvDefaultCharacterInput.value || '').trim();
+        if (raw && !availableCharacters.includes(raw)) {
+            showToast('Choose a character from the list or clear the field to inherit global default.', 'error');
+            return;
+        }
+        const value = raw || null;
         try {
             const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
                 method: 'PATCH',
@@ -320,6 +305,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 editBtn.innerHTML = '<i class="fas fa-cog"></i>';
                 editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
                 editBtn.title = 'Server settings';
+                if (!canEditServers()) {
+                    editBtn.classList.add('hidden');
+                }
                 editBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openServerEditModal(server);
@@ -365,8 +353,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 removeBtn.innerHTML = '<i class="fas fa-times"></i>';
                 removeBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity';
                 removeBtn.title = 'Unregister channel';
+                if (!canEditServers()) {
+                    removeBtn.classList.add('hidden');
+                }
                 removeBtn.addEventListener('click', async (e) => {
                     e.stopPropagation();
+                    if (!canEditServers()) {
+                        showToast('You do not have permission to unregister channels.', 'error');
+                        return;
+                    }
                     if (!confirm(`Unregister "${channel.data.name}"?`)) return;
                     try {
                         const res = await fetch(`${API_BASE}/${currentServer.id}/channels/${channel.channel_id}`, { method: 'DELETE' });
@@ -410,6 +405,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function handleFormSubmit(event) {
         event.preventDefault();
+        if (!canEditServers()) {
+            showToast('You do not have permission to edit channels.', 'error');
+            return;
+        }
         if (!currentChannel || !currentServer) return;
         if (!nameInput.value.trim()) {
             showToast('Channel name cannot be empty.', 'error');
@@ -417,10 +416,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const isDM = currentServer.id === 'DM_VIRTUAL_SERVER';
+        const dcRaw = (defaultCharacterInput.value || '').trim();
+        if (dcRaw && !availableCharacters.includes(dcRaw)) {
+            showToast('Choose a character from the list or clear the field to inherit server default.', 'error');
+            return;
+        }
         const updatedData = {
             name: nameInput.value,
             instruction: currentChannel?.data?.instruction || null,
-            default_character: defaultCharacterInput.value || null,
+            default_character: dcRaw || null,
             global: null,
             whitelist: isDM ? [] : whitelistInput.value.split(',').map(s => s.trim()).filter(Boolean),
             is_system_channel: isDM ? false : isSystemChannelInput.checked
@@ -442,7 +446,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) { showToast(`Error: ${error.message}`, 'error'); }
     }
     // Channel modal
-    addChannelBtn.addEventListener('click', () => addChannelModal.classList.remove('hidden'));
+    addChannelBtn.addEventListener('click', () => {
+        if (!canEditServers()) {
+            showToast('You do not have permission to add channels.', 'error');
+            return;
+        }
+        addChannelModal.classList.remove('hidden');
+    });
     closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));
 
     // Invite modal
@@ -452,7 +462,15 @@ document.addEventListener('DOMContentLoaded', function() {
         inviteLinkContainer.innerHTML = '<p class="text-gray-500 text-sm">Loading invite link...</p>';
         inviteModal.classList.remove('hidden');
         try {
-            const data = await fetch('/api/discord/invite').then(r => r.json());
+            const res = await fetch('/api/discord/invite');
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    inviteLinkContainer.innerHTML = '<p class="text-red-400 text-sm">You do not have permission to view invite link.</p>';
+                    return;
+                }
+                throw new Error(`HTTP ${res.status}`);
+            }
+            const data = await res.json();
             if (data.invite) {
                 inviteLinkContainer.innerHTML = `
                     <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
@@ -469,11 +487,38 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
 
+    function wireDefaultCharacterCombos() {
+        if (typeof setupFilterCombobox !== 'function') return;
+        setupFilterCombobox(
+            'default-character',
+            'default-character-dd',
+            () => availableCharacters,
+            () => updateDefaultCharacterStatus(),
+            () => updateDefaultCharacterStatus(),
+            'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'srv-default-character',
+            'srv-default-character-dd',
+            () => availableCharacters,
+            () => updateSrvDefaultCharacterStatus(),
+            () => updateSrvDefaultCharacterStatus(),
+            'hover:bg-gray-700'
+        );
+    }
+
     // Form listener
     defaultCharacterInput.addEventListener('change', updateDefaultCharacterStatus);
     form.addEventListener('submit', handleFormSubmit);
+    wireDefaultCharacterCombos();
     closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
 
     // Initial Load
-    fetchServers();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+        })
+        .catch(() => {})
+        .finally(() => fetchServers());
 });

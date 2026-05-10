@@ -2,6 +2,7 @@ import sqlite3
 import json
 from typing import Any, Optional, Dict, List, Tuple
 import os
+from datetime import datetime, timezone
 
 def _get_trash_db():
     from api.db.trash import TrashDB
@@ -145,10 +146,122 @@ class Database:
                     timestamp TEXT NOT NULL,
                     action TEXT NOT NULL,
                     target TEXT,
-                    detail TEXT
+                    detail TEXT,
+                    actor_user_id INTEGER,
+                    actor_username TEXT NOT NULL DEFAULT 'system'
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_logs_ts ON admin_logs(timestamp)")
+            for col, typedef in [
+                ("actor_user_id", "INTEGER"),
+                ("actor_username", "TEXT NOT NULL DEFAULT 'system'"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE admin_logs ADD COLUMN {col} {typedef}")
+                except Exception:
+                    pass
+            conn.execute(
+                "UPDATE admin_logs SET actor_username = 'system' WHERE actor_username IS NULL OR TRIM(actor_username) = ''"
+            )
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT,
+                    role TEXT NOT NULL DEFAULT 'user',
+                    discord_id TEXT UNIQUE,
+                    discord_username TEXT,
+                    discord_avatar_hash TEXT,
+                    uploaded_avatar_url TEXT,
+                    auth_provider TEXT NOT NULL DEFAULT 'local',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            for col, typedef in [
+                ("discord_avatar_hash", "TEXT"),
+                ("uploaded_avatar_url", "TEXT"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
+                except Exception:
+                    pass
+            # Role rename migration: owner -> super_admin
+            try:
+                conn.execute("UPDATE users SET role = 'super_admin' WHERE role = 'owner'")
+            except Exception:
+                pass
+            # Discord "user" (no panel role) -> pending — clearer than generic "user"
+            try:
+                conn.execute(
+                    "UPDATE users SET role = 'pending' WHERE role = 'user' AND auth_provider = 'discord'"
+                )
+            except Exception:
+                pass
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS auth_sessions (
+                    token TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_server_access (
+                    user_id INTEGER NOT NULL,
+                    server_id TEXT NOT NULL,
+                    PRIMARY KEY (user_id, server_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS access_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    discord_username TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    requested_at TEXT NOT NULL,
+                    reviewed_at TEXT,
+                    reviewed_by INTEGER,
+                    note TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_access_requests_requested_at ON access_requests(requested_at DESC)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS discord_dm_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    discord_user_id TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    last_attempt_at TEXT,
+                    last_error TEXT
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_discord_dm_queue_pending ON discord_dm_queue(status, id)"
+            )
+            # Ensure security-related config keys exist with safe defaults for existing DBs
+            security_defaults = [
+                ("panel_auth_enabled", "false"),
+                ("local_login_enabled", "true"),
+                ("discord_login_enabled", "false"),
+                ("discord_allowed_usernames", "[]"),
+                ("panel_password_hint", '""'),
+                ("discord_oauth_client_id", '""'),
+                ("discord_oauth_client_secret", '""'),
+                ("discord_oauth_redirect_uri", '""'),
+            ]
+            for key, val in security_defaults:
+                conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
 
     # ------------------------------------------------------
@@ -158,7 +271,6 @@ class Database:
         """Generic helper to update any record in any table."""
         if not kwargs:
             return # Nothing to update
-        
         # JSON fields need to be dumped to string
         for key, value in kwargs.items():
             if isinstance(value, (dict, list)):
@@ -616,14 +728,37 @@ class Database:
                   temperature, history_count, task_id))
             conn.commit()
 
-    def log_admin(self, action: str, target: str = None, detail: str = None):
+    def log_admin(
+        self,
+        action: str,
+        target: str = None,
+        detail: str = None,
+        *,
+        actor: Optional[Dict[str, Any]] = None,
+        actor_user_id: Optional[int] = None,
+        actor_username: Optional[str] = None,
+    ):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
+        resolved_actor_id = actor_user_id
+        resolved_actor_username = (actor_username or "").strip()
+        if actor:
+            if resolved_actor_id is None:
+                actor_id = actor.get("id")
+                if actor_id is not None:
+                    try:
+                        resolved_actor_id = int(actor_id)
+                    except (TypeError, ValueError):
+                        resolved_actor_id = None
+            if not resolved_actor_username:
+                resolved_actor_username = str(actor.get("username") or "").strip()
+        if not resolved_actor_username:
+            resolved_actor_username = "system"
         with self._get_connection() as conn:
             conn.execute(
-                "INSERT INTO admin_logs (timestamp, action, target, detail) VALUES (?,?,?,?)",
-                (ts, action, target, detail)
+                "INSERT INTO admin_logs (timestamp, action, target, detail, actor_user_id, actor_username) VALUES (?,?,?,?,?,?)",
+                (ts, action, target, detail, resolved_actor_id, resolved_actor_username)
             )
             conn.commit()
 
@@ -679,6 +814,15 @@ class Database:
         conditions, params = [], []
         if filters.get('from_date'): conditions.append("timestamp >= ?"); params.append(filters['from_date'])
         if filters.get('to_date'): conditions.append("timestamp <= ?"); params.append(filters['to_date'] + 'T23:59:59')
+        if filters.get('user'):
+            user_value = str(filters['user']).strip()
+            if user_value:
+                if user_value.isdigit():
+                    conditions.append("(actor_username = ? OR actor_user_id = ?)")
+                    params.extend([user_value, int(user_value)])
+                else:
+                    conditions.append("actor_username = ?")
+                    params.append(user_value)
         if filters.get('action'):
             vals = filters['action'] if isinstance(filters['action'], list) else [filters['action']]
             conditions.append(f"action IN ({','.join('?'*len(vals))})"); params.extend(vals)
@@ -700,6 +844,9 @@ class Database:
             users = [r[0] for r in conn.execute(
                 "SELECT DISTINCT user FROM discord_logs WHERE user IS NOT NULL AND user != 'system' ORDER BY user"
             ).fetchall()]
+            admin_users = [r[0] for r in conn.execute(
+                "SELECT DISTINCT actor_username FROM admin_logs WHERE actor_username IS NOT NULL AND TRIM(actor_username) != '' ORDER BY actor_username"
+            ).fetchall()]
             channel_rows = conn.execute(
                 "SELECT channel_id, server_name, data FROM channels"
             ).fetchall()
@@ -712,4 +859,385 @@ class Database:
                     'server_name': d['server_name'],
                     'channel_name': data.get('name', d['channel_id'])
                 }
-        return {"characters": characters, "users": users, "channels": channels}
+        return {
+            "characters": characters,
+            "users": users,
+            "admin_users": admin_users,
+            "channels": channels,
+        }
+
+    # ------------------------------------------------------
+    # Panel auth users & sessions
+    # ------------------------------------------------------
+    def _utcnow_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def get_super_admin_account(self) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE role = 'super_admin' ORDER BY id ASC LIMIT 1").fetchone()
+            return dict(row) if row else None
+
+    def count_super_admins(self) -> int:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").fetchone()
+            return int(row["c"]) if row else 0
+
+    def count_local_super_admins(self) -> int:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin' AND auth_provider = 'local'"
+            ).fetchone()
+            return int(row["c"]) if row else 0
+
+    def count_super_admins_with_password(self) -> int:
+        """Super admins who can use POST /login (includes Discord SA after owner password is saved)."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS c FROM users
+                WHERE role = 'super_admin'
+                AND password_hash IS NOT NULL
+                AND TRIM(password_hash) != ''
+                """
+            ).fetchone()
+            return int(row["c"]) if row else 0
+
+    def list_discord_super_admins(self) -> List[Dict[str, Any]]:
+        """Super admin accounts linked to Discord (have discord_id). Local-only super admins are excluded."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """SELECT * FROM users
+                   WHERE role = 'super_admin'
+                   AND auth_provider = 'discord'
+                   AND discord_id IS NOT NULL
+                   AND TRIM(discord_id) != ''"""
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def create_local_user(self, username: str, password_hash: str, role: str = "user") -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO users (username, password_hash, role, auth_provider, created_at, updated_at)
+                VALUES (?, ?, ?, 'local', ?, ?)
+                """,
+                (username, password_hash, role, now, now),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def create_first_super_admin_if_absent(self, username: str, password_hash: str) -> int:
+        """
+        Atomically create the first local super_admin (BEGIN IMMEDIATE).
+        Raises ValueError('super_admin_exists' | 'username_exists') on conflict.
+        """
+        now = self._utcnow_iso()
+        _ensure_db_directory(self.db_path)
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT COUNT(*) AS c FROM users WHERE role = 'super_admin'").fetchone()
+            if row and int(row["c"]) > 0:
+                conn.rollback()
+                raise ValueError("super_admin_exists")
+            row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            if row:
+                conn.rollback()
+                raise ValueError("username_exists")
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO users (username, password_hash, role, auth_provider, created_at, updated_at)
+                VALUES (?, ?, 'super_admin', 'local', ?, ?)
+                """,
+                (username, password_hash, now, now),
+            )
+            uid = int(cur.lastrowid)
+            conn.commit()
+            return uid
+        except ValueError:
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def create_user(self, username: str, password_hash: Optional[str], role: str,
+                    auth_provider: str = "local", discord_id: Optional[str] = None,
+                    discord_username: Optional[str] = None, discord_avatar_hash: Optional[str] = None,
+                    uploaded_avatar_url: Optional[str] = None) -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (username, password_hash, role, auth_provider, discord_id, discord_username, discord_avatar_hash, uploaded_avatar_url, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (username, password_hash, role, auth_provider, discord_id, discord_username, discord_avatar_hash, uploaded_avatar_url, now, now)
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_discord_id(self, discord_id: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
+            return dict(row) if row else None
+
+    def create_or_update_discord_user(self, discord_id: str, discord_username: str, discord_avatar_hash: Optional[str] = None) -> int:
+        now = self._utcnow_iso()
+        username = discord_username.lower()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            existing = cur.execute("SELECT id FROM users WHERE discord_id = ?", (discord_id,)).fetchone()
+            if existing:
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET discord_username = ?, discord_avatar_hash = ?, updated_at = ?, auth_provider = 'discord'
+                    WHERE discord_id = ?
+                    """,
+                    (discord_username, discord_avatar_hash, now, discord_id),
+                )
+                conn.commit()
+                return int(existing["id"])
+
+            candidate = username
+            suffix = 1
+            while cur.execute("SELECT id FROM users WHERE username = ?", (candidate,)).fetchone():
+                suffix += 1
+                candidate = f"{username}_{suffix}"
+
+            cur.execute(
+                """
+                INSERT INTO users (username, role, discord_id, discord_username, discord_avatar_hash, auth_provider, created_at, updated_at)
+                VALUES (?, 'pending', ?, ?, ?, 'discord', ?, ?)
+                """,
+                (candidate, discord_id, discord_username, discord_avatar_hash, now, now),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def create_session(self, token: str, user_id: int, expires_at: str):
+        created_at = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute(
+                "REPLACE INTO auth_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (token, user_id, created_at, expires_at),
+            )
+            conn.commit()
+
+    def get_session(self, token: str) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT token, user_id, created_at, expires_at FROM auth_sessions WHERE token = ?",
+                (token,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def _parse_session_expires_at(self, raw: Any) -> Optional[datetime]:
+        if raw is None:
+            return None
+        s = str(raw).strip()
+        if not s:
+            return None
+        try:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except Exception:
+            return None
+
+    def get_user_from_session_token(self, token: Optional[str]) -> Optional[Dict[str, Any]]:
+        """
+        Resolve a logged-in user from a session cookie token.
+        Deletes expired sessions and orphan sessions (missing user row).
+        """
+        if not token:
+            return None
+        session = self.get_session(token)
+        if not session:
+            return None
+        expires_at = self._parse_session_expires_at(session.get("expires_at"))
+        if expires_at is None:
+            self.delete_session(token)
+            return None
+        if expires_at <= datetime.now(timezone.utc):
+            self.delete_session(token)
+            return None
+        try:
+            uid = int(session["user_id"])
+        except (TypeError, ValueError, KeyError):
+            self.delete_session(token)
+            return None
+        user = self.get_user_by_id(uid)
+        if not user:
+            self.delete_session(token)
+            return None
+        return user
+
+    def get_session_user(self, token: str) -> Optional[Dict[str, Any]]:
+        return self.get_user_from_session_token(token)
+
+    def list_users(self) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+            return [dict(r) for r in rows]
+
+    def update_user(self, user_id: int, **kwargs):
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return
+        self._update_record("users", "id", user_id, updated_at=self._utcnow_iso(), **kwargs)
+
+    def delete_user(self, user_id: int):
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+
+    def get_pending_access_request(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM access_requests WHERE user_id = ? AND status = 'pending' ORDER BY requested_at DESC LIMIT 1",
+                (user_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_access_request(self, user_id: int, discord_username: str) -> int:
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO access_requests (user_id, discord_username, status, requested_at) VALUES (?, ?, 'pending', ?)",
+                (user_id, discord_username, now),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def list_access_requests(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            if status:
+                rows = conn.execute(
+                    "SELECT * FROM access_requests WHERE status = ? ORDER BY requested_at DESC",
+                    (status,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM access_requests ORDER BY requested_at DESC"
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_access_request(self, request_id: int) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM access_requests WHERE id = ?",
+                (request_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def resolve_access_request(self, request_id: int, status: str, reviewed_by: int, note: Optional[str] = None):
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE access_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, note = ? WHERE id = ?",
+                (status, now, reviewed_by, note, request_id),
+            )
+            conn.commit()
+
+    def get_user_server_access(self, user_id: int) -> List[str]:
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT server_id FROM user_server_access WHERE user_id = ?", (user_id,)).fetchall()
+            return [r["server_id"] for r in rows]
+
+    def set_user_server_access(self, user_id: int, server_ids: List[str]):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM user_server_access WHERE user_id = ?", (user_id,))
+            for sid in server_ids:
+                conn.execute("INSERT OR IGNORE INTO user_server_access (user_id, server_id) VALUES (?,?)", (user_id, sid))
+            conn.commit()
+
+    def delete_session(self, token: str):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE token = ?", (token,))
+            conn.commit()
+
+    def delete_all_sessions(self):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions")
+            conn.commit()
+
+    def purge_expired_sessions(self):
+        now = self._utcnow_iso()
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (now,))
+            conn.commit()
+
+    # --- Panel Discord DM queue (when bot is offline or DM fails) ---
+    def enqueue_discord_dm(self, kind: str, discord_user_id: str, message: str) -> int:
+        now = self._utcnow_iso()
+        did = str(discord_user_id).strip()
+        with self._get_connection() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO discord_dm_queue (created_at, kind, discord_user_id, message, status, attempts)
+                VALUES (?, ?, ?, ?, 'pending', 0)
+                """,
+                (now, kind, did, message),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def list_pending_discord_dm_queue(self, limit: int = 200) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM discord_dm_queue
+                WHERE status = 'pending'
+                ORDER BY id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def delete_discord_dm_queue_item(self, queue_id: int):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM discord_dm_queue WHERE id = ?", (queue_id,))
+            conn.commit()
+
+    def increment_discord_dm_queue_attempt(self, queue_id: int, error: str) -> int:
+        now = self._utcnow_iso()
+        err = (error or "")[:500]
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE discord_dm_queue
+                SET attempts = attempts + 1, last_attempt_at = ?, last_error = ?
+                WHERE id = ?
+                """,
+                (now, err, queue_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT attempts FROM discord_dm_queue WHERE id = ?", (queue_id,)
+            ).fetchone()
+            return int(row["attempts"]) if row else 0

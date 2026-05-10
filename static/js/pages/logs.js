@@ -3,10 +3,16 @@
     let currentTab = new URLSearchParams(location.search).get('tab') === 'admin' ? 'admin' : 'discord';
     let currentPage = 1;
     let totalItems = 0;
+    let currentUserRole = 'guest';
+    let canViewLogs = false;
     let _initialAutoOpen = !!new URLSearchParams(location.search).get('task_id');
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
     const esc = escapeHtml;
+
+    function canReadLogs() {
+        return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
 
     async function loadServerNames() {
         try {
@@ -30,6 +36,13 @@
                 'df-user',
                 'df-user-dd',
                 data.users || [],
+                () => { currentPage = 1; fetchLogs(); },
+                () => { currentPage = 1; fetchLogs(); }
+            );
+            setupFilterCombobox(
+                'af-user',
+                'af-user-dd',
+                data.admin_users || [],
                 () => { currentPage = 1; fetchLogs(); },
                 () => { currentPage = 1; fetchLogs(); }
             );
@@ -57,7 +70,46 @@
         document.getElementById('admin-filters').classList.toggle('hidden', tab !== 'admin');
     }
 
-    activateTab(currentTab);
+    const adminActionSearch = typeof initSearchableCheckboxDropdown === 'function'
+        ? initSearchableCheckboxDropdown({ searchInputId: 'af-action-search', dropdownId: 'dd-action' })
+        : null;
+
+    function clearDd(cls) {
+        clearCheckboxDropdownPrefix(cls, {
+            afterReset: (prefix) => {
+                if (prefix === 'af-action') adminActionSearch?.reset();
+            },
+        });
+    }
+
+    if (typeof initCbDdInteractions === 'function') {
+        initCbDdInteractions({
+            containers: [
+                document.getElementById('discord-filters'),
+                document.getElementById('admin-filters'),
+            ],
+            onCheckboxChange: () => {
+                currentPage = 1;
+                fetchLogs();
+            },
+        });
+    }
+
+    if (typeof wireCbDdClear === 'function') {
+        wireCbDdClear('dd-source-clear', 'dd-source', () => {
+            currentPage = 1;
+            fetchLogs();
+        });
+        wireCbDdClear('dd-status-clear', 'dd-status', () => {
+            currentPage = 1;
+            fetchLogs();
+        });
+        wireCbDdClear('dd-action-clear', 'dd-action', () => {
+            adminActionSearch?.reset();
+            currentPage = 1;
+            fetchLogs();
+        });
+    }
 
     // --- Tab switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -66,36 +118,6 @@
             activateTab(btn.dataset.tab);
             history.replaceState(null, '', `?tab=${currentTab}`);
             fetchLogs();
-        });
-    });
-
-    // --- Checkbox dropdown logic ---
-    function updateDdLabel(btn) {
-        const ddId = btn.dataset.dd;
-        const checked = [...document.querySelectorAll(`#${ddId} input:checked`)].map(el => el.value);
-        btn.querySelector('.cb-dd-label').textContent = checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : checked.length + ' selected';
-    }
-    function clearDd(cls) {
-        document.querySelectorAll('.' + cls + '-cb').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
-    }
-    document.querySelectorAll('.cb-dd-btn').forEach(btn => {
-        const dd = document.getElementById(btn.dataset.dd);
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.cb-dd').forEach(d => { if (d !== dd) d.classList.add('hidden'); });
-            dd.classList.toggle('hidden');
-        });
-    });
-    document.addEventListener('click', e => {
-        document.querySelectorAll('.cb-dd-btn').forEach(btn => {
-            const dd = document.getElementById(btn.dataset.dd);
-            if (!btn.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hidden');
-        });
-    });
-    document.querySelectorAll('.df-source-cb, .df-status-cb, .af-action-cb').forEach(cb => {
-        cb.addEventListener('change', () => {
-            updateDdLabel(cb.closest('.cb-dd').previousElementSibling);
-            currentPage = 1; fetchLogs();
         });
     });
 
@@ -112,15 +134,30 @@
     document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
-        ['df-from','df-to','df-character','df-user'].forEach(id => document.getElementById(id).value = '');
+        ['df-from','df-to','df-character','df-user'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(el);
+            }
+        });
         clearDd('df-source'); clearDd('df-status');
+        document.querySelectorAll('#discord-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
     document.getElementById('admin-clear-btn').addEventListener('click', () => {
-        ['af-from','af-to'].forEach(id => document.getElementById(id).value = '');
+        ['af-from','af-to', 'af-user'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(el);
+            }
+        });
         clearDd('af-action');
+        document.querySelectorAll('#admin-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
+    if (typeof initFilterClear === 'function') initFilterClear(() => { currentPage = 1; fetchLogs(); }, document.getElementById('discord-filters'));
 
     // --- Pagination ---
     document.getElementById('prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchLogs(); } });
@@ -129,6 +166,10 @@
 
     // --- Export ---
     document.getElementById('export-btn').addEventListener('click', () => {
+        if (!canViewLogs) {
+            showToast('You do not have permission to export logs.', 'error');
+            return;
+        }
         const params = buildParams();
         window.location.href = `/api/logs/${currentTab}/export?${params}`;
     });
@@ -152,6 +193,7 @@
             const v = id => document.getElementById(id).value;
             if (v('af-from')) p.set('from_date', v('af-from'));
             if (v('af-to')) p.set('to_date', v('af-to'));
+            if (v('af-user')) p.set('user', v('af-user'));
             getChecked('af-action-cb').forEach(s => p.append('action', s));
         }
         return p.toString();
@@ -159,6 +201,12 @@
 
     async function fetchLogs() {
         const list = document.getElementById('log-list');
+        if (!canViewLogs) {
+            list.innerHTML = '<div class="text-gray-500 text-center py-12">You do not have permission to view logs.</div>';
+            totalItems = 0;
+            updatePagination();
+            return;
+        }
         list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
         try {
             const res = await fetch(`/api/logs/${currentTab}?${buildParams()}`);
@@ -213,12 +261,46 @@
 
     function adminRow(item) {
         const colors = {
-            'character.create':'bg-green-900 text-green-300','character.update':'bg-blue-900 text-blue-300',
-            'character.delete':'bg-red-900 text-red-300','task.create':'bg-green-900 text-green-300',
-            'task.update':'bg-blue-900 text-blue-300','task.delete':'bg-red-900 text-red-300',
-            'config.update':'bg-amber-900 text-amber-300','config.security.update':'bg-red-900 text-red-300','config.security_update':'bg-red-900 text-red-300',
-            'servers.override.on':'bg-blue-900 text-blue-300','servers.override.off':'bg-blue-900 text-blue-300',
-            'server.activate':'bg-yellow-900 text-yellow-300','server.deactivate':'bg-yellow-900 text-yellow-300',
+            'access.request.approve': 'bg-emerald-900 text-emerald-300',
+            'access.request.create': 'bg-purple-900 text-purple-300',
+            'access.request.deny': 'bg-red-900 text-red-300',
+            'discord.dm.queued': 'bg-slate-800 text-slate-300',
+            'discord.dm.delivered': 'bg-emerald-950 text-emerald-200',
+            'discord.dm.retry': 'bg-amber-950 text-amber-200',
+            'discord.dm.queue_drop': 'bg-gray-800 text-gray-400',
+            'auth.super_admin.created': 'bg-amber-900 text-amber-200',
+            'channel.create': 'bg-teal-900 text-teal-300',
+            'channel.delete': 'bg-red-900 text-red-300',
+            'channel.update': 'bg-blue-900 text-blue-300',
+            'character.avatar.mirror': 'bg-green-800 text-green-200',
+            'character.avatar.upload': 'bg-green-800 text-green-200',
+            'character.create': 'bg-green-900 text-green-300',
+            'character.delete': 'bg-red-900 text-red-300',
+            'character.image.upload': 'bg-green-800 text-green-200',
+            'character.import': 'bg-green-800 text-green-200',
+            'character.update': 'bg-blue-900 text-blue-300',
+            'config.security.methods.update': 'bg-amber-900 text-amber-300',
+            'config.security.update': 'bg-red-900 text-red-300',
+            'config.security_update': 'bg-red-900 text-red-300',
+            'config.update': 'bg-amber-900 text-amber-300',
+            'log.delete': 'bg-gray-700 text-gray-200',
+            'preset.create': 'bg-violet-900 text-violet-300',
+            'preset.delete': 'bg-red-900 text-red-300',
+            'preset.update': 'bg-violet-800 text-violet-200',
+            'server.activate': 'bg-yellow-900 text-yellow-300',
+            'server.create': 'bg-teal-900 text-teal-300',
+            'server.deactivate': 'bg-yellow-900 text-yellow-300',
+            'server.delete': 'bg-red-900 text-red-300',
+            'servers.override.on': 'bg-blue-900 text-blue-300',
+            'servers.override.off': 'bg-blue-900 text-blue-300',
+            'task.create': 'bg-green-900 text-green-300',
+            'task.delete': 'bg-red-900 text-red-300',
+            'task.update': 'bg-blue-900 text-blue-300',
+            'trash.restore': 'bg-orange-900 text-orange-300',
+            'user.create': 'bg-indigo-900 text-indigo-300',
+            'user.delete': 'bg-red-900 text-red-300',
+            'user.password_update': 'bg-blue-900 text-blue-300',
+            'user.role_update': 'bg-blue-900 text-blue-300',
         };
         const labels = {
             'config.security_update': 'config.security.update',
@@ -229,6 +311,9 @@
         const overrideLabel = overrideOn.includes(item.action) ? 'override on' : overrideOff.includes(item.action) ? 'override off' : null;
         const color = colors[item.action] || 'bg-gray-800 text-gray-300';
         const label = labels[item.action] ?? item.action;
+        const actorName = String(item.actor_username || 'system');
+        const actorId = item.actor_user_id != null ? `#${item.actor_user_id}` : null;
+        const actorDisplay = actorId ? `${actorName} (${actorId})` : actorName;
         const targetDisplay = isServerOverride
             ? (serverNames[item.target] || item.target || '')
             : (item.target || '');
@@ -239,7 +324,10 @@
                 ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
                 ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}
             </div>
-            <span class="text-xs text-gray-500 flex-shrink-0">${fmt(item.timestamp)}</span>
+            <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+                <span>${esc(actorDisplay)}</span>
+                <span>${fmt(item.timestamp)}</span>
+            </div>
         </div>`;
     }
 
@@ -359,18 +447,36 @@
         }
     }
 
-    Promise.all([loadMeta(), loadServerNames()]).then(() => {
-        const urlParams = new URLSearchParams(location.search);
-        const paramChar = urlParams.get('character');
-        const paramSource = urlParams.get('source');
-        if (paramChar) document.getElementById('df-character').value = paramChar;
-        if (paramSource) {
-            const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
-            if (cb) {
-                cb.checked = true;
-                document.querySelectorAll('.cb-dd-btn').forEach(btn => updateDdLabel(btn));
-            }
-        }
-        fetchLogs();
-    });
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            canViewLogs = canReadLogs();
+            activateTab(currentTab);
+        })
+        .catch(() => {})
+        .finally(() => {
+            Promise.all([loadMeta(), loadServerNames()]).then(() => {
+                if (canViewLogs) {
+                    const urlParams = new URLSearchParams(location.search);
+                    const paramChar = urlParams.get('character');
+                    const paramSource = urlParams.get('source');
+                    if (paramChar) {
+                        const dc = document.getElementById('df-character');
+                        if (dc) {
+                            dc.value = paramChar;
+                            if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(dc);
+                        }
+                    }
+                    if (paramSource) {
+                        const cb = document.querySelector(`.df-source-cb[value="${paramSource}"]`);
+                        if (cb) {
+                            cb.checked = true;
+                            document.querySelectorAll('.cb-dd-btn').forEach(btn => updateCbDdLabel(btn));
+                        }
+                    }
+                }
+                fetchLogs();
+            });
+        });
 })();

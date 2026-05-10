@@ -7,13 +7,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const inviteContainer = document.getElementById('invite-container');
     const inviteLink = document.getElementById('invite-link');
     const copyInviteBtn = document.getElementById('copy-invite');
+    let currentUserRole = 'guest';
 
     let eventSource;
     let statusInterval;
+    let logStreamStatusDebounce = null;
+
+    /** Tell navbar to refresh bot status (optional optimistic label before API catches up). */
+    function notifyNavbarBotStatus(detail) {
+        window.dispatchEvent(new CustomEvent('bot-status-refresh', { detail: detail || {} }));
+    }
+
+    function canControlBot() {
+        return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
 
     // --- Main Setup ---
-    checkBotStatus();
-    loadServers();
+    fetch('/api/auth-status')
+        .then(r => r.json())
+        .then(d => {
+            currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
+            if (!canControlBot()) {
+                powerBtn.disabled = true;
+                powerBtn.classList.add('opacity-60', 'cursor-not-allowed');
+                powerBtn.title = 'Read-only: insufficient permissions';
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            checkBotStatus();
+            loadServers();
+            if (canControlBot()) {
+                setupLogStream();
+            }
+            statusInterval = setInterval(checkBotStatus, DASHBOARD_STATUS_INTERVAL_MS);
+        });
 
     async function loadServers() {
         const container = document.getElementById('servers-list');
@@ -38,25 +66,30 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML = '<p class="text-red-500 text-sm col-span-full">Failed to load servers.</p>';
         }
     }
-    setupLogStream();
-    statusInterval = setInterval(checkBotStatus, 10000);
+    // After Activate/Deactivate: 5 status checks — now, then every 2s — then back to 10s (dashboard-only).
+    const DASHBOARD_STATUS_INTERVAL_MS = 10000;
+    const BURST_POLL_INTERVAL_MS = 2000;
+    const BURST_POLL_EXTRA_COUNT = 4; // +1 immediate = 5 total
 
     function burstPoll() {
         clearInterval(statusInterval);
-        checkBotStatus();
+        checkBotStatus(true);
         let count = 0;
         const burst = setInterval(() => {
-            checkBotStatus();
-            if (++count >= 3) {
+            checkBotStatus(true);
+            if (++count >= BURST_POLL_EXTRA_COUNT) {
                 clearInterval(burst);
-                statusInterval = setInterval(checkBotStatus, 10000);
+                statusInterval = setInterval(checkBotStatus, DASHBOARD_STATUS_INTERVAL_MS);
             }
-        }, 2000);
+        }, BURST_POLL_INTERVAL_MS);
     }
 
     // --- Event Listeners ---
 
     powerBtn.addEventListener('click', function() {
+        if (!canControlBot()) {
+            return;
+        }
         if (powerBtn.dataset.status === 'active') {
             deactivateBot();
             burstPoll();
@@ -87,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function activateBot() {
         // Optimistic UI Update: Set to 'starting' immediately for instant feedback
         updateStatus('starting');
+        notifyNavbarBotStatus({ optimistic: 'starting' });
 
         fetch('/api/discord/activate', { method: 'POST' })
             .then(response => {
@@ -103,13 +137,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 addLogEntry(`Error activating bot: ${error.detail || error.message}`);
                 // Revert UI if API call fails
-                checkBotStatus();
+                checkBotStatus(true);
             });
     }
 
     function deactivateBot() {
         // Optimistic UI Update: Set to 'stopping' immediately
         updateStatus('stopping');
+        notifyNavbarBotStatus({ optimistic: 'stopping' });
 
         fetch('/api/discord/deactivate', { method: 'POST' })
             .then(response => {
@@ -126,15 +161,21 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 addLogEntry(`Error deactivating bot: ${error.detail || error.message}`);
                 // Revert UI if API call fails
-                checkBotStatus();
+                checkBotStatus(true);
             });
     }
 
-    function checkBotStatus() {
+    function checkBotStatus(syncNavbar) {
         fetch('/api/discord/status')
-            .then(response => response.json())
-            .then(data => {
+            .then(async (response) => {
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data || typeof data.status !== 'string') {
+                    console.warn('Bot status unavailable:', response.status, data);
+                    if (syncNavbar) notifyNavbarBotStatus();
+                    return;
+                }
                 updateStatus(data.status);
+                if (syncNavbar) notifyNavbarBotStatus();
                 if (data.status === 'active') {
                     if (!inviteLink.value) fetchInviteLink();
                 } else {
@@ -142,9 +183,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     inviteLink.value = '';
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error('Failed to fetch status:', error);
-                updateStatus('crashed'); // Assume crashed if we can't get status
+                updateStatus('crashed');
+                if (syncNavbar) notifyNavbarBotStatus();
             });
     }
 
@@ -158,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
         controlStatusIndicator.classList.remove(...allStatusClasses);
         powerBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-gray-800', 'hover:bg-gray-700', 'bg-yellow-600');
 
-        powerBtn.disabled = false; // Enable by default
+        powerBtn.disabled = !canControlBot();
 
         switch (status) {
             case 'active':
@@ -192,10 +234,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 powerBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
                 break;
         }
+        if (!canControlBot()) {
+            powerBtn.classList.add('opacity-60', 'cursor-not-allowed');
+        }
     }
 
     // Set up log stream connection
     function setupLogStream() {
+        if (!canControlBot()) return;
         if (eventSource) {
             eventSource.close();
         }
@@ -205,15 +251,20 @@ document.addEventListener('DOMContentLoaded', function() {
         eventSource.onmessage = function(e) {
             addLogEntry(e.data);
 
-            // Check for status updates in logs
-            if (e.data.includes('Bot starting up')) {
-                updateStatus('starting');
-            } else if (e.data.includes('Bot has shut down cleanly') || e.data.includes('Bot crashed')) {
-                updateStatus('inactive');
-                inviteContainer.classList.add('hidden');
-            } else if (e.data.includes('Logged in as')) {
-                updateStatus('active');
-                fetchInviteLink();
+            // Do not drive UI status from log text: the stream replays the last ~10 file lines on
+            // connect, so old "shut down" / "crashed" lines would flash Inactive while the bot is Active.
+            // Use /api/discord/status as the single source of truth when logs hint at a transition.
+            const hint =
+                e.data.includes('Bot starting up')
+                || e.data.includes('Bot has shut down cleanly')
+                || e.data.includes('Bot crashed')
+                || e.data.includes('Logged in as');
+            if (hint) {
+                if (logStreamStatusDebounce) clearTimeout(logStreamStatusDebounce);
+                logStreamStatusDebounce = setTimeout(() => {
+                    logStreamStatusDebounce = null;
+                    checkBotStatus(true);
+                }, 120);
             }
         };
 

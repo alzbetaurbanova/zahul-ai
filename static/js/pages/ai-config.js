@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/auth-status').then(r => r.json()).then(d => {
+        const role = d.current_user?.role;
+        const allowed = role === 'super_admin';
+        if (d.panel_auth_enabled && !allowed) {
+            window.location.href = '/';
+        }
+    }).catch(() => {});
+
     const CONFIG_API_BASE = '/api/config';
     const PRESET_API_BASE = '/api/presets';
 
@@ -14,11 +22,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPresetDescription = null;
 
     // Security Elements
-    const securityToggle = document.getElementById('security_toggle');
-    const securityFields = document.getElementById('security-fields');
+    const panelAuthToggle = document.getElementById('panel_auth_enabled');
+    const discordLoginToggle = document.getElementById('discord_login_enabled');
+    const localLoginToggle = document.getElementById('local_login_enabled');
+    const panelAuthMasterWrap = document.getElementById('panel-auth-master-wrap');
+    const panelAuthMasterNote = document.getElementById('panel-auth-master-note');
+    const currentSuperAdminUsername = document.getElementById('current-super-admin-username');
+    const discordOauthWarning = document.getElementById('discord-oauth-warning');
+    const discordOauthFields = document.getElementById('discord-oauth-fields');
+    const superAdminAccountSection = document.getElementById('super-admin-account-section');
     const saveSecurityBtn = document.getElementById('save-security-btn');
+    const saveAdminBtn = document.getElementById('save-admin-btn');
+    const loginAccessSection = document.getElementById('login-access-section');
     const panelPasswordInput = document.getElementById('panel_password');
-    const panelPasswordHintInput = document.getElementById('panel_password_hint');
+    const superAdminUsernameInput = document.getElementById('super_admin_username');
+    let hasLocalSuperAdmin = false;
+    let authStatus = null;
+    let currentUserRole = 'guest';
+    let discordOauthConfiguredOnServer = false;
+
+    function isSuperAdmin() {
+        return currentUserRole === 'super_admin';
+    }
 
     // DM Access Control Elements
     const dmToggle = document.getElementById('dm_toggle');
@@ -31,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
         'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api',
-        'public_url'
+        'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
+        'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
     ];
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
     const MIN_PANEL_PASSWORD_LENGTH = 8;
@@ -66,20 +92,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSecurityStatus() {
         try {
-            const response = await fetch('/api/auth-enabled');
+            const response = await fetch('/api/auth-status');
             if (!response.ok) return;
-            const data = await response.json();
-            securityToggle.checked = data.enabled;
-            toggleSecurityFields();
-            if (data.enabled) {
-                const hintRes = await fetch('/api/panel-hint');
-                if (hintRes.ok) {
-                    const hintData = await hintRes.json();
-                    panelPasswordHintInput.value = hintData.hint || '';
-                }
+            authStatus = await response.json();
+            currentUserRole = authStatus?.current_user?.role || (authStatus?.panel_auth_enabled ? 'guest' : 'super_admin');
+            discordOauthConfiguredOnServer = !!authStatus.discord_oauth_configured;
+            panelAuthToggle.checked = !!authStatus.panel_auth_enabled;
+            discordLoginToggle.checked = !!authStatus.discord_login_enabled;
+            localLoginToggle.checked = !!authStatus.local_login_enabled;
+            const allowedTextarea = document.getElementById('discord_allowed_usernames');
+            if (allowedTextarea && Array.isArray(authStatus.discord_allowed_usernames)) {
+                allowedTextarea.value = authStatus.discord_allowed_usernames.join('\n');
+            }
+            await loadSuperAdmin();
+            updateMethodVisibility();
+            if (!isSuperAdmin() && loginAccessSection) {
+                loginAccessSection.classList.add('hidden');
             }
         } catch (error) {
             // Silently ignore
+        }
+    }
+
+    async function loadSuperAdmin() {
+        const superAdminRes = await fetch('/api/auth-super-admin');
+        if (!superAdminRes.ok) return;
+        const superAdminData = await superAdminRes.json();
+        const username = (superAdminData.username || '').trim();
+        hasLocalSuperAdmin =
+            !!superAdminData.has_local_super_admin || !!superAdminData.has_super_admin_password;
+        currentSuperAdminUsername.textContent = username || 'Not set';
+        if (username) {
+            superAdminUsernameInput.value = username;
         }
     }
 
@@ -90,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
-        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint']) {
+        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
@@ -135,36 +179,58 @@ document.addEventListener('DOMContentLoaded', () => {
             elements['ai_key'].value = '';
             elements['discord_key'].value = '';
             elements['multimodal_ai_api'].value = '';
+            elements['discord_oauth_client_secret'].value = '';
+            await loadSecurityStatus();
         } catch (error) {
             showToast(error.message, 'error');
         }
     }
 
-    function toggleSecurityFields() {
-        if (securityToggle.checked) {
-            securityFields.classList.remove('hidden');
-        } else {
-            securityFields.classList.add('hidden');
-            panelPasswordInput.value = '';
-            panelPasswordHintInput.value = '';
+    function updateMasterToggleState() {
+        const anyMethodEnabled = discordLoginToggle.checked || localLoginToggle.checked;
+        panelAuthToggle.disabled = !anyMethodEnabled;
+        panelAuthMasterWrap.classList.toggle('opacity-60', !anyMethodEnabled);
+        panelAuthMasterNote.classList.toggle('hidden', anyMethodEnabled);
+        if (!anyMethodEnabled) panelAuthToggle.checked = false;
+    }
+
+    function updateDiscordOauthWarning() {
+        const configuredInForm = !!(elements.discord_oauth_client_id.value.trim()
+            && elements.discord_oauth_redirect_uri.value.trim());
+        const configured = discordOauthConfiguredOnServer || configuredInForm;
+        discordOauthWarning.classList.toggle('hidden', configured || !discordLoginToggle.checked);
+    }
+
+    function updateMethodVisibility(autoEnablePanel = false) {
+        discordOauthFields.classList.toggle('hidden', !discordLoginToggle.checked);
+        superAdminAccountSection.classList.toggle('hidden', !localLoginToggle.checked);
+        updateDiscordOauthWarning();
+        updateMasterToggleState();
+        if (autoEnablePanel && (discordLoginToggle.checked || localLoginToggle.checked)) {
+            panelAuthToggle.checked = true;
         }
     }
 
-    async function handleSecuritySave() {
-        const isEnabled = securityToggle.checked;
-        if (isEnabled) {
-            if (!panelPasswordInput.value) {
-                showToast('Password is required when protection is enabled.', 'error');
-                return;
-            }
-            if (panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
-                showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
-                return;
-            }
+    async function handleAdminSave() {
+        if (!isSuperAdmin()) {
+            showToast('Only super admin can update access settings.', 'error');
+            return;
+        }
+        if (panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
+            showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
+            return;
+        }
+        if (!superAdminUsernameInput.value.trim()) {
+            showToast('Super admin username is required.', 'error');
+            return;
+        }
+        if (!panelPasswordInput.value) {
+            showToast('Super admin password is required.', 'error');
+            return;
         }
         const configData = {
-            panel_password: isEnabled ? panelPasswordInput.value : '',
-            panel_password_hint: isEnabled ? panelPasswordHintInput.value : ''
+            username: superAdminUsernameInput.value.trim(),
+            panel_password: panelPasswordInput.value
         };
         try {
             const response = await fetch('/api/config/security', {
@@ -179,15 +245,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     : 'Failed to save security config.';
                 throw new Error(msg);
             }
-            if (isEnabled) {
-                showToast('Password saved. Redirecting to login...');
+            const isAuthOn = panelAuthToggle.checked;
+            panelPasswordInput.value = '';
+            if (isAuthOn) {
+                showToast('Credentials updated. Redirecting to login…');
                 setTimeout(() => { window.location.href = '/logout'; }, 1200);
             } else {
-                showToast('Panel password disabled!');
-                panelPasswordInput.value = '';
+                showToast('Super admin account saved.');
+                await loadSuperAdmin();
+                updateMasterToggleState();
             }
         } catch (error) {
             showToast(error.message, 'error');
+        }
+    }
+
+    async function handleSecuritySave() {
+        if (!isSuperAdmin()) {
+            showToast('Only super admin can update access settings.', 'error');
+            return;
+        }
+        if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
+            showToast('At least one login method must be enabled.', 'error');
+            return;
+        }
+        const allowedRaw = document.getElementById('discord_allowed_usernames')?.value || "";
+        const allowedList = allowedRaw.split('\n').map(s => s.trim()).filter(s => s);
+        if (discordLoginToggle.checked && allowedList.length < 1) {
+            showToast('Discord login requires at least one trusted username.', 'error');
+            return;
+        }
+        const payload = {
+            panel_auth_enabled: panelAuthToggle.checked,
+            discord_login_enabled: discordLoginToggle.checked,
+            local_login_enabled: localLoginToggle.checked,
+            discord_oauth_client_id: elements.discord_oauth_client_id?.value?.trim() || "",
+            discord_oauth_client_secret: elements.discord_oauth_client_secret?.value?.trim() || "",
+            discord_oauth_redirect_uri: elements.discord_oauth_redirect_uri?.value?.trim() || "",
+            discord_allowed_usernames: allowedList,
+        };
+        try {
+            const response = await fetch('/api/config/security/methods', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to save security settings.');
+            }
+            if (payload.panel_auth_enabled) {
+                showToast('Security enabled. Redirecting to login…');
+                setTimeout(() => { window.location.href = '/logout'; }, 1200);
+            } else {
+                showToast('Security settings saved.');
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+            await loadSecurityStatus();
         }
     }
 
@@ -251,12 +366,86 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', handleConfigSubmit);
     multimodalToggle.addEventListener('change', toggleMultimodalOptions);
     savePromptBtn.addEventListener('click', savePrompt);
-    securityToggle.addEventListener('change', toggleSecurityFields);
     saveSecurityBtn.addEventListener('click', handleSecuritySave);
+    saveAdminBtn.addEventListener('click', handleAdminSave);
+    discordLoginToggle.addEventListener('change', () => {
+        if (!discordLoginToggle.checked) {
+            const modal = document.getElementById('confirm-disable-discord-modal');
+            const msg = document.getElementById('confirm-disable-discord-msg');
+            msg.textContent = localLoginToggle.checked
+                ? hasLocalSuperAdmin
+                    ? 'Discord OAuth login will be disabled. You can still log in with your username and password.'
+                    : 'Discord OAuth login will be disabled. Save a super admin username and password (Unique account login) first, or you may be locked out.'
+                : 'Discord OAuth login will be disabled. You have no other login method enabled - panel protection will be turned off.';
+            modal.classList.remove('hidden');
+            document.getElementById('confirm-disable-discord-cancel').onclick = () => {
+                discordLoginToggle.checked = true;
+                modal.classList.add('hidden');
+            };
+            document.getElementById('confirm-disable-discord-confirm').onclick = () => {
+                if (localLoginToggle.checked && !hasLocalSuperAdmin) {
+                    showToast(
+                        'Save a super admin username and password first, then disable Discord login.',
+                        'error',
+                    );
+                    discordLoginToggle.checked = true;
+                    modal.classList.add('hidden');
+                    return;
+                }
+                modal.classList.add('hidden');
+                updateMethodVisibility(true);
+            };
+            return;
+        }
+        updateMethodVisibility(true);
+    });
+    localLoginToggle.addEventListener('change', () => {
+        if (localLoginToggle.checked && !hasLocalSuperAdmin) {
+            showToast(
+                'Turn on unique account login only after saving a super admin username and password (below).',
+                'error',
+            );
+            superAdminAccountSection.classList.remove('hidden');
+            superAdminUsernameInput.focus();
+        }
+        if (!localLoginToggle.checked) {
+            const modal = document.getElementById('confirm-disable-local-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('confirm-disable-local-cancel').onclick = () => {
+                localLoginToggle.checked = true;
+                modal.classList.add('hidden');
+            };
+            document.getElementById('confirm-disable-local-confirm').onclick = () => {
+                modal.classList.add('hidden');
+                updateMethodVisibility(true);
+            };
+            return;
+        }
+        updateMethodVisibility(true);
+    });
+    elements.discord_oauth_client_id.addEventListener('input', updateDiscordOauthWarning);
+    elements.discord_oauth_redirect_uri.addEventListener('input', updateDiscordOauthWarning);
     dmToggle.addEventListener('change', toggleDmFields);
 
+    async function loadDefaultCharacterCombobox() {
+        try {
+            const res = await fetch('/api/characters');
+            if (!res.ok) return;
+            const chars = await res.json();
+            const names = chars.map(c => c.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+            setupFilterCombobox(
+                'default_character',
+                'default-character-dd',
+                names,
+                null,
+                null,
+                'hover:bg-gray-700'
+            );
+        } catch (_) {}
+    }
+
     // --- Initial Load ---
-    loadConfig();
+    loadConfig().then(() => loadDefaultCharacterCombobox());
     loadPrompt();
     loadSecurityStatus();
 });
