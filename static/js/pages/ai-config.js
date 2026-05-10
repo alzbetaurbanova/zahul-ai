@@ -271,8 +271,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSecuritySave() {
         const redirectUri = elements.discord_oauth_redirect_uri?.value?.trim() || '';
-        if (redirectUri && !redirectUri.startsWith('https://')) {
-            showToast('Redirect URI must start with https://', 'error');
+        const isLocalhostHttp = redirectUri.startsWith('http://localhost') || redirectUri.startsWith('http://127.0.0.1');
+        if (redirectUri && !redirectUri.startsWith('https://') && !isLocalhostHttp) {
+            showToast('Redirect URI must start with https:// (or http:// for localhost)', 'error');
             return;
         }
         if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
@@ -438,7 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDiscordOauthWarning();
         const val = elements.discord_oauth_redirect_uri.value.trim();
         const warn = document.getElementById('redirect-uri-https-warn');
-        if (warn) warn.classList.toggle('hidden', !val || val.startsWith('https://'));
+        const isLocalHttp = val.startsWith('http://localhost') || val.startsWith('http://127.0.0.1');
+        if (warn) warn.classList.toggle('hidden', !val || val.startsWith('https://') || isLocalHttp);
     });
     elements.public_url.addEventListener('input', updateRedirectUriHint);
     dmToggle.addEventListener('change', toggleDmFields);
