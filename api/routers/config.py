@@ -80,7 +80,7 @@ def _validate_panel_auth_prerequisites(
 
 
 @router.get("/", response_model=BotConfig)
-async def get_config(current_user=Depends(get_current_user)):
+async def get_config(current_user=Depends(require_role("super_admin"))):
     try:
         all_db_configs = db.list_configs()
         if current_user and ROLE_LEVEL.get(current_user.get("role"), 0) < ROLE_LEVEL["admin"]:
@@ -91,7 +91,7 @@ async def get_config(current_user=Depends(get_current_user)):
 
 
 @router.put("/", response_model=BotConfig)
-async def update_config(config: BotConfig = Body(...), current_user: dict = Depends(require_role("admin"))):
+async def update_config(config: BotConfig = Body(...), current_user: dict = Depends(require_role("super_admin"))):
     """
     Update the bot configuration in the database with smart field preservation.
     Each field in the model is saved as a separate key-value pair.

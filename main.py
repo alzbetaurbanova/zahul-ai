@@ -284,7 +284,7 @@ app = FastAPI(
     description="API for managing character, channel, and bot configurations",
     docs_url=None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url=None,
     lifespan=lifespan,
 )
 
@@ -314,10 +314,14 @@ app.add_middleware(
 # This is the modern way to serve your static frontend files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+@app.get("/api/openapi.json", include_in_schema=False)
+async def openapi_json(_: dict = Depends(require_role("admin"))):
+    return JSONResponse(app.openapi())
+
 @app.get("/api/doc", include_in_schema=False)
-async def custom_swagger_ui_html():
+async def custom_swagger_ui_html(_: dict = Depends(require_role("admin"))):
     return get_swagger_ui_html(
-        openapi_url=app.openapi_url,
+        openapi_url="/api/openapi.json",
         title=f"{app.title} - Swagger UI",
         swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
         swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
@@ -331,9 +335,9 @@ async def custom_swagger_ui_html():
     )
 
 @app.get("/api/redoc", include_in_schema=False)
-async def custom_redoc_html():
+async def custom_redoc_html(_: dict = Depends(require_role("admin"))):
     return get_redoc_html(
-        openapi_url=app.openapi_url,
+        openapi_url="/api/openapi.json",
         title=f"{app.title} - ReDoc",
         redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.2.0/bundles/redoc.standalone.js",
         redoc_favicon_url="/favicon.ico",
@@ -475,7 +479,7 @@ async def auth_status(request: Request):
 
 
 @app.get("/api/auth-super-admin", include_in_schema=False)
-async def auth_super_admin(_: dict = Depends(require_role("super_admin"))):
+async def auth_super_admin(_: dict = Depends(require_role("admin"))):
     super_admin = Database().get_super_admin_account()
     db = Database()
     return {

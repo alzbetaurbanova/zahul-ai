@@ -209,10 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleAdminSave() {
-        if (!isSuperAdmin()) {
-            showToast('Only super admin can update access settings.', 'error');
-            return;
-        }
         if (panelPasswordInput.value && panelPasswordInput.value.length < MIN_PANEL_PASSWORD_LENGTH) {
             showToast(`Panel password must be at least ${MIN_PANEL_PASSWORD_LENGTH} characters.`, 'error');
             return;
@@ -258,10 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleSecuritySave() {
-        if (!isSuperAdmin()) {
-            showToast('Only super admin can update access settings.', 'error');
-            return;
-        }
         if (panelAuthToggle.checked && !discordLoginToggle.checked && !localLoginToggle.checked) {
             showToast('At least one login method must be enabled.', 'error');
             return;
