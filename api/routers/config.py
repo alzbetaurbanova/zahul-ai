@@ -2,7 +2,7 @@
 """Bot configuration API endpoints, powered by the database."""
 
 from fastapi import APIRouter, Body, HTTPException, Depends
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 from pydantic import BaseModel
 import bcrypt
 from api.db.database import Database

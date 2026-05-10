@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSON
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # --- Local Imports ---
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
@@ -289,6 +290,28 @@ app = FastAPI(
 )
 
 app.add_middleware(AuthMiddleware)
+
+
+def _error_page(code: int) -> FileResponse:
+    path = f"static/error_handler/{code}.html"
+    if not os.path.exists(path):
+        path = "static/error_handler/500.html"
+    return FileResponse(path, status_code=code)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if request.url.path.startswith("/api"):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+    return _error_page(exc.status_code)
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    if request.url.path.startswith("/api"):
+        return JSONResponse({"detail": "Internal server error"}, status_code=500)
+    return _error_page(500)
+
 
 # Include routers
 app.include_router(characters.router)
