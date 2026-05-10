@@ -64,17 +64,22 @@ def _run_bot_in_thread():
         _bot_instance = None
 
 
-@router.post("/activate")
-async def activate_bot(current_user: dict = Depends(require_role("admin"))):
-    # Check the shared state object
+def _do_activate(actor=None) -> bool:
+    """Start the bot thread. Returns True if started, False if already running."""
     if (bot_state.bot_instance and bot_state.bot_instance.is_ready()) or (bot_state.bot_thread and bot_state.bot_thread.is_alive()):
-        raise HTTPException(status_code=400, detail="Bot is already active or starting.")
-    
-    logging.info("Bot activation requested via API.")
+        return False
+    logging.info("Bot activation requested.")
     db = Database()
-    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested via Admin UI or API.", actor=current_user)
+    db.log_admin(action="server.activate", target="discord", detail="Bot activation requested.", actor=actor)
     bot_state.bot_thread = threading.Thread(target=_run_bot_in_thread, daemon=True)
     bot_state.bot_thread.start()
+    return True
+
+
+@router.post("/activate")
+async def activate_bot(current_user: dict = Depends(require_role("admin"))):
+    if not _do_activate(actor=current_user):
+        raise HTTPException(status_code=400, detail="Bot is already active or starting.")
     return {"success": True, "message": "Bot activation initiated."}
 
 

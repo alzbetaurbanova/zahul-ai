@@ -249,12 +249,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 async def _auto_activate():
     """Try to activate the bot automatically on startup, retrying for up to 60 seconds."""
-    from api.routers.discord import activate_bot
+    from api.routers.discord import _do_activate
+    from api.bot_state import bot_state as _bs
     for _ in range(12):
         await asyncio.sleep(5)
-        try:
-            await activate_bot()
+        if _bs.bot_instance and _bs.bot_instance.is_ready():
             return
+        if _bs.bot_thread and _bs.bot_thread.is_alive():
+            return
+        try:
+            if _do_activate():
+                return
         except Exception:
             pass
 
