@@ -1868,6 +1868,8 @@ body[data-page="logs"] #detail-modal .modal-box {
     cursor: pointer;
 }
 
+
+
 .main-content {
     width: 56rem;
     margin: 0 auto;
@@ -1893,6 +1895,16 @@ body[data-page="logs"] #detail-modal .modal-box {
 .page-subtitle {
     font-size: 1rem;
     color: var(--text-dim);
+}
+
+.field {
+    background-color: var(--surface);
+    border: 1px solid var(--surface-raised);
+    color: white;
+    border-radius: 0.5rem;
+    line-height: normal;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
 }
 
 /* ========================================================================== */
