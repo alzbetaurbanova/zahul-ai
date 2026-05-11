@@ -199,6 +199,7 @@ async def list_sessions(_: dict = Depends(require_role("admin"))):
     result = []
     for s in sessions:
         result.append({
+            "session_token": s["session_token"],
             "user_id": s["user_id"],
             "username": s["username"],
             "role": s["role"],
@@ -211,6 +212,14 @@ async def list_sessions(_: dict = Depends(require_role("admin"))):
     return result
 
 
+@router.delete("/sessions")
+async def revoke_all_sessions(current_user: dict = Depends(require_role("admin"))):
+    db = Database()
+    db.delete_all_sessions()
+    db.log_admin("user.sessions.revoke_all", actor=current_user)
+    return {"ok": True}
+
+
 @router.delete("/{user_id}/sessions")
 async def revoke_user_sessions(user_id: int, current_user: dict = Depends(require_role("admin"))):
     db = Database()
@@ -218,6 +227,21 @@ async def revoke_user_sessions(user_id: int, current_user: dict = Depends(requir
         raise HTTPException(status_code=404, detail="User not found.")
     db.delete_user_sessions(user_id)
     db.log_admin("user.sessions.revoke", detail=f"user_id={user_id}", actor=current_user)
+    return {"ok": True}
+
+
+@router.delete("/sessions/{session_token}")
+async def revoke_session(session_token: str, current_user: dict = Depends(require_role("admin"))):
+    db = Database()
+    session = db.get_session(session_token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    db.delete_session(session_token)
+    db.log_admin(
+        "user.session.revoke",
+        detail=f"user_id={session['user_id']}",
+        actor=current_user,
+    )
     return {"ok": True}
 
 

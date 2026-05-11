@@ -1187,7 +1187,7 @@ class Database:
         now = self._utcnow_iso()
         with self._get_connection() as conn:
             rows = conn.execute("""
-                SELECT s.user_id, s.created_at, s.expires_at, s.user_agent,
+                SELECT s.token AS session_token, s.user_id, s.created_at, s.expires_at, s.user_agent,
                        u.username, u.role, u.auth_provider,
                        u.discord_id, u.discord_avatar_hash, u.uploaded_avatar_url
                 FROM auth_sessions s

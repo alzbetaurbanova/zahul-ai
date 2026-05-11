@@ -27,11 +27,26 @@ document.addEventListener('DOMContentLoaded', () => {
         admin: 'Admin – full control',
     };
     const DEFAULT_USER_AVATAR = '/static/avatars/default_user_avatar.png';
+    const VALID_TABS = new Set(['users', 'requests', 'sessions']);
+    const _qs = new URLSearchParams(window.location.search);
+    let PAGE_SIZE = parseInt(_qs.get('limit'), 10);
+    if (!Number.isInteger(PAGE_SIZE) || PAGE_SIZE <= 0) PAGE_SIZE = 25;
+    const _tabFromUrlEarly = (_qs.get('tab') || '').trim().toLowerCase();
+    const _initialTabFromUrl = VALID_TABS.has(_tabFromUrlEarly) ? _tabFromUrlEarly : 'users';
+    const _urlPageNum = parseInt(_qs.get('page'), 10);
+    const _initialPage = Number.isInteger(_urlPageNum) && _urlPageNum > 0 ? _urlPageNum : 1;
+
     let _currentUserRole = '';
     let _allUsers = [];
     let _requests = [];
     let _sessions = [];
     let _activeTab = 'users';
+    let _usersPage = _initialTabFromUrl === 'users' ? _initialPage : 1;
+    let _usersTotalPages = 1;
+    let _requestsPage = _initialTabFromUrl === 'requests' ? _initialPage : 1;
+    let _requestsTotalPages = 1;
+    let _sessionPage = _initialTabFromUrl === 'sessions' ? _initialPage : 1;
+    let _sessionTotalPages = 1;
 
     /** Local calendar date DD.MM.YYYY from ISO string */
     function formatDateDdMmYyyy(iso) {
@@ -85,6 +100,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function roleLabel(role) {
         return ROLE_LABELS[role] || role;
+    }
+
+    function getTabFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const tab = (params.get('tab') || '').trim().toLowerCase();
+        return VALID_TABS.has(tab) ? tab : null;
+    }
+
+    /** Same pattern as scheduler.js `updatePagination`: `tab`, `page`, `limit` in the query string. */
+    function syncUsersUrl() {
+        const p = new URLSearchParams(window.location.search);
+        p.set('tab', _activeTab);
+        let page = 1;
+        if (_activeTab === 'users') page = _usersPage;
+        else if (_activeTab === 'requests') page = _requestsPage;
+        else if (_activeTab === 'sessions') page = _sessionPage;
+        p.set('page', String(page));
+        p.set('limit', String(PAGE_SIZE));
+        window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}${window.location.hash}`);
     }
 
     function fillEditRoleSelect(u) {
@@ -173,8 +207,17 @@ document.addEventListener('DOMContentLoaded', () => {
     bindPasswordToggle('edit-password', 'edit-password-toggle');
     initUserCombobox();
     initSessionFilters();
-    document.getElementById('filter-role').addEventListener('change', renderUsers);
-    document.getElementById('filter-auth').addEventListener('change', renderUsers);
+    initUsersPagination();
+    initRequestsPagination();
+    initPageSizeSelectors();
+    document.getElementById('filter-role').addEventListener('change', () => {
+        _usersPage = 1;
+        renderUsers();
+    });
+    document.getElementById('filter-auth').addEventListener('change', () => {
+        _usersPage = 1;
+        renderUsers();
+    });
     document.getElementById('clear-filters-btn').addEventListener('click', () => {
         const fu = document.getElementById('filter-user');
         if (fu) {
@@ -186,10 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filter-user-dd').classList.add('hidden');
         document.querySelectorAll('#users-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         document.querySelectorAll('#users-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
+        _usersPage = 1;
         renderUsers();
     });
     if (typeof initFilterClear === 'function') initFilterClear(() => {
         document.getElementById('filter-user-dd').classList.add('hidden');
+        _usersPage = 1;
         renderUsers();
     }, document.getElementById('users-filters'));
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -244,20 +289,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setTab(tab) {
-        _activeTab = tab;
+    function setTab(tab, opts = {}) {
+        const { syncUrl = true } = opts;
+        const resolvedTab = VALID_TABS.has(tab) ? tab : 'users';
+        _activeTab = resolvedTab;
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            const active = btn.dataset.tab === tab;
+            const active = btn.dataset.tab === resolvedTab;
             btn.classList.toggle('tab-active', active);
             btn.classList.toggle('text-white', active);
         });
-        document.getElementById('users-filters').classList.toggle('hidden', tab !== 'users');
-        document.getElementById('sessions-filters').classList.toggle('hidden', tab !== 'sessions');
-        document.getElementById('user-list').classList.toggle('hidden', tab !== 'users');
-        document.getElementById('request-list').classList.toggle('hidden', tab !== 'requests');
-        document.getElementById('session-list').classList.toggle('hidden', tab !== 'sessions');
-        if (tab === 'requests') loadRequests();
-        if (tab === 'sessions') loadSessions();
+        document.getElementById('users-filters').classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('sessions-filters').classList.toggle('hidden', resolvedTab !== 'sessions');
+        document.getElementById('user-list').classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('users-pagination').classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('request-list').classList.toggle('hidden', resolvedTab !== 'requests');
+        document.getElementById('requests-pagination').classList.toggle('hidden', resolvedTab !== 'requests');
+        document.getElementById('session-list').classList.toggle('hidden', resolvedTab !== 'sessions');
+        document.getElementById('session-list-footer').classList.toggle('hidden', resolvedTab !== 'sessions');
+        if (resolvedTab === 'requests') loadRequests();
+        if (resolvedTab === 'sessions') loadSessions();
+        if (syncUrl) syncUsersUrl();
+    }
+
+    function initPageSizeSelectors() {
+        const ids = ['users-page-size-select', 'requests-page-size-select', 'session-page-size-select'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = String(PAGE_SIZE);
+            el.addEventListener('change', () => {
+                const next = parseInt(el.value || '25', 10);
+                if (!Number.isInteger(next) || next <= 0) return;
+                PAGE_SIZE = next;
+                ids.forEach(otherId => {
+                    const other = document.getElementById(otherId);
+                    if (other) other.value = String(PAGE_SIZE);
+                });
+                _usersPage = 1;
+                _requestsPage = 1;
+                _sessionPage = 1;
+                syncUsersUrl();
+                if (_activeTab === 'users') renderUsers();
+                if (_activeTab === 'requests') renderRequests();
+                if (_activeTab === 'sessions') renderFilteredSessions();
+            });
+        });
     }
 
     function parseUA(ua) {
@@ -284,6 +360,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${parsed.browser} · ${parsed.os}`;
     }
 
+    /** Label + optional title for session list (handles missing legacy user_agent rows). */
+    function sessionClientLabel(session) {
+        const raw = (session && session.user_agent != null) ? String(session.user_agent).trim() : '';
+        if (!raw) {
+            return {
+                text: 'No client info (legacy or missing User-Agent)',
+                title: '',
+            };
+        }
+        const parsed = parseUA(raw);
+        const line = formatUA(parsed);
+        return {
+            text: line || 'Unknown browser · unknown OS',
+            title: raw,
+        };
+    }
+
     async function loadSessions() {
         const list = document.getElementById('session-list');
         list.innerHTML = '<div class="text-gray-500 text-center py-8">Loading...</div>';
@@ -295,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderFilteredSessions();
         } catch (e) {
             list.innerHTML = `<div class="text-red-400 text-center py-8">Failed to load: ${esc(String(e))}</div>`;
+            updateSessionFooter(0);
         }
     }
 
@@ -314,7 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderFilteredSessions() {
-        renderSessions(applySessionFilters(_sessions));
+        const filtered = applySessionFilters(_sessions);
+        _sessionTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        if (_sessionPage > _sessionTotalPages) _sessionPage = _sessionTotalPages;
+        const start = (_sessionPage - 1) * PAGE_SIZE;
+        const pageItems = filtered.slice(start, start + PAGE_SIZE);
+        renderSessions(pageItems);
+        updateSessionFooter(filtered.length);
     }
 
     function initSessionCombobox() {
@@ -325,16 +425,47 @@ document.addEventListener('DOMContentLoaded', () => {
             'filter-session-user',
             'filter-session-user-dd',
             sessionUsernames,
-            () => renderFilteredSessions(),
-            () => renderFilteredSessions(),
+            () => { _sessionPage = 1; renderFilteredSessions(); },
+            () => { _sessionPage = 1; renderFilteredSessions(); },
             'hover:bg-gray-800'
         );
     }
 
     function initSessionFilters() {
         initSessionCombobox();
-        document.getElementById('filter-session-browser')?.addEventListener('change', renderFilteredSessions);
-        document.getElementById('filter-session-os')?.addEventListener('change', renderFilteredSessions);
+        document.getElementById('filter-session-browser')?.addEventListener('change', () => {
+            _sessionPage = 1;
+            renderFilteredSessions();
+        });
+        document.getElementById('filter-session-os')?.addEventListener('change', () => {
+            _sessionPage = 1;
+            renderFilteredSessions();
+        });
+        document.getElementById('kick-all-sessions-btn')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            if (!confirm('Kick all active sessions? This will log out everyone.')) return;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/users/sessions', { method: 'DELETE' });
+                if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
+                showToast('All sessions revoked.', 'success');
+                await loadSessions();
+            } catch (err) {
+                showToast(String(err), 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        document.getElementById('session-prev-btn')?.addEventListener('click', () => {
+            if (_sessionPage <= 1) return;
+            _sessionPage -= 1;
+            renderFilteredSessions();
+        });
+        document.getElementById('session-next-btn')?.addEventListener('click', () => {
+            if (_sessionPage >= _sessionTotalPages) return;
+            _sessionPage += 1;
+            renderFilteredSessions();
+        });
         document.getElementById('clear-session-filters-btn')?.addEventListener('click', () => {
             const fu = document.getElementById('filter-session-user');
             if (fu) { fu.value = ''; if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu); }
@@ -343,12 +474,88 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('filter-session-user-dd')?.classList.add('hidden');
             document.querySelectorAll('#sessions-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
             document.querySelectorAll('#sessions-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
+            _sessionPage = 1;
             renderFilteredSessions();
         });
         if (typeof initFilterClear === 'function') initFilterClear(() => {
             document.getElementById('filter-session-user-dd')?.classList.add('hidden');
+            _sessionPage = 1;
             renderFilteredSessions();
         }, document.getElementById('sessions-filters'));
+    }
+
+    function updateSessionFooter(totalItems) {
+        const footer = document.getElementById('session-list-footer');
+        const info = document.getElementById('session-pagination-info');
+        const prev = document.getElementById('session-prev-btn');
+        const next = document.getElementById('session-next-btn');
+        if (!footer || !info || !prev || !next) return;
+        const nd = '\u2013';
+        const start = totalItems ? ((_sessionPage - 1) * PAGE_SIZE) + 1 : 0;
+        const end = totalItems ? Math.min(_sessionPage * PAGE_SIZE, totalItems) : 0;
+        footer.classList.toggle('hidden', _activeTab !== 'sessions');
+        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
+        prev.disabled = totalItems <= 0 || _sessionPage <= 1;
+        next.disabled = totalItems <= 0 || _sessionPage * PAGE_SIZE >= totalItems;
+        syncUsersUrl();
+    }
+
+    function initUsersPagination() {
+        document.getElementById('users-prev-btn')?.addEventListener('click', () => {
+            if (_usersPage <= 1) return;
+            _usersPage -= 1;
+            renderUsers();
+        });
+        document.getElementById('users-next-btn')?.addEventListener('click', () => {
+            if (_usersPage >= _usersTotalPages) return;
+            _usersPage += 1;
+            renderUsers();
+        });
+    }
+
+    function updateUsersFooter(totalItems) {
+        const footer = document.getElementById('users-pagination');
+        const info = document.getElementById('users-pagination-info');
+        const prev = document.getElementById('users-prev-btn');
+        const next = document.getElementById('users-next-btn');
+        if (!footer || !info || !prev || !next) return;
+        const nd = '\u2013';
+        const start = totalItems ? ((_usersPage - 1) * PAGE_SIZE) + 1 : 0;
+        const end = totalItems ? Math.min(_usersPage * PAGE_SIZE, totalItems) : 0;
+        footer.classList.toggle('hidden', _activeTab !== 'users');
+        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
+        prev.disabled = totalItems <= 0 || _usersPage <= 1;
+        next.disabled = totalItems <= 0 || _usersPage * PAGE_SIZE >= totalItems;
+        syncUsersUrl();
+    }
+
+    function initRequestsPagination() {
+        document.getElementById('requests-prev-btn')?.addEventListener('click', () => {
+            if (_requestsPage <= 1) return;
+            _requestsPage -= 1;
+            renderRequests();
+        });
+        document.getElementById('requests-next-btn')?.addEventListener('click', () => {
+            if (_requestsPage >= _requestsTotalPages) return;
+            _requestsPage += 1;
+            renderRequests();
+        });
+    }
+
+    function updateRequestsFooter(totalItems) {
+        const footer = document.getElementById('requests-pagination');
+        const info = document.getElementById('requests-pagination-info');
+        const prev = document.getElementById('requests-prev-btn');
+        const next = document.getElementById('requests-next-btn');
+        if (!footer || !info || !prev || !next) return;
+        const nd = '\u2013';
+        const start = totalItems ? ((_requestsPage - 1) * PAGE_SIZE) + 1 : 0;
+        const end = totalItems ? Math.min(_requestsPage * PAGE_SIZE, totalItems) : 0;
+        footer.classList.toggle('hidden', _activeTab !== 'requests');
+        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
+        prev.disabled = totalItems <= 0 || _requestsPage <= 1;
+        next.disabled = totalItems <= 0 || _requestsPage * PAGE_SIZE >= totalItems;
+        syncUsersUrl();
     }
 
     function renderSessions(sessions) {
@@ -366,11 +573,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const expires = formatDateTimeDdMmYyyy(s.expires_at);
             const safeAvatar = esc(s.avatar_url || DEFAULT_AVATAR);
             const safeDefault = esc(DEFAULT_AVATAR);
-            const uaParsed = formatUA(parseUA(s.user_agent));
-            const uaTitle = s.user_agent ? ` title="${esc(s.user_agent)}"` : '';
-            const uaLine = uaParsed
-                ? `<span class="text-xs text-gray-500"${uaTitle}>${esc(uaParsed)}</span><span class="text-xs text-gray-600"> · </span>`
-                : '';
+            const client = sessionClientLabel(s);
+            const uaTitle = client.title ? ` title="${esc(client.title)}"` : '';
+            const uaLine = `<span class="text-xs text-gray-500"${uaTitle}>${esc(client.text)}</span><span class="text-xs text-gray-600"> · </span>`;
             return `<div class="list-card flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3 min-w-0">
                     <img src="${safeAvatar}" onerror="this.onerror=null;this.src='${safeDefault}'" alt="avatar" class="w-8 h-8 rounded-full object-cover border border-gray-700 bg-gray-900 flex-shrink-0">
@@ -382,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0">
                     <span class="role-badge role-${esc(s.role)}">${roleIcon(s.role)}<span class="role-badge-label">${esc(roleLabel(s.role))}</span></span>
-                    <button class="btn-danger text-xs session-revoke-btn" data-user-id="${s.user_id}" title="Revoke all sessions for this user">
+                    <button class="btn-danger text-xs session-revoke-btn" data-session-token="${esc(s.session_token)}" title="Revoke this session only">
                         <i class="fas fa-right-from-bracket mr-1"></i>Kick
                     </button>
                 </div>
@@ -390,10 +595,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
         list.querySelectorAll('.session-revoke-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const userId = btn.dataset.userId;
+                const sessionToken = btn.dataset.sessionToken;
+                if (!sessionToken) {
+                    showToast('Missing session token.', 'error');
+                    return;
+                }
                 btn.disabled = true;
                 try {
-                    const res = await fetch(`/api/users/${userId}/sessions`, { method: 'DELETE' });
+                    const encodedToken = encodeURIComponent(sessionToken);
+                    const res = await fetch(`/api/users/sessions/${encodedToken}`, { method: 'DELETE' });
                     if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
                     showToast('Session revoked.', 'success');
                     loadSessions();
@@ -419,12 +629,18 @@ document.addEventListener('DOMContentLoaded', () => {
             list.innerHTML = _allUsers.length
                 ? '<div class="text-gray-500 text-center py-12">No users match current filters.</div>'
                 : '<div class="text-gray-500 text-center py-12">No users.</div>';
+            updateUsersFooter(0);
             return;
         }
-        list.innerHTML = users.map(userRow).join('');
+        _usersTotalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+        if (_usersPage > _usersTotalPages) _usersPage = _usersTotalPages;
+        const start = (_usersPage - 1) * PAGE_SIZE;
+        const pageUsers = users.slice(start, start + PAGE_SIZE);
+        list.innerHTML = pageUsers.map(userRow).join('');
         list.querySelectorAll('[data-user-id]').forEach(row => {
-            row.addEventListener('click', () => openEditModal(users.find(u => u.id == row.dataset.userId)));
+            row.addEventListener('click', () => openEditModal(pageUsers.find(u => u.id == row.dataset.userId)));
         });
+        updateUsersFooter(users.length);
     }
 
     function applyFilters(users) {
@@ -450,8 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'filter-user',
             'filter-user-dd',
             allNames,
-            () => renderUsers(),
-            () => renderUsers(),
+            () => { _usersPage = 1; renderUsers(); },
+            () => { _usersPage = 1; renderUsers(); },
             'hover:bg-gray-800'
         );
     }
@@ -488,9 +704,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.getElementById('request-list');
         if (!_requests.length) {
             list.innerHTML = '<div class="text-gray-500 text-center py-12">No pending access requests.</div>';
+            updateRequestsFooter(0);
             return;
         }
-        list.innerHTML = _requests.map(r => {
+        _requestsTotalPages = Math.max(1, Math.ceil(_requests.length / PAGE_SIZE));
+        if (_requestsPage > _requestsTotalPages) _requestsPage = _requestsTotalPages;
+        const start = (_requestsPage - 1) * PAGE_SIZE;
+        const pageRequests = _requests.slice(start, start + PAGE_SIZE);
+        list.innerHTML = pageRequests.map(r => {
             const ts = formatDateTimeDdMmYyyy(r.requested_at);
             return `<div class="list-card flex flex-col md:flex-row md:items-center md:justify-between gap-3" data-request-id="${r.id}">
                 <div class="min-w-0">
@@ -541,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+        updateRequestsFooter(_requests.length);
     }
 
     // --- New User Modal ---
@@ -797,5 +1019,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('hidden');
     }
 
-    setTab('users');
+    setTab(getTabFromUrl() || 'users', { syncUrl: false });
+    syncUsersUrl();
 });
