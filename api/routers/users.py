@@ -315,6 +315,9 @@ async def create_user(body: CreateUserRequest, current_user: dict = Depends(requ
     else:
         raise HTTPException(status_code=400, detail="auth_provider must be 'local' or 'discord'.")
     if body.role == "mod" and body.server_ids:
+        invalid = [sid for sid in body.server_ids if not db.get_server(sid)]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Unknown server IDs: {', '.join(invalid)}")
         db.set_user_server_access(uid, body.server_ids)
     created_name = (body.username or body.discord_username or "").strip()
     db.log_admin("user.create", detail=f"username={created_name}, role={body.role}", actor=current_user)
@@ -347,11 +350,19 @@ async def update_role(user_id: int, body: UpdateRoleRequest, current_user: dict 
 
 
 @router.patch("/{user_id}/servers")
-async def update_servers(user_id: int, body: UpdateServersRequest, _: dict = Depends(require_role("admin"))):
+async def update_servers(user_id: int, body: UpdateServersRequest, current_user: dict = Depends(require_role("admin"))):
     db = Database()
     if not db.get_user_by_id(user_id):
         raise HTTPException(status_code=404, detail="User not found.")
+    invalid = [sid for sid in body.server_ids if not db.get_server(sid)]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown server IDs: {', '.join(invalid)}")
     db.set_user_server_access(user_id, body.server_ids)
+    db.log_admin(
+        "user.servers_update",
+        detail=f"user_id={user_id}, server_ids={body.server_ids}",
+        actor=current_user,
+    )
     return {"ok": True}
 
 
