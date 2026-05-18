@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const controlStatusText = document.getElementById('control-status-text');
     const logContainer = document.getElementById('log-container');
     const autoScrollToggle = document.getElementById('auto-scroll-toggle');
-    const inviteContainer = document.getElementById('invite-container');
     const inviteLink = document.getElementById('invite-link');
     const copyInviteBtn = document.getElementById('copy-invite');
     let currentUserRole = 'guest';
@@ -36,36 +35,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(() => {})
         .finally(() => {
             checkBotStatus();
-            loadServers();
             if (canControlBot()) {
                 setupLogStream();
             }
             statusInterval = setInterval(checkBotStatus, DASHBOARD_STATUS_INTERVAL_MS);
         });
 
-    async function loadServers() {
-        const container = document.getElementById('servers-list');
-        try {
-            const res = await fetch('/api/servers/');
-            const servers = await res.json();
-            const filtered = servers.filter(s => !s.server_name.toLowerCase().includes('direct message'));
-            if (filtered.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-sm col-span-full">No servers registered yet.</p>';
-                return;
-            }
-            container.innerHTML = filtered.map(s => `
-                <div class="flex items-center justify-between py-1.5">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <i class="fas fa-server text-gray-500 text-xs flex-shrink-0"></i>
-                        <span class="text-gray-300 text-sm truncate">${s.server_name}</span>
-                    </div>
-                    <a href="/servers" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap ml-2">channels →</a>
-                </div>
-            `).join('');
-        } catch (e) {
-            container.innerHTML = '<p class="text-red-500 text-sm col-span-full">Failed to load servers.</p>';
-        }
-    }
     // After Activate/Deactivate: 5 status checks — now, then every 2s — then back to 10s (dashboard-only).
     const DASHBOARD_STATUS_INTERVAL_MS = 10000;
     const BURST_POLL_INTERVAL_MS = 2000;
@@ -179,8 +154,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'active') {
                     if (!inviteLink.value) fetchInviteLink();
                 } else {
-                    inviteContainer.classList.add('hidden');
                     inviteLink.value = '';
+                    inviteLink.placeholder = 'Bot not active';
+                    copyInviteBtn.disabled = true;
                 }
             })
             .catch((error) => {
@@ -313,13 +289,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fetch bot invite link
     function fetchInviteLink() {
+        inviteLink.value = '';
+        inviteLink.placeholder = 'Fetching...';
+        copyInviteBtn.disabled = true;
         fetch('/api/discord/invite')
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'active' && data.invite) {
                     inviteLink.value = data.invite;
-                    inviteContainer.classList.remove('hidden');
+                    inviteLink.placeholder = '';
+                    copyInviteBtn.disabled = false;
+                } else {
+                    inviteLink.placeholder = 'Bot not active';
                 }
-            });
+            })
+            .catch(() => { inviteLink.placeholder = 'Bot not active'; });
     }
 });

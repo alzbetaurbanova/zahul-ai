@@ -18,27 +18,40 @@
     <script src="/static/js/pages/characters.js?v=2" defer></script>
 
     <!-- Main Content -->
-    <main class="flex-grow p-6 sm:p-8">
-        <div class="max-w-7xl mx-auto">
-            <h1 class="heading-page mb-6">Character Management</h1>
-            <div class="flex items-center gap-3 mb-8">
-                <button id="new-char-btn" class="btn-dashed">
-                    <i class="fas fa-plus"></i> New Character
-                </button>
-                <button id="import-card-btn" class="btn-dashed">
-                    <i class="fas fa-upload"></i> Import Card
-                </button>
-                <div class="flex items-center gap-2 ml-auto" id="characters-toolbar-filter">
-                    <label for="server-filter" class="label-filter">Filter by server:</label>
-                    <div class="select-wrap">
-                        <select id="server-filter" class="input-field">
-                            <option value="all">All</option>
-                        </select>
-                        <button class="icon-clear-btn hidden" data-clear="server-filter" data-clear-value="all" title="Clear"><i class="fas fa-times"></i></button>
-                    </div>
+    <main class="p-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h1 class="heading-page">Character Management</h1>
+                <div class="flex items-center gap-3">
+                    <button id="import-card-btn" class="btn-dashed">
+                        <i class="fas fa-upload"></i> Import Card
+                    </button>
+                    <button id="new-char-btn" class="btn-primary text-sm">
+                        <i class="fas fa-plus mr-2"></i>New Character
+                    </button>
                 </div>
             </div>
-            <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+
+            <!-- Filters -->
+            <div id="characters-filters" class="filter-panel mb-6">
+                <div>
+                    <label class="label-xs">Search by name</label>
+                    <div class="relative">
+                        <input type="text" id="filter-name" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="filter-name" title="Clear"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-xs">Server</label>
+                    <div class="relative">
+                        <input type="text" id="server-filter" autocomplete="off" placeholder="any" class="input-field w-64 pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="server-filter" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="server-filter-dd" class="autocomplete-dd hidden"></div>
+                    </div>
+                </div>
+                <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
+            </div>
+            <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 <p class="text-dim col-span-full">Loading characters...</p>
             </div>
         </div>

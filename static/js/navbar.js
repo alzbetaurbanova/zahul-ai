@@ -76,6 +76,20 @@
         setBadgeVisible(!!role);
     }
 
+    const themeBtnLight = container.querySelector('#theme-btn-light');
+    const themeBtnDark = container.querySelector('#theme-btn-dark');
+    if (themeBtnLight && themeBtnDark) {
+        function applyThemeToggleUI(light) {
+            themeBtnLight.classList.toggle('mode-tab-on', light);
+            themeBtnLight.classList.toggle('mode-tab-off', !light);
+            themeBtnDark.classList.toggle('mode-tab-on', !light);
+            themeBtnDark.classList.toggle('mode-tab-off', light);
+        }
+        applyThemeToggleUI(localStorage.getItem('theme') === 'light');
+        themeBtnLight.addEventListener('click', () => { localStorage.setItem('theme', 'light'); applyThemeToggleUI(true); });
+        themeBtnDark.addEventListener('click', () => { localStorage.setItem('theme', 'dark'); applyThemeToggleUI(false); });
+    }
+
     if (userMenuBtn && userMenu) {
         userMenuBtn.addEventListener('click', (e) => {
             e.stopPropagation();

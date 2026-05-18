@@ -41,6 +41,9 @@ html {
 /* ========================================================================== */
 /* Shared Navigation                                                          */
 /* ========================================================================== */
+#navbar-container {
+    min-height: 64px;
+}
 .nav-link {
     white-space: nowrap;
 }
@@ -218,6 +221,14 @@ html {
     height: 1px;
     margin: 0.15rem 0.65rem 0.35rem;
     background-color: var(--surface-raised);
+}
+
+.nav-theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
 }
 
 .nav-user-logout {
@@ -638,6 +649,17 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     border: 1px solid var(--dark);
 }
 
+.card-link {
+    display: block;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.card-link:hover {
+    background-color: var(--surface);
+}
+
 /* Shared base for inputs and input-like selects */
 :is(.input-field, .input-joined, .select-sm, .cb-dd-btn) {
     background-color: var(--surface);
@@ -673,7 +695,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 /* Shared base for solid color buttons */
 :is(.btn-primary, .btn-primary-sm, .btn-gray, .btn-gray-sm, .btn-green, .btn-red) {
     border-radius: 0.5rem;
-    transition: background-color 0.15s;
+    transition: background-color 0.15s, transform 0.15s;
     color: white;
     border: none;
     cursor: pointer;
@@ -693,15 +715,20 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     font-weight: 500;
 }
 
-.btn-primary:hover {
+:is(.btn-primary, .btn-primary-sm):hover {
     background-color: #4338ca;
+    transform: scale(1.04);
+}
+
+body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
+    transform: none;
 }
 
 .btn-gray {
     background-color: var(--surface-raised);
 }
 
-.btn-gray:hover {
+:is(.btn-gray, .btn-gray-sm):hover {
     background-color: var(--surface-mid);
 }
 
@@ -823,32 +850,22 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     color: var(--text-muted);
 }
 
-#control-status-text {
+:is(#control-status-text, #bot-status-text) {
     min-width: 48px;
     display: inline-block;
-    margin-left: 0.5rem;
-    color: white;
 }
 
-#bot-status-text {
-    min-width: 48px;
-    display: inline-block;
+#control-status-text {
+    margin-left: 0.5rem;
+    color: white;
 }
 
 .btn-primary-sm {
     background-color: var(--primary-dark);
 }
 
-.btn-primary-sm:hover {
-    background-color: #4338ca;
-}
-
 .btn-gray-sm {
     background-color: var(--surface-raised);
-}
-
-.btn-gray-sm:hover {
-    background-color: var(--surface-mid);
 }
 
 .badge-code {
@@ -1172,7 +1189,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 /* Tabs                                                                        */
 /* ========================================================================== */
 body[data-page="logs"] .tabs-bar,
-body[data-page="users"] .tabs-bar {
+body[data-page="users"] .tabs-bar,
+body[data-page="stats"] .tabs-bar {
     display: flex;
     align-items: center;
     gap: 1.25rem;
@@ -1181,7 +1199,8 @@ body[data-page="users"] .tabs-bar {
 }
 
 body[data-page="logs"] .tab-btn,
-body[data-page="users"] .tab-btn {
+body[data-page="users"] .tab-btn,
+body[data-page="stats"] .tab-btn {
     min-height: 2.5rem;
     padding: 0.625rem 0.125rem 0.7rem;
     font-size: 0.875rem;
@@ -1196,7 +1215,8 @@ body[data-page="users"] .tab-btn {
 }
 
 body[data-page="logs"] .tab-btn::after,
-body[data-page="users"] .tab-btn::after {
+body[data-page="users"] .tab-btn::after,
+body[data-page="stats"] .tab-btn::after {
     content: "";
     position: absolute;
     left: 0;
@@ -1211,13 +1231,21 @@ body[data-page="users"] .tab-btn::after {
 }
 
 body[data-page="logs"] .tab-btn:hover,
-body[data-page="users"] .tab-btn:hover {
+body[data-page="users"] .tab-btn:hover,
+body[data-page="stats"] .tab-btn:hover {
     color: var(--text-soft);
 }
 
 body[data-page="logs"] .tab-btn.tab-active,
-body[data-page="users"] .tab-btn.tab-active {
+body[data-page="users"] .tab-btn.tab-active,
+body[data-page="stats"] .tab-btn.tab-active {
     color: var(--light);
+}
+
+body[data-page="logs"] .tab-btn.tab-active::after,
+body[data-page="users"] .tab-btn.tab-active::after,
+body[data-page="stats"] .tab-btn.tab-active::after {
+    transform: scaleX(1);
 }
 
 body[data-page="logs"] .tab-btn.tab-active::after,
@@ -2133,3 +2161,57 @@ body[data-page="logs"] #detail-modal .modal-box {
 .error-code-red    { color: #f87171; }
 .error-code-amber  { color: #fbbf24; }
 .error-code-orange { color: #fb923c; }
+
+/* ========================================================================== */
+/* Stats Page                                                                  */
+/* ========================================================================== */
+.range-btn {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    border: 1px solid var(--surface-raised);
+    background-color: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.range-btn:hover {
+    color: var(--light);
+    border-color: var(--surface-mid);
+    background-color: var(--surface);
+}
+
+.range-btn-active {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.range-btn-active:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+.stats-bar-track {
+    height: 0.375rem;
+    border-radius: 9999px;
+    background-color: var(--surface);
+    overflow: hidden;
+}
+
+.stats-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background-color: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.stats-err-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.7rem;
+    color: #f87171;
+    font-weight: 500;
+}

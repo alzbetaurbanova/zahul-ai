@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Stats</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-darker text-light min-h-screen" data-page="stats">
+    <div id="toast-container" class="toast z-50"></div>
+    <div id="navbar-container"></div>
+    <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/stats.js" defer></script>
+
+    <main class="flex-grow p-6">
+        <div class="max-w-4xl mx-auto">
+
+            <!-- Header -->
+            <div class="flex-between mb-6 flex-wrap gap-3">
+                <h1 class="heading-page">Stats</h1>
+                <div class="flex gap-1" id="range-btns">
+                    <button class="range-btn" data-days="1">24h</button>
+                    <button class="range-btn range-btn-active" data-days="7">7d</button>
+                    <button class="range-btn" data-days="30">30d</button>
+                    <button class="range-btn" data-days="90">90d</button>
+                    <button class="range-btn" data-days="0">All time</button>
+                </div>
+            </div>
+
+            <!-- KPI cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card-dark">
+                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-comment-dots mr-1"></i>Messages</div>
+                    <div id="kpi-total" class="text-2xl font-bold text-white">—</div>
+                    <div id="kpi-success-rate" class="text-xs text-gray-500 mt-1"></div>
+                </div>
+                <div class="card-dark">
+                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-triangle-exclamation mr-1"></i>Errors</div>
+                    <div id="kpi-errors" class="text-2xl font-bold text-red-400">—</div>
+                </div>
+                <div class="card-dark">
+                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-bolt mr-1"></i>Tokens used</div>
+                    <div id="kpi-tokens" class="text-2xl font-bold text-indigo-400">—</div>
+                </div>
+                <div class="card-dark">
+                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-users mr-1"></i>Active users</div>
+                    <div id="kpi-users" class="text-2xl font-bold text-white">—</div>
+                </div>
+            </div>
+
+            <!-- Activity chart -->
+            <div class="card-dark mb-6">
+                <h2 class="heading-section mb-4">Activity</h2>
+                <div id="chart-empty" class="hidden text-gray-500 text-sm py-8 text-center">No data for this period</div>
+                <div class="relative h-52" id="chart-wrap">
+                    <canvas id="timeseries-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Global sort toggle -->
+            <div class="tabs-bar mb-4" id="global-sort-btns">
+                <button class="tab-btn tab-active" data-sort="messages">Messages</button>
+                <button class="tab-btn" data-sort="tokens">Tokens</button>
+            </div>
+
+            <!-- By character + by server + by model + by user -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card-dark">
+                    <div class="flex items-center gap-2 mb-4">
+                        <h2 class="heading-section">By Character</h2>
+                        <div class="relative group">
+                            <i class="fas fa-circle-info icon-info text-xs"></i>
+                            <div class="tooltip-popup hidden group-hover:block">
+                                <span class="tooltip-text">Grouped by the AI character that responded. Shows which personas are most active.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="by-character-list" class="space-y-2.5"></div>
+                </div>
+                <div class="card-dark">
+                    <div class="flex items-center gap-2 mb-4">
+                        <h2 class="heading-section">By Server</h2>
+                        <div class="relative group">
+                            <i class="fas fa-circle-info icon-info text-xs"></i>
+                            <div class="tooltip-popup hidden group-hover:block">
+                                <span class="tooltip-text">Grouped by Discord server. Direct messages are counted separately.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="by-server-list" class="space-y-2.5"></div>
+                </div>
+                <div class="card-dark">
+                    <div class="flex items-center gap-2 mb-4">
+                        <h2 class="heading-section">By Model</h2>
+                        <div class="relative group">
+                            <i class="fas fa-circle-info icon-info text-xs"></i>
+                            <div class="tooltip-popup hidden group-hover:block">
+                                <span class="tooltip-text">Grouped by AI model used to generate the response.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="by-model-list" class="space-y-2.5"></div>
+                </div>
+                <div class="card-dark">
+                    <div class="flex items-center gap-2 mb-4">
+                        <h2 class="heading-section">By User</h2>
+                        <div class="relative group">
+                            <i class="fas fa-circle-info icon-info text-xs"></i>
+                            <div class="tooltip-popup hidden group-hover:block">
+                                <span class="tooltip-text">Grouped by Discord user who sent the message. System-generated messages are excluded.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="by-user-list" class="space-y-2.5"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>
