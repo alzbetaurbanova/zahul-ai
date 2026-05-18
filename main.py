@@ -23,6 +23,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 # --- Local Imports ---
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
 from api.routers import users as users_router
+from api.routers import stats as stats_router
 from api.db.database import Database
 from api.auth import require_role
 
@@ -333,6 +334,7 @@ app.include_router(tasks_router.router)
 app.include_router(logs_router.router)
 app.include_router(trash_router.router)
 app.include_router(users_router.router)
+app.include_router(stats_router.router)
 
 # Set up CORS
 app.add_middleware(
@@ -403,6 +405,10 @@ async def get_scheduler_html():
 @app.get("/logs", response_class=FileResponse)
 async def get_logs_html():
     return "static/logs.html"
+
+@app.get("/stats", response_class=FileResponse)
+async def get_stats_html():
+    return "static/stats.html"
 
 @app.get("/editor", response_class=FileResponse)
 async def get_editor_html():

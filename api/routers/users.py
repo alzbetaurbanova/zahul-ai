@@ -199,6 +199,7 @@ async def list_sessions(_: dict = Depends(require_role("admin"))):
     result = []
     for s in sessions:
         result.append({
+            "session_token": s["session_token"],
             "user_id": s["user_id"],
             "username": s["username"],
             "role": s["role"],
@@ -211,6 +212,14 @@ async def list_sessions(_: dict = Depends(require_role("admin"))):
     return result
 
 
+@router.delete("/sessions")
+async def revoke_all_sessions(current_user: dict = Depends(require_role("admin"))):
+    db = Database()
+    db.delete_all_sessions()
+    db.log_admin("user.sessions.revoke_all", actor=current_user)
+    return {"ok": True}
+
+
 @router.delete("/{user_id}/sessions")
 async def revoke_user_sessions(user_id: int, current_user: dict = Depends(require_role("admin"))):
     db = Database()
@@ -218,6 +227,21 @@ async def revoke_user_sessions(user_id: int, current_user: dict = Depends(requir
         raise HTTPException(status_code=404, detail="User not found.")
     db.delete_user_sessions(user_id)
     db.log_admin("user.sessions.revoke", detail=f"user_id={user_id}", actor=current_user)
+    return {"ok": True}
+
+
+@router.delete("/sessions/{session_token}")
+async def revoke_session(session_token: str, current_user: dict = Depends(require_role("admin"))):
+    db = Database()
+    session = db.get_session(session_token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    db.delete_session(session_token)
+    db.log_admin(
+        "user.session.revoke",
+        detail=f"user_id={session['user_id']}",
+        actor=current_user,
+    )
     return {"ok": True}
 
 
@@ -291,6 +315,9 @@ async def create_user(body: CreateUserRequest, current_user: dict = Depends(requ
     else:
         raise HTTPException(status_code=400, detail="auth_provider must be 'local' or 'discord'.")
     if body.role == "mod" and body.server_ids:
+        invalid = [sid for sid in body.server_ids if not db.get_server(sid)]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Unknown server IDs: {', '.join(invalid)}")
         db.set_user_server_access(uid, body.server_ids)
     created_name = (body.username or body.discord_username or "").strip()
     db.log_admin("user.create", detail=f"username={created_name}, role={body.role}", actor=current_user)
@@ -323,11 +350,19 @@ async def update_role(user_id: int, body: UpdateRoleRequest, current_user: dict 
 
 
 @router.patch("/{user_id}/servers")
-async def update_servers(user_id: int, body: UpdateServersRequest, _: dict = Depends(require_role("admin"))):
+async def update_servers(user_id: int, body: UpdateServersRequest, current_user: dict = Depends(require_role("admin"))):
     db = Database()
     if not db.get_user_by_id(user_id):
         raise HTTPException(status_code=404, detail="User not found.")
+    invalid = [sid for sid in body.server_ids if not db.get_server(sid)]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown server IDs: {', '.join(invalid)}")
     db.set_user_server_access(user_id, body.server_ids)
+    db.log_admin(
+        "user.servers_update",
+        detail=f"user_id={user_id}, server_ids={body.server_ids}",
+        actor=current_user,
+    )
     return {"ok": True}
 
 

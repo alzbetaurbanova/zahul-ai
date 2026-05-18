@@ -36,7 +36,7 @@
                                     <span class="text-sm text-gray-400">Current Status:</span>
                                     <div class="flex items-center mt-1">
                                         <span id="control-status-indicator" class="status-indicator"></span>
-                                        <span id="control-status-text"></span>
+                                        <span id="control-status-text">—</span>
                                     </div>
                                 </div>
                                 <button id="power-btn" class="power-btn">
@@ -44,26 +44,44 @@
                                 </button>
                             </div>
                             
-                            <div id="invite-container" class="hidden">
-                                <div class="mt-4">
-                                    <label class="label-muted">Invite Link</label>
-                                    <div class="flex">
-                                        <input id="invite-link" type="text" readonly class="input-joined" placeholder="Bot not active">
-                                        <button id="copy-invite" class="btn-joined">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                    </div>
+                            <div class="mt-4">
+                                <label class="label-muted">Invite Link</label>
+                                <div class="flex">
+                                    <input id="invite-link" type="text" readonly class="input-joined" placeholder="Bot not active">
+                                    <button id="copy-invite" class="btn-joined" disabled>
+                                        <i class="fas fa-copy"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Servers -->
-                        <div class="card-dark">
-                            <h2 class="heading-sidebar">Servers</h2>
-                            <div id="servers-list" class="space-y-2">
-                                <p class="text-muted">Loading...</p>
+                        <!-- Stats shortcut -->
+                        <a href="/stats" class="card-dark card-link group flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-chart-bar text-indigo-400 text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Stats</div>
+                                    <div class="text-xs text-gray-500">Usage, tokens &amp; activity</div>
+                                </div>
                             </div>
-                        </div>
+                            <i class="fas fa-arrow-right text-gray-600 group-hover:text-indigo-400 transition-colors text-xs"></i>
+                        </a>
+
+                        <!-- Servers shortcut -->
+                        <a href="/servers" class="card-dark card-link group flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-server text-indigo-400 text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Servers</div>
+                                    <div class="text-xs text-gray-500">Channels &amp; configuration</div>
+                                </div>
+                            </div>
+                            <i class="fas fa-arrow-right text-gray-600 group-hover:text-indigo-400 transition-colors text-xs"></i>
+                        </a>
                     </div>
 
                     <!-- Log Stream -->

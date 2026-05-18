@@ -44,24 +44,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const openModal = () => modal.classList.remove('opacity-0', 'pointer-events-none');
     const closeModal = () => modal.classList.add('opacity-0', 'pointer-events-none');
 
-    // --- Server Filter ---
-    const serverFilter = document.getElementById('server-filter');
+    // --- Filters ---
+    const serverFilterInput = document.getElementById('server-filter');
+    const filterNameInput = document.getElementById('filter-name');
     let allCharacters = [];
     let serverWhitelists = {}; // server_id -> Set of character names
+    let serverNameMap = {};    // display name -> server_id
 
     async function loadServerFilter() {
         try {
             const res = await fetch('/api/servers/');
             if (!res.ok) return;
             const servers = await res.json();
-            servers.filter(s => !s.server_name.toLowerCase().includes('direct message')).forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.server_id;
-                opt.textContent = s.server_name;
-                serverFilter.appendChild(opt);
-            });
+            const filtered = servers.filter(s => !s.server_name.toLowerCase().includes('direct message'));
+            filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
             // Load whitelists for all servers
-            await Promise.all(servers.map(async s => {
+            await Promise.all(filtered.map(async s => {
                 const r = await fetch(`/api/servers/${s.server_id}/channels`);
                 if (!r.ok) return;
                 const channels = await r.json();
@@ -69,26 +67,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 channels.forEach(ch => (ch.data.whitelist || []).forEach(n => names.add(n)));
                 serverWhitelists[s.server_id] = names;
             }));
+            if (typeof setupFilterCombobox === 'function') {
+                setupFilterCombobox(
+                    'server-filter', 'server-filter-dd',
+                    () => Object.keys(serverNameMap),
+                    applyFilter, applyFilter,
+                    'hover:bg-gray-700'
+                );
+            }
         } catch (e) {
             showToast('Failed to load server filter.', 'error');
         }
     }
 
     function applyFilter() {
-        const selected = serverFilter.value;
+        const search = filterNameInput.value.trim().toLowerCase();
+        const serverName = serverFilterInput.value.trim();
+        const selectedId = serverNameMap[serverName];
         const cards = characterGrid.querySelectorAll('[data-char-name]');
         cards.forEach(card => {
-            if (selected === 'all') {
-                card.style.display = '';
-            } else {
-                const whitelist = serverWhitelists[selected] || new Set();
-                card.style.display = whitelist.has(card.dataset.charName) ? '' : 'none';
-            }
+            const nameMatch = !search || card.dataset.charName.toLowerCase().includes(search);
+            const serverMatch = !selectedId || (serverWhitelists[selectedId] || new Set()).has(card.dataset.charName);
+            card.style.display = nameMatch && serverMatch ? '' : 'none';
         });
     }
 
-    serverFilter.addEventListener('change', applyFilter);
-    if (typeof initFilterClear === 'function') initFilterClear(() => applyFilter(), document.getElementById('characters-toolbar-filter'));
+    serverFilterInput.addEventListener('input', applyFilter);
+    filterNameInput.addEventListener('input', applyFilter);
+    if (typeof initFilterClear === 'function') initFilterClear(() => applyFilter(), document.getElementById('characters-filters'));
+
+    document.getElementById('clear-filters-btn').addEventListener('click', () => {
+        filterNameInput.value = '';
+        filterNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        serverFilterInput.value = '';
+        if ('dataset' in serverFilterInput) serverFilterInput.dataset.comboboxClearTouched = '';
+        serverFilterInput.dispatchEvent(new Event('input', { bubbles: true }));
+        applyFilter();
+    });
 
     // --- Core Functions ---
 
