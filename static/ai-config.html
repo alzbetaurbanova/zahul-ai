@@ -35,29 +35,29 @@
                         <div class="form-grid">
                             <div>
                                 <label for="ai_endpoint" class="label-tt">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
-                                <input type="url" id="ai_endpoint" class="input-field" required>
+                                <input type="url" id="ai_endpoint" class="field" required>
                             </div>
                             <div>
                                 <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
-                                <input type="text" id="base_llm" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                <input type="text" id="base_llm" class="field" required placeholder="e.g., gryphe/mythomax-l2-13b">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <div>
                                 <label for="history_limit" class="label-tt">History Limit <span class="text-unit">(msgs)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context per response.</span></span></label>
-                                <input type="number" id="history_limit" step="1" min="1" max="50" class="input-field" placeholder="e.g. 10">
+                                <input type="number" id="history_limit" step="1" min="1" max="50" class="field" placeholder="e.g. 10">
                             </div>
                             <div>
                                 <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
-                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="input-field" placeholder="e.g. 256">
+                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="field" placeholder="e.g. 256">
                             </div>
                             <div>
                                 <label for="temperature" class="label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
-                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="input-field">
+                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="field">
                             </div>
                             <div>
                                 <label for="auto_cap" class="label-tt">Chain Limit <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot replies per chain before it stops. Also the default value reset by /autocap reset.</span></span></label>
-                                <input type="number" id="auto_cap" step="1" min="0" class="input-field">
+                                <input type="number" id="auto_cap" step="1" min="0" class="field">
                             </div>
                         </div>
                     </fieldset>
@@ -68,19 +68,19 @@
                         <div class="form-grid">
                             <div>
                                 <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
-                                <input type="text" id="fallback_llm" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
+                                <input type="text" id="fallback_llm" class="field" placeholder="e.g., llama-3.1-8b-instant">
                             </div>
                             <div>
                                 <label for="fallback_duration" class="label-tt">Fallback Duration <span class="text-unit">(seconds)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
-                                <input type="number" id="fallback_duration" step="60" min="60" class="input-field" placeholder="e.g., 7200">
+                                <input type="number" id="fallback_duration" step="60" min="60" class="field" placeholder="e.g., 7200">
                             </div>
                             <div>
                                 <label for="token_limit_tpm" class="label-tt">Rate Limit Trigger <span class="text-unit">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
-                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="input-field" placeholder="e.g., 12000">
+                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="field" placeholder="e.g., 12000">
                             </div>
                             <div>
                                 <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
-                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000">
+                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="field" placeholder="e.g., 100000">
                             </div>
                         </div>
                     </fieldset>
@@ -95,7 +95,7 @@
                             <div>
                                 <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                    <input type="password" id="ai_key" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing key">
                                     <button type="button" onclick="toggleVisibility('ai_key', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -104,7 +104,7 @@
                             <div>
                                 <label for="discord_key" class="label-tt">Discord Bot Token <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the token. Leave blank to keep the existing value. Never share this token.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="discord_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                    <input type="password" id="discord_key" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing key">
                                     <button type="button" onclick="toggleVisibility('discord_key', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -112,7 +112,7 @@
                             </div>
                             <div>
                                 <label for="public_url" class="label-tt">Public URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Public address of the server. Used to build absolute URLs for Discord webhook avatar images. If empty or set to localhost, Caddy (HTTPS proxy) won't start on deploy.</span></span></label>
-                                <input type="url" id="public_url" class="input-field" placeholder="e.g. https://yourdomain.com">
+                                <input type="url" id="public_url" class="field" placeholder="e.g. https://yourdomain.com">
                             </div>
                         </div>
                     </fieldset>
@@ -123,7 +123,7 @@
                         <div class="mt-2 mb-4">
                             <label for="default_character" class="label-tt">Default Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
                             <div class="relative">
-                                <input type="text" id="default_character" autocomplete="off" class="input-field pr-8" required placeholder="Select character…">
+                                <input type="text" id="default_character" autocomplete="off" class="field pr-8" required placeholder="Select character…">
                                 <div id="default-character-dd" class="autocomplete-dd hidden"></div>
                             </div>
                         </div>
@@ -139,7 +139,7 @@
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
                             <label for="dm_list" class="label-tt">Allowed Discord Usernames <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One username per line. Only these users can DM the bot.</span></span></label>
-                            <textarea id="dm_list" rows="5" class="input-field font-mono" placeholder="username1&#10;username2"></textarea>
+                            <textarea id="dm_list" rows="5" class="field font-mono" placeholder="username1&#10;username2"></textarea>
                         </div>
                     </fieldset>
 
@@ -171,16 +171,16 @@
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
                                     <label for="multimodal_ai_model" class="label-tt">Multimodal Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Vision model used for image description. Must support image inputs (e.g. google/gemini-pro-vision).</span></span></label>
-                                    <input type="text" id="multimodal_ai_model" class="input-field" placeholder="e.g., google/gemini-pro-vision">
+                                    <input type="text" id="multimodal_ai_model" class="field" placeholder="e.g., google/gemini-pro-vision">
                                 </div>
                                 <div>
                                     <label for="multimodal_ai_endpoint" class="label-tt">Multimodal Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
-                                    <input type="url" id="multimodal_ai_endpoint" class="input-field">
+                                    <input type="url" id="multimodal_ai_endpoint" class="field">
                                 </div>
                                 <div>
                                     <label for="multimodal_ai_api" class="label-tt">Multimodal API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value.</span></span></label>
                                     <div class="relative">
-                                        <input type="password" id="multimodal_ai_api" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                        <input type="password" id="multimodal_ai_api" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing key">
                                         <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="btn-eye">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -203,7 +203,7 @@
                     <legend class="legend-section">Prompt Template Editor (Default)</legend>
                     <div class="mt-4">
                         <label for="prompt_template" class="label-tt">Prompt Template <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Defines the structure sent to the AI. </span></span></label>
-                        <textarea id="prompt_template" rows="12" class="input-field font-mono" placeholder="Loading prompt template..."></textarea>
+                        <textarea id="prompt_template" rows="12" class="field font-mono" placeholder="Loading prompt template..."></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
                         <button id="save-prompt-btn" class="btn-primary px-6">
@@ -247,12 +247,12 @@
                             <p class="text-hint">Current super admin: <span id="current-super-admin-username">Not set</span></p>
                             <div>
                                 <label for="super_admin_username" class="label-tt">Username</label>
-                                <input type="text" id="super_admin_username" class="input-field" placeholder="e.g. admin">
+                                <input type="text" id="super_admin_username" class="field" placeholder="e.g. admin">
                             </div>
                             <div>
                                 <label for="panel_password" class="label-tt">Password</label>
                                 <div class="relative">
-                                    <input type="password" id="panel_password" autocomplete="off" minlength="8" class="input-field pr-10" placeholder="Minimum 8 characters">
+                                    <input type="password" id="panel_password" autocomplete="off" minlength="8" class="field pr-10" placeholder="Minimum 8 characters">
                                     <button type="button" onclick="toggleVisibility('panel_password', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -284,12 +284,12 @@
                             <p class="text-xs text-gray-500">These values come from your app on the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" class="link-indigo-sm">Discord Developer Portal</a>.</p>
                             <div>
                                 <label for="discord_oauth_client_id" class="label-tt">Client ID <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found on the General Information page of your app on the Discord Developer Portal.</span></span></label>
-                                <input type="text" id="discord_oauth_client_id" class="input-field" placeholder="Discord app client ID">
+                                <input type="text" id="discord_oauth_client_id" class="field" placeholder="Discord app client ID">
                             </div>
                             <div>
                                 <label for="discord_oauth_client_secret" class="label-tt">Client Secret <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found under OAuth2 on the Developer Portal. If lost, reset it there. Never share this value.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="discord_oauth_client_secret" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing">
+                                    <input type="password" id="discord_oauth_client_secret" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing">
                                     <button type="button" onclick="toggleVisibility('discord_oauth_client_secret', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -297,13 +297,13 @@
                             </div>
                             <div>
                                 <label for="discord_oauth_redirect_uri" class="label-tt">Redirect URI <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Must be added under OAuth2 → Redirects on the Developer Portal. Must match exactly — including the path /auth/discord/callback.</span></span></label>
-                                <input type="url" id="discord_oauth_redirect_uri" class="input-field" placeholder="https://yourdomain.com/auth/discord/callback">
+                                <input type="url" id="discord_oauth_redirect_uri" class="field" placeholder="https://yourdomain.com/auth/discord/callback">
                                 <p id="redirect-uri-https-warn" class="mt-1 hidden" style="color:#f87171;font-size:0.75rem"><i class="fas fa-triangle-exclamation mr-1"></i>Discord requires <strong>https://</strong> for redirect URIs (http:// is allowed only for localhost).</p>
                                 <p id="redirect-uri-hint" class="text-hint mt-1 hidden">Expected: <span id="redirect-uri-value" class="font-mono cursor-pointer hover:text-indigo-400" title="Click to copy"></span></p>
                             </div>
                             <div>
                                 <label for="discord_allowed_usernames" class="label-tt">Trusted Discord usernames <span class="text-hint font-normal">(--> super admins – one username per line)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">With Discord login enabled you must list at least one username. Each listed account becomes super admin on first sign-in. Users who are not on the list can still sign in with Discord and request access.</span></span></label>
-                                <textarea id="discord_allowed_usernames" rows="3" class="input-field font-mono" placeholder="e.g. johndoe&#10;janedoe"></textarea>
+                                <textarea id="discord_allowed_usernames" rows="3" class="field font-mono" placeholder="e.g. johndoe&#10;janedoe"></textarea>
                             </div>
                         </div>
                     </div>

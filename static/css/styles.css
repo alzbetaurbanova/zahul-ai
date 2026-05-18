@@ -1342,7 +1342,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     align-items: center;
 }
 
-.select-wrap select.input-field {
+.select-wrap select.field {
     appearance: none;
     -webkit-appearance: none;
     padding-right: 2rem;
@@ -1353,7 +1353,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     content: '\f078';
     font-family: 'Font Awesome 6 Free';
     font-weight: 900;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--text-dim);
     position: absolute;
     right: 0.55rem;
@@ -2488,9 +2488,13 @@ body[data-page="logs"] #detail-modal .modal-box {
     border: 1px solid var(--surface-raised);
     color: white;
     border-radius: 0.5rem;
-    line-height: normal;
+    line-height: 1.5rem;
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
+}
+
+.fieldset-section .field{
+    width: 100%;
 }
 
 /* ========================================================================== */
