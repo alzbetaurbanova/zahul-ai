@@ -18,14 +18,15 @@
     <script src="/static/js/pages/characters.js?v=2" defer></script>
 
     <!-- Main Content -->
-    <main class="page sm:p-8">
+    <main class="sm:p-8">
         <div class="main-content">
-            <div class="page-heading">
-                <h1 class="page-title">Character Management</h1>
-                <p class="page-subtitle">Manage your characters and their settings.</p>
-            </div>
-            <div class="card-dark flex items-center gap-3 mb-6">
-                <button id="import-card-btn" class="btn-dashed">
+            <div class="flex flex-wrap items-center justify-between">
+                <div class="page-heading">
+                    <h1 class="page-title">Character Management</h1>
+                    <p class="page-subtitle">Manage your characters and their settings.</p>
+                </div>
+                <div class="flex items-center gap-3 mb-6">
+                    <button id="import-card-btn" class="btn-dashed">
                         <i class="fas fa-upload"></i> Import Card
                     </button>
                     <button id="new-char-btn" class="btn-primary text-sm">
@@ -33,6 +34,7 @@
                     </button>
                 </div>
             </div>
+            
 
             <!-- Filters -->
             <div id="characters-filters" class="filter-panel mb-6">
@@ -53,10 +55,7 @@
                 </div>
                 <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
             </div>
-                    </div>
-                </div>
-                <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
-            </div>
+                
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 <p class="text-dim col-span-full">Loading characters...</p>
             </div>
