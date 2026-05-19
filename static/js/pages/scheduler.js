@@ -215,22 +215,53 @@
             );
         }
 
+        // --- Server filter ---
+        let serverNameMap = {};   // server_name -> server_id
+        let channelServerMap = {}; // channel_id -> server_id
+
+        async function loadServerFilter() {
+            try {
+                const servers = await fetch('/api/servers/').then(r => r.json());
+                const filtered = servers.filter(s =>
+                    s.server_id !== 'DM_VIRTUAL_SERVER' &&
+                    !s.server_name.toLowerCase().includes('direct message')
+                );
+                filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
+                if (typeof setupFilterCombobox === 'function') {
+                    setupFilterCombobox(
+                        'filter-server', 'filter-server-dd',
+                        () => Object.keys(serverNameMap),
+                        () => { currentPage = 1; renderTasks(allTasks); },
+                        () => { currentPage = 1; renderTasks(allTasks); },
+                        'hover:bg-gray-700'
+                    );
+                }
+            } catch { serverNameMap = {}; }
+        }
+
         // --- Target comboboxes ---
-        let _channelOptions = [];  // [{id, label}]
+        let _channelOptions = [];  // [{id, label, server_id}]
         let _dmOptions = [];
 
         async function loadTargetOptions() {
             try {
                 const servers = await fetch('/api/servers/').then(r => r.json());
                 _channelOptions = [];
+                channelServerMap = {};
                 for (const srv of servers) {
                     if (srv.server_id === 'DM_VIRTUAL_SERVER') continue;
                     const channels = await fetch(`/api/servers/${srv.server_id}/channels`).then(r => r.json());
                     for (const ch of channels) {
-                        _channelOptions.push({ id: ch.channel_id, label: `#${ch.data.name}`, sub: srv.server_name });
+                        _channelOptions.push({
+                            id: ch.channel_id,
+                            label: `#${ch.data.name}`,
+                            sub: srv.server_name,
+                            server_id: srv.server_id,
+                        });
+                        channelServerMap[ch.channel_id] = srv.server_id;
                     }
                 }
-            } catch { _channelOptions = []; }
+            } catch { _channelOptions = []; channelServerMap = {}; }
             try {
                 const cfg = await fetch('/api/config/').then(r => r.json());
                 _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
@@ -408,12 +439,18 @@
             const from = document.getElementById('filter-from').value;
             const to = document.getElementById('filter-to').value;
             const charFilter = (document.getElementById('filter-character').value || '').toLowerCase();
+            const serverName = (document.getElementById('filter-server')?.value || '').trim();
+            const selectedServerId = serverNameMap[serverName];
             return tasks.filter(t => {
                 const dateStr = t.scheduled_time || t.created_at || '';
                 const d = dateStr.substring(0, 10);
                 if (from && d < from) return false;
                 if (to && d > to) return false;
                 if (charFilter && !t.character.toLowerCase().includes(charFilter)) return false;
+                if (selectedServerId) {
+                    if (t.target_type !== 'channel') return false;
+                    if (channelServerMap[t.target_id] !== selectedServerId) return false;
+                }
                 return true;
             });
         }
@@ -917,6 +954,13 @@
                 document.getElementById('filter-character-dd')?.classList.add('hidden');
                 fc.dispatchEvent(new Event('change', { bubbles: true }));
             }
+            const fs = document.getElementById('filter-server');
+            if (fs) {
+                fs.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fs);
+                document.getElementById('filter-server-dd')?.classList.add('hidden');
+                fs.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             if (typeof clearCheckboxDropdownPrefix === 'function') {
                 clearCheckboxDropdownPrefix('filter-status');
             } else {
@@ -958,6 +1002,7 @@
             .catch(() => {})
             .finally(() => {
                 loadCharacters();
+                loadServerFilter();
                 loadTargetOptions().then(async () => {
                     await fetchTasks();
                     const openId = new URLSearchParams(location.search).get('open');

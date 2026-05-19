@@ -4,27 +4,78 @@
     let currentPage = 1;
     let totalItems = 0;
     let currentUserRole = 'guest';
-    let canViewLogs = false;
     let _initialAutoOpen = !!new URLSearchParams(location.search).get('task_id');
     let channelMap = {};  // channel_id -> {server_name, channel_name}
     let serverNames = {};  // server_id -> server_name
+    let serverNameMap = {};  // display name -> server_id
+    let modScopeNoChannels = false;
     const esc = escapeHtml;
 
-    function canReadLogs() {
+    function isMod() { return currentUserRole === 'mod'; }
+
+    function canViewDiscordLogs() {
+        return currentUserRole === 'guest' || currentUserRole === 'mod' ||
+            currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
+
+    function canViewAdminLogs() {
         return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+    }
+
+    function effectiveLogTab() {
+        return currentTab === 'admin' ? 'admin' : 'discord';
+    }
+
+    function adminPermissionHtml() {
+        return `<div class="text-gray-500 text-center py-12">
+            <i class="fas fa-lock text-3xl mb-3 block opacity-40"></i>
+            <p class="text-base">You do not have permission to view admin logs.</p>
+            <p class="text-sm text-gray-600 mt-1">Admin activity is only visible to admins.</p>
+        </div>`;
+    }
+
+    function clearDiscordUrlFilters() {
+        const p = new URLSearchParams(location.search);
+        let changed = false;
+        ['task_id', 'character', 'source'].forEach(k => {
+            if (p.has(k)) { p.delete(k); changed = true; }
+        });
+        if (changed) {
+            const q = p.toString();
+            history.replaceState(null, '', q ? `?${q}` : location.pathname);
+        }
     }
 
     async function loadServerNames() {
         try {
             const servers = await fetch('/api/servers/').then(r => r.json());
-            servers.forEach(s => { serverNames[s.server_id] = s.server_name; });
+            const names = [];
+            servers.forEach(s => {
+                serverNames[s.server_id] = s.server_name;
+                if (!s.server_name?.toLowerCase().includes('direct message')) {
+                    serverNameMap[s.server_name] = s.server_id;
+                    names.push(s.server_name);
+                }
+            });
+            if (typeof setupFilterCombobox === 'function') {
+                setupFilterCombobox(
+                    'df-server', 'df-server-dd',
+                    () => names,
+                    () => { currentPage = 1; fetchLogs(); },
+                    () => { currentPage = 1; fetchLogs(); },
+                    'hover:bg-gray-700'
+                );
+            }
         } catch {}
     }
 
     async function loadMeta() {
         try {
-            const data = await fetch('/api/logs/meta').then(r => r.json());
+            const res = await fetch('/api/logs/meta');
+            if (!res.ok) return;
+            const data = await res.json();
             channelMap = data.channels || {};
+            modScopeNoChannels = isMod() && Object.keys(channelMap).length === 0;
             setupFilterCombobox(
                 'df-character',
                 'df-character-dd',
@@ -70,6 +121,72 @@
         document.getElementById('admin-filters').classList.toggle('hidden', tab !== 'admin');
     }
 
+    function updateAdminTabAccess() {
+        document.querySelectorAll('.tab-btn[data-tab="admin"]').forEach(btn => {
+            const locked = !canViewAdminLogs();
+            const lockTitle = 'You do not have permission to view admin logs.';
+            btn.classList.remove('hidden');
+            btn.classList.toggle('tab-locked', locked);
+            btn.disabled = locked;
+            btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+
+            const wrap = btn.parentElement?.classList.contains('tab-lock-wrap')
+                ? btn.parentElement : null;
+            if (locked) {
+                if (!wrap) {
+                    const span = document.createElement('span');
+                    span.className = 'tab-lock-wrap';
+                    span.title = lockTitle;
+                    btn.parentNode.insertBefore(span, btn);
+                    span.appendChild(btn);
+                } else {
+                    wrap.title = lockTitle;
+                }
+                btn.removeAttribute('title');
+            } else {
+                btn.title = '';
+                if (wrap) {
+                    wrap.parentNode.insertBefore(btn, wrap);
+                    wrap.remove();
+                }
+            }
+        });
+    }
+
+    function hasActiveFilters() {
+        if (currentTab === 'discord') {
+            const v = id => (document.getElementById(id)?.value || '').trim();
+            if (v('df-from') || v('df-to') || v('df-server') || v('df-character') || v('df-user')) return true;
+            if (getChecked('df-source-cb').length || getChecked('df-status-cb').length) return true;
+            if (new URLSearchParams(location.search).get('task_id')) return true;
+            return false;
+        }
+        const v = id => (document.getElementById(id)?.value || '').trim();
+        if (v('af-from') || v('af-to') || v('af-user')) return true;
+        return getChecked('af-action-cb').length > 0;
+    }
+
+    function emptyLogsHtml() {
+        const filtered = hasActiveFilters();
+        let title;
+        let hint;
+        if (currentTab === 'admin') {
+            title = filtered ? 'No admin logs match your filters.' : 'No admin activity yet.';
+            hint = filtered ? 'Try clearing or changing the filters above.' : 'Panel actions will show up here when they happen.';
+        } else if (isMod() && modScopeNoChannels && !filtered) {
+            title = 'No channels on your servers yet.';
+            hint = 'Add channels under Servers — once the bot is active there, logs will show up here.';
+        } else {
+            title = filtered ? 'No logs match your filters.' : 'No activity yet.';
+            hint = filtered ? 'Try clearing or changing the filters above.' : 'Logs will appear here when the bot responds in your channels.';
+        }
+        return `<div class="text-gray-500 text-center py-12">
+            <i class="fas fa-inbox text-3xl mb-3 block opacity-40"></i>
+            <p class="text-base">${esc(title)}</p>
+            <p class="text-sm text-gray-600 mt-1">${esc(hint)}</p>
+        </div>`;
+    }
+
     const adminActionSearch = typeof initSearchableCheckboxDropdown === 'function'
         ? initSearchableCheckboxDropdown({ searchInputId: 'af-action-search', dropdownId: 'dd-action' })
         : null;
@@ -113,7 +230,12 @@
 
     // --- Tab switching ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            if (btn.disabled || btn.classList.contains('tab-locked')) {
+                e.preventDefault();
+                showToast('You do not have permission to view admin logs.', 'error');
+                return;
+            }
             currentPage = 1;
             activateTab(btn.dataset.tab);
             history.replaceState(null, '', `?tab=${currentTab}`);
@@ -134,7 +256,7 @@
     document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
-        ['df-from','df-to','df-character','df-user'].forEach(id => {
+        ['df-from','df-to','df-server','df-character','df-user'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.value = '';
@@ -142,6 +264,7 @@
             }
         });
         clearDd('df-source'); clearDd('df-status');
+        clearDiscordUrlFilters();
         document.querySelectorAll('#discord-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         currentPage = 1; fetchLogs();
     });
@@ -166,12 +289,13 @@
 
     // --- Export ---
     document.getElementById('export-btn').addEventListener('click', () => {
-        if (!canViewLogs) {
+        const exportTab = effectiveLogTab();
+        if (exportTab === 'admin' ? !canViewAdminLogs() : !canViewDiscordLogs()) {
             showToast('You do not have permission to export logs.', 'error');
             return;
         }
         const params = buildParams();
-        window.location.href = `/api/logs/${currentTab}/export?${params}`;
+        window.location.href = `/api/logs/${effectiveLogTab()}/export?${params}`;
     });
 
     function getChecked(cls) {
@@ -179,10 +303,12 @@
     }
     function buildParams() {
         const p = new URLSearchParams({ page: currentPage, limit: LIMIT });
-        if (currentTab === 'discord') {
+        if (effectiveLogTab() === 'discord') {
             const v = id => document.getElementById(id).value;
             if (v('df-from')) p.set('from_date', v('df-from'));
             if (v('df-to')) p.set('to_date', v('df-to'));
+            const serverName = v('df-server').trim();
+            if (serverName && serverNameMap[serverName]) p.set('server_id', serverNameMap[serverName]);
             if (v('df-character')) p.set('character', v('df-character'));
             if (v('df-user')) p.set('user', v('df-user'));
             const taskIdParam = new URLSearchParams(location.search).get('task_id');
@@ -201,32 +327,65 @@
 
     async function fetchLogs() {
         const list = document.getElementById('log-list');
-        if (!canViewLogs) {
-            list.innerHTML = '<div class="text-gray-500 text-center py-12">You do not have permission to view logs.</div>';
+        const apiTab = effectiveLogTab();
+        if (apiTab === 'admin' && !canViewAdminLogs()) {
+            list.innerHTML = adminPermissionHtml();
+            totalItems = 0;
+            updatePagination();
+            return;
+        }
+
+        if (apiTab === 'discord' && !canViewDiscordLogs()) {
+            list.innerHTML = emptyLogsHtml();
             totalItems = 0;
             updatePagination();
             return;
         }
         list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
         try {
-            const res = await fetch(`/api/logs/${currentTab}?${buildParams()}`);
-            const data = await res.json();
-            totalItems = data.total;
-            renderLogs(data.items);
+            const res = await fetch(`/api/logs/${apiTab}?${buildParams()}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (apiTab === 'discord') {
+                    totalItems = 0;
+                    renderLogs([]);
+                    updatePagination();
+                    return;
+                }
+                const detail = typeof data.detail === 'string' ? data.detail : `Request failed (${res.status})`;
+                throw new Error(detail);
+            }
+            totalItems = data.total ?? 0;
+            const items = Array.isArray(data.items) ? data.items : [];
+            renderLogs(items);
             updatePagination();
             if (_initialAutoOpen) {
                 _initialAutoOpen = false;
-                if (data.total === 1 && data.items[0]) openDetail(data.items[0].id);
+                if (data.total === 1 && items[0]) openDetail(items[0].id);
                 else if (data.total === 0) showToast('No logs found for this task.', 'error');
             }
         } catch (e) {
-            list.innerHTML = '<div class="text-red-400 text-center py-12">Failed to load logs.</div>';
+            console.error('fetchLogs:', e);
+            if (apiTab === 'discord') {
+                totalItems = 0;
+                renderLogs([]);
+                updatePagination();
+                return;
+            }
+            list.innerHTML = `<div class="text-red-400 text-center py-12">
+                <i class="fas fa-exclamation-circle text-3xl mb-3 block opacity-60"></i>
+                <p>Could not load logs.</p>
+                <p class="text-sm text-red-300/80 mt-1">${esc(e.message || 'Please try again.')}</p>
+            </div>`;
         }
     }
 
     function renderLogs(items) {
         const list = document.getElementById('log-list');
-        if (!items.length) { list.innerHTML = '<div class="text-gray-500 text-center py-12">No logs found.</div>'; return; }
+        if (!items || !items.length) {
+            list.innerHTML = emptyLogsHtml();
+            return;
+        }
         list.innerHTML = items.map(item => currentTab === 'discord' ? discordRow(item) : adminRow(item)).join('');
         list.querySelectorAll('[data-log-id]').forEach(row => {
             row.addEventListener('click', () => openDetail(parseInt(row.dataset.logId)));
@@ -234,7 +393,17 @@
     }
 
     function fmt(ts) {
-        return ts ? new Date(ts).toLocaleString('sk-SK', { hour12: false }) : '';
+        if (!ts) return '';
+        // Timestamps are stored as Europe/Bratislava local time without a timezone suffix.
+        const m = String(ts).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+        if (m) {
+            const d = new Date(
+                Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+                Number(m[4]), Number(m[5]), Number(m[6] || 0),
+            );
+            return d.toLocaleString('sk-SK', { hour12: false });
+        }
+        return new Date(ts).toLocaleString('sk-SK', { hour12: false });
     }
 
     function discordRow(item) {
@@ -451,13 +620,13 @@
         .then(r => r.json())
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
-            canViewLogs = canReadLogs();
+            updateAdminTabAccess();
             activateTab(currentTab);
         })
         .catch(() => {})
         .finally(() => {
             Promise.all([loadMeta(), loadServerNames()]).then(() => {
-                if (canViewLogs) {
+                if (canViewDiscordLogs()) {
                     const urlParams = new URLSearchParams(location.search);
                     const paramChar = urlParams.get('character');
                     const paramSource = urlParams.get('source');

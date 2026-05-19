@@ -124,6 +124,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Model Rules ---
     function isMod() { return currentUserRole === 'mod'; }
+    function isAdmin() { return currentUserRole === 'admin' || currentUserRole === 'super_admin'; }
+    function allServersLabel() { return isAdmin() ? 'All servers' : 'All my servers'; }
 
     function buildServerCheckboxes(selectedIds = []) {
         const servers = isMod()
@@ -161,16 +163,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function syncModelRuleButtonWidths() {
+    function measureDropdownWidth(dd) {
+        const wasHidden = dd.classList.contains('hidden');
+        dd.classList.remove('hidden');
+        dd.style.visibility = 'hidden';
+        dd.style.width = 'max-content';
+        const w = dd.scrollWidth;
+        dd.style.visibility = '';
+        dd.style.width = '';
+        if (wasHidden) dd.classList.add('hidden');
+        return w;
+    }
+
+    function syncModelRuleWidths() {
         requestAnimationFrame(() => {
-            const btns = [...document.querySelectorAll('#model-rules-list .mr-srv-btn')];
-            if (!btns.length) return;
-            // Skip if the rules body is hidden — offsetWidth would be 0
             if (document.getElementById('model-rules-body')?.classList.contains('hidden')) return;
-            // Force max-content before measuring so flex/grid constraints don't shrink buttons
-            btns.forEach(b => b.style.width = 'max-content');
-            const maxW = Math.max(...btns.map(b => b.offsetWidth));
-            if (maxW > 0) btns.forEach(b => b.style.width = maxW + 'px');
+            document.querySelectorAll('#model-rules-list .model-rule').forEach(rule => {
+                const wrap = rule.querySelector('.mr-srv-wrap');
+                const btn = rule.querySelector('.mr-srv-btn');
+                const dd = rule.querySelector('[id^="mr-dd-"]');
+                if (!wrap || !btn || !dd) return;
+
+                wrap.style.width = '';
+                btn.style.width = 'max-content';
+                const btnW = btn.offsetWidth;
+                const ddW = measureDropdownWidth(dd);
+                const w = Math.max(btnW, ddW);
+                if (w > 0) {
+                    wrap.style.width = `${w}px`;
+                    btn.style.width = '100%';
+                }
+            });
         });
     }
 
@@ -181,13 +204,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const div = document.createElement('div');
         div.className = 'model-rule flex items-center gap-2';
         div.innerHTML = `
-            <div class="relative shrink-0">
-                <button type="button" class="mr-srv-btn flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
-                    <span class="mr-srv-label text-gray-300 flex-1 text-left truncate">All servers</span>
+            <div class="mr-srv-wrap relative shrink-0">
+                <button type="button" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
+                    <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
                     <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
                 </button>
-                <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg min-w-full max-h-48 overflow-y-auto">
-                    <div class="p-1">${buildServerCheckboxes(rule.servers || [])}</div>
+                <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
                 </div>
             </div>
             <input type="text" class="input-field flex-1 mr-model text-sm" placeholder="Model name (e.g. gpt-4o-mini)" value="${escapeHtml(rule.model || '')}">
@@ -210,13 +233,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (totalSelected === 0) {
                 label = 'None';
             } else if (hiddenCount === 0 && checkedIds.length > 0 && checkedIds.length === visibleTotal) {
-                label = 'All servers';
+                label = allServersLabel();
             } else if (totalSelected === 1) {
                 label = checkedNames[0] || 'Unknown server';
             } else {
                 label = `${totalSelected} servers`;
             }
             btn.querySelector('.mr-srv-label').textContent = label;
+            syncModelRuleWidths();
         };
 
         btn.addEventListener('click', (e) => {
@@ -235,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
             div.remove();
         });
         document.getElementById('model-rules-list').appendChild(div);
-        syncModelRuleButtonWidths();
+        syncModelRuleWidths();
     }
 
     function getModelRules() {
@@ -251,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('model-rules-list').innerHTML = '';
         modelRuleCounter = 0;
         (rules || []).forEach(r => addModelRule(r));
-        syncModelRuleButtonWidths();
+        syncModelRuleWidths();
         applyModelRulesModRestrictions();
     }
 
@@ -298,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('model-rules-enabled').addEventListener('change', e => {
         document.getElementById('model-rules-body').classList.toggle('hidden', !e.target.checked);
-        if (e.target.checked) syncModelRuleButtonWidths();
+        if (e.target.checked) syncModelRuleWidths();
     });
     document.getElementById('add-model-rule-btn').addEventListener('click', () => addModelRule());
     document.addEventListener('click', (e) => {

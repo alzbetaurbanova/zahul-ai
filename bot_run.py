@@ -427,6 +427,15 @@ class AutocapGroup(app_commands.Group):
 
 # --- Scheduler ---
 
+def _scheduler_log_channel_id(task: dict, resolved_channel=None) -> str:
+    """Use the real Discord channel id for logs (matches chat logs), not target_type:target_id."""
+    if task.get("target_type") == "channel":
+        if resolved_channel is not None:
+            return str(resolved_channel.id)
+        return str(task["target_id"])
+    return f"{task['target_type']}:{task['target_id']}"
+
+
 async def _send_scheduled_message(bot: 'Zahul', task: dict):
     """Send a message as a character for a scheduled task."""
     char = bot.db.get_character(task['character'])
@@ -521,7 +530,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         if text_suffix.startswith('//[OOC:'):
             print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")
             bot.db.log_discord(
-                character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
+                character=char_name, channel_id=_scheduler_log_channel_id(task, _pre_channel),
                 user='system', trigger=instructions or '', response='',
                 model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                 conversation_history=request_messages, temperature=temperature,
@@ -545,6 +554,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
     if not text:
         return
 
+    resolved_channel = None
     try:
         if task['target_type'] == 'channel':
             channel = bot.get_channel(int(task['target_id']))
@@ -553,6 +563,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             if not channel:
                 print(f"[Scheduler] Channel {task['target_id']} not found")
                 return
+            resolved_channel = channel
 
             parent = channel.parent if isinstance(channel, discord.Thread) else channel
             webhooks = await parent.webhooks()
@@ -593,7 +604,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 return
 
         bot.db.log_discord(
-            character=char_name, channel_id=f"{task['target_type']}:{task['target_id']}",
+            character=char_name, channel_id=_scheduler_log_channel_id(task, resolved_channel),
             user='system', trigger=instructions or '', response=text,
             model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
             conversation_history=request_messages, temperature=temperature,
@@ -625,7 +636,7 @@ async def _run_scheduler(bot: 'Zahul'):
                     print(f"[Scheduler] Reminder id={task['id']} failed: {err}\n{traceback.format_exc()}")
                     bot.db.update_task(task['id'], status='failed', error_message=err)
                     bot.db.log_discord(
-                        character=task.get('character', ''), channel_id=f"{task['target_type']}:{task['target_id']}",
+                        character=task.get('character', ''), channel_id=_scheduler_log_channel_id(task),
                         user='system', trigger=task.get('instructions') or '', response='',
                         model='', input_tokens=0, output_tokens=0, conversation_history=None,
                         source='scheduler', status='error', error_message=err, history_count=0,

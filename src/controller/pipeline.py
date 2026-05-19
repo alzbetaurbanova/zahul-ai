@@ -10,6 +10,7 @@ from src.models.dimension import ActiveChannel
 from src.models.prompts import PromptEngineer
 from src.models.queue import QueueItem
 from src.utils.llm_new import generate_response
+from src.utils.discord_utils import format_trigger_for_log
 from api.models.models import BotConfig
 from api.db.database import Database
 
@@ -101,7 +102,7 @@ async def _generate_and_send_for_character(
 
     is_error = queue_item.result.startswith('//[OOC:')
     channel_id = 'dm' if isinstance(message.channel, discord.DMChannel) else str(message.channel.id)
-    trigger_text = re.sub(r'^\[Replying To [^\]]+\]\n?', '', message.content).strip()
+    trigger_text = format_trigger_for_log(message)
     request_messages = [
         {"role": "system", "content": queue_item.prompt},
         {"role": "user", "content": message.content},

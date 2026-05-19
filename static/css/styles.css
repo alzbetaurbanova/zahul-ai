@@ -912,6 +912,12 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
     color: var(--primary);
 }
 
+.btn-dashed-sm {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    gap: 0.25rem;
+}
+
 .btn-ghost {
     background: transparent;
     border: 1px solid var(--surface-mid);
@@ -1251,6 +1257,23 @@ body[data-page="stats"] .tab-btn.tab-active::after {
 body[data-page="logs"] .tab-btn.tab-active::after,
 body[data-page="users"] .tab-btn.tab-active::after {
     transform: scaleX(1);
+}
+
+body[data-page="logs"] .tab-btn.tab-locked,
+body[data-page="logs"] .tab-btn.tab-locked:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+body[data-page="logs"] .tab-btn.tab-locked:hover,
+body[data-page="logs"] .tab-btn.tab-locked:disabled:hover {
+    color: var(--text-dim);
+}
+
+body[data-page="logs"] .tab-lock-wrap {
+    display: inline-block;
+    cursor: not-allowed;
 }
 
 .tab-count-badge {

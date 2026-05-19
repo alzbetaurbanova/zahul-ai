@@ -271,6 +271,51 @@ class Database:
             for key, val in security_defaults:
                 conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
+        self._cleanup_mislinked_scheduler_channels()
+
+    def _cleanup_mislinked_scheduler_channels(self):
+        """Remove auto-linked legacy scheduler channels (wrong server attribution)."""
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT channel_id, data FROM channels").fetchall()
+            for row in rows:
+                data = self._parse_json_value(row["data"])
+                if isinstance(data, dict) and data.get("legacy_scheduler"):
+                    conn.execute("DELETE FROM channels WHERE channel_id = ?", (row["channel_id"],))
+            conn.commit()
+
+    def log_matches_server_scope(self, channel_id: str, server_ids: List[str]) -> bool:
+        if not server_ids:
+            return False
+        raw = channel_id[8:] if channel_id.startswith("channel:") else channel_id
+        ph = ",".join("?" * len(server_ids))
+        with self._get_connection() as conn:
+            row = conn.execute(
+                f"""
+                SELECT 1 FROM channels c
+                WHERE c.server_id IN ({ph})
+                AND (c.channel_id = ? OR c.channel_id = ?)
+                LIMIT 1
+                """,
+                server_ids + [channel_id, raw],
+            ).fetchone()
+        return row is not None
+
+    @staticmethod
+    def _discord_log_on_servers_sql(server_ids: List[str], table_alias: str = "") -> Tuple[str, List[str]]:
+        prefix = f"{table_alias}." if table_alias else ""
+        ph = ",".join("?" * len(server_ids))
+        clause = f"""EXISTS (
+            SELECT 1 FROM channels c
+            WHERE c.server_id IN ({ph})
+            AND (
+                c.channel_id = {prefix}channel_id
+                OR c.channel_id = CASE
+                    WHEN {prefix}channel_id LIKE 'channel:%' THEN substr({prefix}channel_id, 9)
+                    ELSE {prefix}channel_id
+                END
+            )
+        )"""
+        return clause, list(server_ids)
 
     # ------------------------------------------------------
     # Helper for dynamic updates
@@ -443,6 +488,16 @@ class Database:
                 channel['data'] = json.loads(channel['data'])
                 channels.append(channel)
             return channels
+
+    def get_channel_ids_for_servers(self, server_ids: List[str]) -> List[str]:
+        if not server_ids:
+            return []
+        ph = ",".join("?" * len(server_ids))
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT channel_id FROM channels WHERE server_id IN ({ph})", server_ids
+            ).fetchall()
+        return [r["channel_id"] for r in rows]
 
     # ------------------------------------------------------
     # Characters & Triggers
@@ -785,12 +840,36 @@ class Database:
             vals = filters['status'] if isinstance(filters['status'], list) else [filters['status']]
             conditions.append(f"status IN ({','.join('?'*len(vals))})"); params.extend(vals)
         if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
+        if filters.get('server_ids') is not None:
+            sids = filters['server_ids']
+            if not sids:
+                conditions.append("1=0")
+            else:
+                clause, clause_params = self._discord_log_on_servers_sql(sids, table_alias="dl")
+                conditions.append(clause)
+                params.extend(clause_params)
+        elif filters.get('channel_ids') is not None:
+            vals = filters['channel_ids']
+            if not vals:
+                conditions.append("1=0")
+            else:
+                match_vals = []
+                seen = set()
+                for cid in vals:
+                    raw = cid[8:] if isinstance(cid, str) and cid.startswith("channel:") else cid
+                    for v in (cid, raw, f"channel:{raw}"):
+                        if v and v not in seen:
+                            seen.add(v)
+                            match_vals.append(v)
+                conditions.append(f"channel_id IN ({','.join('?' * len(match_vals))})")
+                params.extend(match_vals)
+        from_table = "discord_logs dl"
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:
-            total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
+            total = conn.execute(f"SELECT COUNT(*) FROM {from_table} {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count,task_id FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
@@ -844,20 +923,51 @@ class Database:
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
 
-    def list_logs_meta(self) -> Dict:
+    def list_logs_meta(
+        self,
+        channel_ids: Optional[List[str]] = None,
+        server_ids: Optional[List[str]] = None,
+    ) -> Dict:
+        log_extra, log_params = "", []
+        if server_ids is not None:
+            if not server_ids:
+                return {"characters": [], "users": [], "admin_users": [], "channels": {}}
+            scope_clause, log_params = self._discord_log_on_servers_sql(server_ids, table_alias="dl")
+            log_extra = f" AND {scope_clause}"
+        elif channel_ids is not None:
+            if not channel_ids:
+                return {"characters": [], "users": [], "admin_users": [], "channels": {}}
+            ph = ",".join("?" * len(channel_ids))
+            log_extra = f" AND channel_id IN ({ph})"
+            log_params = list(channel_ids)
         with self._get_connection() as conn:
             characters = [r[0] for r in conn.execute(
-                "SELECT DISTINCT character FROM discord_logs WHERE character IS NOT NULL ORDER BY character"
+                f"SELECT DISTINCT dl.character FROM discord_logs dl WHERE dl.character IS NOT NULL{log_extra} ORDER BY dl.character",
+                log_params,
             ).fetchall()]
             users = [r[0] for r in conn.execute(
-                "SELECT DISTINCT user FROM discord_logs WHERE user IS NOT NULL AND user != 'system' ORDER BY user"
+                f"SELECT DISTINCT dl.user FROM discord_logs dl WHERE dl.user IS NOT NULL AND dl.user != 'system'{log_extra} ORDER BY dl.user",
+                log_params,
             ).fetchall()]
             admin_users = [r[0] for r in conn.execute(
                 "SELECT DISTINCT actor_username FROM admin_logs WHERE actor_username IS NOT NULL AND TRIM(actor_username) != '' ORDER BY actor_username"
             ).fetchall()]
-            channel_rows = conn.execute(
-                "SELECT channel_id, server_name, data FROM channels"
-            ).fetchall()
+            if server_ids is not None:
+                ch_ph = ",".join("?" * len(server_ids))
+                channel_rows = conn.execute(
+                    f"SELECT channel_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
+                    server_ids,
+                ).fetchall()
+            elif channel_ids is not None:
+                ch_ph = ",".join("?" * len(channel_ids))
+                channel_rows = conn.execute(
+                    f"SELECT channel_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
+                    channel_ids,
+                ).fetchall()
+            else:
+                channel_rows = conn.execute(
+                    "SELECT channel_id, server_name, data FROM channels"
+                ).fetchall()
         channels = {}
         for row in channel_rows:
             d = dict(row)

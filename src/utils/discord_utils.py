@@ -52,3 +52,12 @@ def extract_valid_urls(text: str) -> list[str]:
     # Filter only valid URLs
     valid_urls = [url for url in possible_urls if is_valid_url(url)]
     return valid_urls
+
+
+def format_trigger_for_log(message: discord.Message) -> str:
+    """Discord stores mentions as <@id>; show @DisplayName in logs instead."""
+    text = re.sub(r"^\[Replying To [^\]]+\]\n?", "", message.content or "").strip()
+    for user in getattr(message, "mentions", []) or []:
+        for tag in (f"<@{user.id}>", f"<@!{user.id}>"):
+            text = text.replace(tag, f"@{user.display_name}")
+    return re.sub(r"<@!?\d+>", "@user", text).strip()
