@@ -105,6 +105,8 @@ class CharacterData(BaseModel):
     temperature: Optional[float] = Field(None, ge=0, le=2)
     history_limit: Optional[int] = Field(None, ge=1, le=50)
     max_tokens: Optional[int] = Field(None, ge=64, le=4096)
+    model_rules_enabled: bool = False
+    model_rules: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class Character(BaseModel):

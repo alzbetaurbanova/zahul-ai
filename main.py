@@ -509,6 +509,7 @@ async def auth_status(request: Request):
             "id": user["id"],
             "username": user["username"],
             "role": user["role"],
+            "server_ids": db.get_user_server_access(user["id"]),
         } if user else None,
     }
     response = JSONResponse(payload)

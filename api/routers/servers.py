@@ -82,12 +82,15 @@ async def get_server_config(server_id: str = Path(...), user: dict = Depends(req
     return db.get_server_config(server_id)
 
 @router.patch("/{server_id}/config", response_model=ServerConfig)
-async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), current_user: dict = Depends(require_role("admin"))):
+async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), current_user: dict = Depends(require_role("mod"))):
     """Set per-server config overrides. Only provided (non-null) fields are saved."""
+    _ensure_server_scope(current_user, server_id)
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     current = db.get_server_config(server_id)
     updates = body.model_dump(exclude_none=True)
+    if _is_limited_mod(current_user):
+        updates.pop('ai_endpoint', None)
     current.update(updates)
     db.set_server_config(server_id, current)
     db.log_admin('servers.override.on', target=server_id, detail=str(updates), actor=current_user)

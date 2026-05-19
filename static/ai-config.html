@@ -36,7 +36,7 @@
                                 <input type="url" id="ai_endpoint" class="input-field" required>
                             </div>
                             <div>
-                                <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
+                                <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly. Context window and max output tokens vary per model — check your provider's model page for the exact limits.</span></span></label>
                                 <input type="text" id="base_llm" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
                             </div>
                         </div>
@@ -46,8 +46,8 @@
                                 <input type="number" id="history_limit" step="1" min="1" max="50" class="input-field" placeholder="e.g. 10">
                             </div>
                             <div>
-                                <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
-                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="input-field" placeholder="e.g. 256">
+                                <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character. Actual maximum depends on the model — check your provider's model page for the exact limit.</span></span></label>
+                                <input type="number" id="max_tokens" step="1" min="64" max="131072" class="input-field" placeholder="e.g. 256">
                             </div>
                             <div>
                                 <label for="temperature" class="label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
@@ -65,7 +65,7 @@
                         <legend class="legend-section">Fallback & Rate Limiting</legend>
                         <div class="form-grid">
                             <div>
-                                <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
+                                <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit. Context window and max output tokens vary per model — check your provider's model page for the exact limits.</span></span></label>
                                 <input type="text" id="fallback_llm" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
                             </div>
                             <div>
@@ -74,11 +74,11 @@
                             </div>
                             <div>
                                 <label for="token_limit_tpm" class="label-tt">Rate Limit Trigger <span class="text-unit">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
-                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="input-field" placeholder="e.g., 12000">
+                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="input-field" placeholder="e.g., 12000 – 0 to disable">
                             </div>
                             <div>
-                                <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
-                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000">
+                                <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total daily token budget (input + output combined) for the primary model. When reached, switches to the fallback model for the remainder of the fallback duration. Visible via /tokens in Discord.</span></span></label>
+                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000 – 0 to disable">
                             </div>
                         </div>
                     </fieldset>

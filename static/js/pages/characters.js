@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const API_BASE = '/api/characters';
     let currentUserRole = 'guest';
     let currentUsername = '';
+    let currentUserServerIds = [];
     let currentCharacterName = null;
     let currentCharacterId = null;
     let currentCharCreatedBy = null;
@@ -37,7 +38,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function canEditCurrentCharacter() {
         if (currentUserRole === 'admin' || currentUserRole === 'super_admin') return true;
-        if (currentUserRole === 'mod') return currentCharCreatedBy === currentUsername;
+        if (currentUserRole === 'mod') {
+            if (currentCharCreatedBy === currentUsername) return true;
+            // Allow if character is whitelisted exclusively on mod's servers
+            if (!currentCharacterName || !currentUserServerIds.length) return false;
+            let onOwnServer = false;
+            for (const [sid, names] of Object.entries(serverWhitelists)) {
+                if (names.has(currentCharacterName)) {
+                    if (currentUserServerIds.includes(sid)) onOwnServer = true;
+                    else return false; // also on a server the mod doesn't own
+                }
+            }
+            return onOwnServer;
+        }
         return false;
     }
     // --- Modal Management ---
@@ -50,6 +63,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let allCharacters = [];
     let serverWhitelists = {}; // server_id -> Set of character names
     let serverNameMap = {};    // display name -> server_id
+    let availableServers = []; // {server_id, server_name}[] for model rules
+    let modelRuleCounter = 0;
+    let serversReadyPromise = Promise.resolve();
 
     async function loadServerFilter() {
         try {
@@ -67,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 channels.forEach(ch => (ch.data.whitelist || []).forEach(n => names.add(n)));
                 serverWhitelists[s.server_id] = names;
             }));
+            availableServers = filtered.map(s => ({ server_id: s.server_id, server_name: s.server_name }));
             if (typeof setupFilterCombobox === 'function') {
                 setupFilterCombobox(
                     'server-filter', 'server-filter-dd',
@@ -103,6 +120,190 @@ document.addEventListener('DOMContentLoaded', function() {
         if ('dataset' in serverFilterInput) serverFilterInput.dataset.comboboxClearTouched = '';
         serverFilterInput.dispatchEvent(new Event('input', { bubbles: true }));
         applyFilter();
+    });
+
+    // --- Model Rules ---
+    function isMod() { return currentUserRole === 'mod'; }
+
+    function buildServerCheckboxes(selectedIds = []) {
+        const servers = isMod()
+            ? availableServers.filter(s => currentUserServerIds.includes(s.server_id))
+            : availableServers;
+        if (!servers.length) return '<p class="text-dim text-xs px-3 py-2">No servers loaded</p>';
+        return servers.map(s => `
+            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-700 rounded cursor-pointer text-sm">
+                <input type="checkbox" class="accent-indigo-500" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
+                <span class="text-gray-200 truncate">${escapeHtml(s.server_name)}</span>
+            </label>`).join('');
+    }
+
+    function getUsedServerIds(excludeDd) {
+        return new Set(
+            [...document.querySelectorAll('.model-rule')]
+                .flatMap(rule => {
+                    const ruleDd = rule.querySelector('[id^="mr-dd-"]');
+                    if (!ruleDd || ruleDd === excludeDd) return [];
+                    return [...ruleDd.querySelectorAll('input:checked')].map(cb => cb.value);
+                })
+        );
+    }
+
+    function refreshDropdownOptions(dd) {
+        const used = getUsedServerIds(dd);
+        dd.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            const label = cb.closest('label');
+            const disable = used.has(cb.value);
+            cb.disabled = disable;
+            if (label) {
+                label.style.opacity = disable ? '0.4' : '';
+                label.style.cursor = disable ? 'not-allowed' : '';
+            }
+        });
+    }
+
+    function syncModelRuleButtonWidths() {
+        requestAnimationFrame(() => {
+            const btns = [...document.querySelectorAll('#model-rules-list .mr-srv-btn')];
+            if (!btns.length) return;
+            // Skip if the rules body is hidden — offsetWidth would be 0
+            if (document.getElementById('model-rules-body')?.classList.contains('hidden')) return;
+            // Force max-content before measuring so flex/grid constraints don't shrink buttons
+            btns.forEach(b => b.style.width = 'max-content');
+            const maxW = Math.max(...btns.map(b => b.offsetWidth));
+            if (maxW > 0) btns.forEach(b => b.style.width = maxW + 'px');
+        });
+    }
+
+    function addModelRule(rule = { servers: [], model: '' }) {
+        const id = modelRuleCounter++;
+        const ddId = `mr-dd-${id}`;
+        const allRuleServers = rule.servers || [];
+        const div = document.createElement('div');
+        div.className = 'model-rule flex items-center gap-2';
+        div.innerHTML = `
+            <div class="relative shrink-0">
+                <button type="button" class="mr-srv-btn flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
+                    <span class="mr-srv-label text-gray-300 flex-1 text-left truncate">All servers</span>
+                    <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
+                </button>
+                <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg min-w-full max-h-48 overflow-y-auto">
+                    <div class="p-1">${buildServerCheckboxes(rule.servers || [])}</div>
+                </div>
+            </div>
+            <input type="text" class="input-field flex-1 mr-model text-sm" placeholder="Model name (e.g. gpt-4o-mini)" value="${escapeHtml(rule.model || '')}">
+            <button type="button" class="btn-icon mr-remove shrink-0" title="Remove"><i class="fas fa-times"></i></button>`;
+
+        const btn = div.querySelector('.mr-srv-btn');
+        const dd = div.querySelector(`#${ddId}`);
+
+        const updateLabel = () => {
+            const visibleTotal = dd.querySelectorAll('input[type="checkbox"]').length;
+            const checkedIds = [...dd.querySelectorAll('input:checked')].map(cb => cb.value);
+            const hiddenCount = allRuleServers.filter(sid => !dd.querySelector(`input[value="${sid}"]`)).length;
+            const totalSelected = checkedIds.length + hiddenCount;
+            const totalAll = visibleTotal + hiddenCount;
+            const checkedNames = checkedIds.map(sid => {
+                const s = availableServers.find(x => x.server_id === sid);
+                return s ? s.server_name : sid;
+            });
+            let label;
+            if (totalSelected === 0) {
+                label = 'None';
+            } else if (hiddenCount === 0 && checkedIds.length > 0 && checkedIds.length === visibleTotal) {
+                label = 'All servers';
+            } else if (totalSelected === 1) {
+                label = checkedNames[0] || 'Unknown server';
+            } else {
+                label = `${totalSelected} servers`;
+            }
+            btn.querySelector('.mr-srv-label').textContent = label;
+        };
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasHidden = dd.classList.contains('hidden');
+            document.querySelectorAll('[id^="mr-dd-"]').forEach(d => d.classList.add('hidden'));
+            if (wasHidden) {
+                refreshDropdownOptions(dd);
+                dd.classList.remove('hidden');
+            }
+        });
+        dd.addEventListener('change', updateLabel);
+        updateLabel();
+        div.querySelector('.mr-remove').addEventListener('click', () => {
+            document.querySelectorAll('[id^="mr-dd-"]').forEach(d => d.classList.add('hidden'));
+            div.remove();
+        });
+        document.getElementById('model-rules-list').appendChild(div);
+        syncModelRuleButtonWidths();
+    }
+
+    function getModelRules() {
+        return [...document.querySelectorAll('.model-rule')].map(div => ({
+            servers: [...div.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value),
+            model: div.querySelector('.mr-model').value.trim(),
+        })).filter(r => r.model);
+    }
+
+    function loadModelRules(enabled, rules) {
+        document.getElementById('model-rules-enabled').checked = enabled;
+        document.getElementById('model-rules-body').classList.toggle('hidden', !enabled);
+        document.getElementById('model-rules-list').innerHTML = '';
+        modelRuleCounter = 0;
+        (rules || []).forEach(r => addModelRule(r));
+        syncModelRuleButtonWidths();
+        applyModelRulesModRestrictions();
+    }
+
+    function applyModelRulesModRestrictions() {
+        const mod = isMod();
+        const toggle = document.getElementById('model-rules-enabled');
+        const toggleLabel = toggle.closest('label');
+        toggle.disabled = mod;
+        if (toggleLabel) {
+            toggleLabel.title = mod ? 'Ask an admin to enable/edit overrides' : '';
+            toggleLabel.style.opacity = mod ? '0.5' : '';
+            toggleLabel.style.cursor = mod ? 'not-allowed' : '';
+        }
+        const body = document.getElementById('model-rules-body');
+        const addBtn = document.getElementById('add-model-rule-btn');
+        if (mod) {
+            addBtn.classList.add('hidden');
+            body.querySelectorAll('.mr-remove').forEach(btn => btn.classList.add('hidden'));
+            body.querySelectorAll('.mr-model').forEach(inp => {
+                inp.disabled = true;
+                inp.classList.add('input-readonly');
+            });
+            body.querySelectorAll('.mr-srv-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+                btn.style.pointerEvents = 'none';
+            });
+        } else {
+            addBtn.classList.remove('hidden');
+            body.querySelectorAll('.mr-remove').forEach(btn => btn.classList.remove('hidden'));
+            body.querySelectorAll('.mr-model').forEach(inp => {
+                inp.disabled = false;
+                inp.classList.remove('input-readonly');
+            });
+            body.querySelectorAll('.mr-srv-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                btn.style.cursor = '';
+                btn.style.pointerEvents = '';
+            });
+        }
+    }
+
+    document.getElementById('model-rules-enabled').addEventListener('change', e => {
+        document.getElementById('model-rules-body').classList.toggle('hidden', !e.target.checked);
+        if (e.target.checked) syncModelRuleButtonWidths();
+    });
+    document.getElementById('add-model-rule-btn').addEventListener('click', () => addModelRule());
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.mr-srv-btn') && !e.target.closest('[id^="mr-dd-"]'))
+            document.querySelectorAll('[id^="mr-dd-"]').forEach(d => d.classList.add('hidden'));
     });
 
     // --- Core Functions ---
@@ -156,15 +357,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             personaInput.value = char.data.persona;
             instructionsInput.value = char.data.instructions;
-            _savedExternalUrl = char.data.avatar_source || '';
             const isStaticAvatar = char.data.avatar && char.data.avatar.startsWith('/static/');
             _savedStaticUrl = isStaticAvatar ? char.data.avatar : '';
+            _savedExternalUrl = char.data.avatar_source || (!isStaticAvatar && char.data.avatar) || '';
             avatarUrlInput.value = char.data.avatar || '';
             infoInput.value = char.data.about || '';
             temperatureInput.value = char.data.temperature != null ? char.data.temperature : '';
             charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
             charMaxTokensInput.value = char.data.max_tokens != null ? char.data.max_tokens : '';
             triggersInput.value = char.triggers.join(', ');
+            await serversReadyPromise;
+            loadModelRules(char.data.model_rules_enabled || false, char.data.model_rules || []);
 
             updateAvatarPreview(char.data.avatar);
             if (isStaticAvatar) setAvatarMode('upload');
@@ -200,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
         avatarModeUpload.classList.replace('mode-tab-on', 'mode-tab-off');
         avatarUploadInput.classList.add('invisible');
         avatarUploadInput.classList.remove('visible');
+        loadModelRules(false, []);
     }
 
     async function handleFormSubmit(event) {
@@ -239,7 +443,9 @@ document.addEventListener('DOMContentLoaded', function() {
             about: infoInput.value.trim() || null,
             temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
             history_limit: charHistoryLimitInput.value !== '' ? parseInt(charHistoryLimitInput.value) : null,
-            max_tokens: charMaxTokensInput.value !== '' ? parseInt(charMaxTokensInput.value) : null
+            max_tokens: charMaxTokensInput.value !== '' ? parseInt(charMaxTokensInput.value) : null,
+            model_rules_enabled: isMod() ? undefined : document.getElementById('model-rules-enabled').checked,
+            model_rules: isMod() ? undefined : getModelRules(),
         };
         const triggers = triggersInput.value.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -632,10 +838,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
             currentUsername = d?.current_user?.username || '';
+            currentUserServerIds = d?.current_user?.server_ids || [];
         })
         .catch(() => {})
         .finally(() => {
-            loadServerFilter();
+            serversReadyPromise = loadServerFilter();
             fetchAndDisplayCharacters();
         });
     });

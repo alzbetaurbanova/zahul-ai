@@ -148,16 +148,24 @@ async def generate_response(task: QueueItem, db: Database):
     Conditionally adds an assistant prefill message if enabled in the config.
     """
     bot_config = get_effective_config(db, getattr(task, 'server_id', None))
-    # Per-character temperature/max_tokens override global config when set
+    # Per-character temperature/max_tokens/model override global config when set
     char_data = db.get_character(task.bot)
     temperature = bot_config.temperature
     max_tokens = bot_config.max_tokens
+    effective_base_model = bot_config.base_llm
     if char_data and char_data.get("data"):
         d = char_data["data"]
         if d.get("temperature") is not None:
             temperature = d["temperature"]
         if d.get("max_tokens") is not None:
             max_tokens = d["max_tokens"]
+        if d.get("model_rules_enabled") and d.get("model_rules"):
+            server_id = getattr(task, 'server_id', None)
+            if server_id:
+                for rule in d["model_rules"]:
+                    if server_id in (rule.get("servers") or []) and rule.get("model"):
+                        effective_base_model = rule["model"]
+                        break
     
     try:
         client = AsyncOpenAI(
@@ -216,9 +224,20 @@ async def generate_response(task: QueueItem, db: Database):
             reset_fallback_tokens()
             print(f"Fallback ended, switching back to {bot_config.base_llm}")
 
+        # Switch to fallback if daily token budget is exhausted
+        if not _fallback_active and bot_config.token_limit_tpd:
+            tpd_used, tpd_limit = get_daily_tokens_used(limit=bot_config.token_limit_tpd)
+            if tpd_used >= tpd_limit:
+                _fallback_active = True
+                _fallback_end = time.time() + fallback_duration
+                _save_fallback_state(_fallback_end)
+                from datetime import datetime
+                back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
+                print(f"Daily token budget exhausted — switching to fallback ({fallback_model}) until {back_at}")
+
         just_switched = False
         try:
-            model = fallback_model if _fallback_active else bot_config.base_llm
+            model = fallback_model if _fallback_active else effective_base_model
             completion = await _call(model)
         except RateLimitError:
             if not _fallback_active:

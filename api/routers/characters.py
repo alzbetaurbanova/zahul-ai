@@ -23,6 +23,26 @@ from api.auth import require_role, ROLE_LEVEL
 from api.url_safety import validate_proxy_image_url
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
+
+
+def _mod_can_edit(db, char_name: str, user: dict) -> bool:
+    """Mod can edit a character if it is whitelisted exclusively on their assigned servers (and nowhere else)."""
+    mod_server_ids = set(db.get_user_server_access(user["id"]) if user.get("id") else [])
+    if not mod_server_ids:
+        return False
+    all_servers = db.list_servers()
+    char_on_mod_servers = False
+    for server in all_servers:
+        sid = server["server_id"]
+        channels = db.list_channels_for_server(sid)
+        for ch in channels:
+            whitelist = (ch.get("data") or {}).get("whitelist") or []
+            if char_name in whitelist:
+                if sid in mod_server_ids:
+                    char_on_mod_servers = True
+                else:
+                    return False  # whitelisted on a server the mod doesn't own
+    return char_on_mod_servers
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
 _MIRROR_MAX_SIZE_BYTES = 5 * 1024 * 1024
 _ALLOWED_AVATAR_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
@@ -286,8 +306,10 @@ async def update_character(
 
     user_role = current_user.get("role", "guest")
     if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
-        if existing_char.get("created_by") != current_user.get("username"):
-            raise HTTPException(status_code=403, detail="You can only edit characters you created.")
+        owns = existing_char.get("created_by") == current_user.get("username")
+        on_own_server = _mod_can_edit(db, existing_char["name"], current_user)
+        if not owns and not on_own_server:
+            raise HTTPException(status_code=403, detail="You can only edit characters you created or that are exclusively on your server.")
 
     try:
         char_data = character_update.data.model_dump()
@@ -330,8 +352,10 @@ async def delete_character(character_id: int = Path(...), current_user: dict = D
 
     user_role = current_user.get("role", "guest")
     if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
-        if char.get("created_by") != current_user.get("username"):
-            raise HTTPException(status_code=403, detail="You can only delete characters you created.")
+        owns = char.get("created_by") == current_user.get("username")
+        on_own_server = _mod_can_edit(db, char["name"], current_user)
+        if not owns and not on_own_server:
+            raise HTTPException(status_code=403, detail="You can only delete characters you created or that are exclusively on your server.")
     try:
         db.delete_character_by_id(char_id=character_id)
         db.log_admin('character.delete', target=char['name'], actor=current_user)

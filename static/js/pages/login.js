@@ -35,3 +35,12 @@ async function loadAuthStatus() {
     }
 }
 loadAuthStatus();
+
+document.getElementById('toggle-password').addEventListener('click', () => {
+    const input = document.getElementById('password');
+    const icon = document.getElementById('toggle-password-icon');
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    icon.classList.toggle('fa-eye', !isHidden);
+    icon.classList.toggle('fa-eye-slash', isHidden);
+});

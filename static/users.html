@@ -39,7 +39,7 @@
                     <div>
                         <label class="label-xs">Search user</label>
                         <div class="relative">
-                            <input type="text" id="filter-user" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                            <input type="text" id="filter-user" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
                             <button id="filter-user-clear" class="icon-clear-btn" data-clear="filter-user" title="Clear user search"><i class="fas fa-times"></i></button>
                             <div id="filter-user-dd" class="autocomplete-dd hidden"></div>
                         </div>
@@ -76,7 +76,7 @@
                     <div>
                         <label class="label-xs">Search user</label>
                         <div class="relative">
-                            <input type="text" id="filter-session-user" autocomplete="off" placeholder="any" class="input-field w-48 pr-8">
+                            <input type="text" id="filter-session-user" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
                             <button id="filter-session-user-clear" class="icon-clear-btn" data-clear="filter-session-user" title="Clear user search"><i class="fas fa-times"></i></button>
                             <div id="filter-session-user-dd" class="autocomplete-dd hidden"></div>
                         </div>
@@ -217,8 +217,17 @@
                     </select>
                 </div>
                 <div id="new-servers-field" class="hidden">
-                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
-                    <input type="text" id="new-server-ids" class="input-field" placeholder="e.g. 123456,789012">
+                    <label class="label-form">Server Access</label>
+                    <div class="relative">
+                        <button type="button" class="cb-dd-btn w-full" data-dd="dd-new-servers">
+                            <span class="cb-dd-label flex-1 min-w-0 text-left truncate">None</span>
+                            <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                                <i class="fas fa-times cb-dd-clear hidden" id="dd-new-servers-clear" title="Clear"></i>
+                                <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                            </span>
+                        </button>
+                        <div id="dd-new-servers" class="cb-dd hidden w-full"></div>
+                    </div>
                 </div>
                 <p id="new-modal-error" class="text-red-400 text-xs hidden"></p>
             </div>
@@ -255,8 +264,17 @@
                     </select>
                 </div>
                 <div id="edit-servers-field" class="hidden">
-                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
-                    <input type="text" id="edit-server-ids" class="input-field" placeholder="e.g. 123456,789012">
+                    <label class="label-form">Server Access</label>
+                    <div class="relative">
+                        <button type="button" class="cb-dd-btn w-full" data-dd="dd-edit-servers">
+                            <span class="cb-dd-label flex-1 min-w-0 text-left truncate">None</span>
+                            <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                                <i class="fas fa-times cb-dd-clear hidden" id="dd-edit-servers-clear" title="Clear"></i>
+                                <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                            </span>
+                        </button>
+                        <div id="dd-edit-servers" class="cb-dd hidden w-full"></div>
+                    </div>
                 </div>
                 <div id="edit-pw-field">
                     <label class="label-form">New password <span class="text-hint">(leave empty to keep)</span></label>

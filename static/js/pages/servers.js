@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
             : currentUserRole === 'admin' || currentUserRole === 'super_admin';
     }
 
+    function isMod() { return currentUserRole === 'mod'; }
+
     // Form fields
     const nameInput = document.getElementById('name');
     const defaultCharacterInput = document.getElementById('default-character');
@@ -144,8 +146,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function applyModRestrictions() {
+        const mod = isMod();
+        // Toggle — disabled for mods with tooltip
+        scToggle.disabled = mod;
+        const toggleLabel = scToggle.closest('label');
+        if (toggleLabel) {
+            toggleLabel.title = mod ? 'Ask an admin to enable/edit overrides' : '';
+            toggleLabel.style.opacity = mod ? '0.5' : '';
+            toggleLabel.style.cursor = mod ? 'not-allowed' : '';
+        }
+        // API Endpoint — disabled for mods
+        const endpointInput = document.getElementById('sc-ai-endpoint');
+        endpointInput.disabled = mod;
+        endpointInput.classList.toggle('input-readonly', mod);
+    }
+
     async function openServerEditModal(server) {
-        if (!canEditServers()) {
+        if (!canEditServers() && !isMod()) {
             showToast('You do not have permission to edit server settings.', 'error');
             return;
         }
@@ -158,6 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         populateSrvDefaultCharacterSelector(serverDefault);
         updateSrvDefaultCharacterStatus();
         await loadServerConfig(server.server_id);
+        applyModRestrictions();
     }
 
     document.getElementById('close-server-edit-modal-btn').addEventListener('click', () => serverEditModal.classList.add('hidden'));
@@ -252,7 +271,9 @@ document.addEventListener('DOMContentLoaded', function() {
             token_limit_tpd: num('sc-token-limit-tpd'),
             use_prefill: (() => { const v = document.getElementById('sc-use-prefill').value; return v !== '' ? v === 'true' : null; })(),
         }).filter(([, v]) => v !== null));
-        if (!isValidHttpUrl(payload.ai_endpoint || '')) {
+        if (isMod()) {
+            delete payload.ai_endpoint;
+        } else if (!isValidHttpUrl(payload.ai_endpoint || '')) {
             showToast('API Endpoint must be a valid http/https URL.', 'error');
             return;
         }
@@ -273,8 +294,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         try {
-            const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
-            if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
+            if (!isMod()) {
+                const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
+                if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
+            }
             if (Object.keys(payload).length) {
                 const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
                     method: 'PATCH',
@@ -287,11 +310,36 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
     });
 
+    function showEmptyChannelState(serverName) {
+        channelEditModal.classList.add('hidden');
+        channelListTitle.textContent = serverName;
+        channelPanel.classList.remove('hidden');
+        channelList.innerHTML = `
+            <li class="flex flex-col items-center text-center gap-3 py-6">
+                <i class="fas fa-hashtag text-3xl text-gray-600"></i>
+                <p class="text-sm text-gray-500">No channels registered yet.<br>Use the slash command in Discord:</p>
+                <div class="code-block">/register_channel</div>
+            </li>`;
+    }
+
     async function fetchServers() {
         try {
-            const response = await fetch(API_BASE);
-            const servers = await response.json();
+            let servers;
+            const guildsResp = await fetch('/api/discord/guilds');
+            if (guildsResp.ok) {
+                servers = await guildsResp.json();
+            } else {
+                const dbResp = await fetch(API_BASE);
+                if (!dbResp.ok) throw new Error(`HTTP ${dbResp.status}`);
+                servers = (await dbResp.json()).map(s => ({ ...s, in_db: true }));
+            }
+
             serverList.innerHTML = '';
+            if (servers.length === 0) {
+                serverList.innerHTML = '<li class="text-dim">No servers found.</li>';
+                return;
+            }
+
             servers.forEach(server => {
                 const li = document.createElement('li');
                 li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
@@ -305,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 editBtn.innerHTML = '<i class="fas fa-cog"></i>';
                 editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
                 editBtn.title = 'Server settings';
-                if (!canEditServers()) {
+                if ((!canEditServers() && !isMod()) || !server.in_db) {
                     editBtn.classList.add('hidden');
                 }
                 editBtn.addEventListener('click', (e) => {
@@ -318,7 +366,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 li.addEventListener('click', () => {
                     document.querySelectorAll('#server-list .list-item').forEach(el => el.classList.remove('active'));
                     li.classList.add('active');
-                    fetchChannels(server.server_id, server.server_name);
+                    if (server.in_db) {
+                        fetchChannels(server.server_id, server.server_name);
+                    } else {
+                        showEmptyChannelState(server.server_name);
+                    }
                 });
                 serverList.appendChild(li);
             });
@@ -338,7 +390,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const channels = await response.json();
             channelList.innerHTML = '';
             if (channels.length === 0) {
-                channelList.innerHTML = `<li class="text-gray-500">No channels registered.</li>`;
+                showEmptyChannelState(serverName);
+                return;
             }
             channels.forEach(channel => {
                 const li = document.createElement('li');
@@ -454,6 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
         addChannelModal.classList.remove('hidden');
     });
     closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));
+    addChannelModal.addEventListener('click', (e) => { if (e.target === addChannelModal) addChannelModal.classList.add('hidden'); });
 
     // Invite modal
     const inviteModal = document.getElementById('invite-modal');
@@ -474,10 +528,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.invite) {
                 inviteLinkContainer.innerHTML = `
                     <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg">
+                        class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg mt-8">
                         <i class="fas fa-external-link-alt"></i> Open Invite Link
-                    </a>
-                    <p class="text-gray-600 text-xs mt-3 break-all">${data.invite}</p>`;
+                    </a>`;
             } else {
                 inviteLinkContainer.innerHTML = `<p class="text-red-400 text-sm">${data.message || 'Bot is not running yet.'}</p>`;
             }
@@ -486,6 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
+    inviteModal.addEventListener('click', (e) => { if (e.target === inviteModal) inviteModal.classList.add('hidden'); });
 
     function wireDefaultCharacterCombos() {
         if (typeof setupFilterCombobox !== 'function') return;

@@ -60,33 +60,29 @@
     <!-- "Add Channel" Modal -->
     <div id="add-channel-modal" class="modal-backdrop hidden">
         <div class="modal-box modal-sm p-8 text-center">
+            <button id="close-modal-btn" type="button" class="btn-icon btn-modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
             <h3 class="modal-heading"><i class="fab fa-discord text-primary mr-2"></i> Register a New Channel</h3>
             <p class="text-dim mb-6">
                 To add a new channel for the bot to use, go to your Discord server and use the following slash command in the desired channel:
             </p>
             <div class="code-block">
-                /zahul register_channel
+                /register_channel
             </div>
             <p class="text-hint mt-4">
                 This ensures the bot has the correct permissions and context for the channel.
             </p>
-            <button id="close-modal-btn" class="btn-primary mt-8 px-6">
-                Got it!
-            </button>
         </div>
     </div>
 
     <!-- "Invite Bot" Modal -->
     <div id="invite-modal" class="modal-backdrop hidden">
         <div class="modal-box modal-sm p-8 text-center">
+            <button id="close-invite-modal-btn" type="button" class="btn-icon btn-modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
             <h3 class="modal-heading"><i class="fab fa-discord text-indigo-400 mr-2"></i> Invite Bot to a Server</h3>
             <p class="text-dim mb-6">Use this link to invite the bot to a new Discord server.</p>
             <div id="invite-link-container">
                 <p class="text-muted">Loading invite link...</p>
             </div>
-            <button id="close-invite-modal-btn" class="btn-primary mt-8 px-6">
-                Close
-            </button>
         </div>
     </div>
 

@@ -765,6 +765,83 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRequestsFooter(_requests.length);
     }
 
+    // --- Server dropdown helpers ---
+
+    let _availableServers = [];
+
+    async function ensureServersLoaded() {
+        if (_availableServers.length) return;
+        try {
+            const res = await fetch('/api/servers');
+            if (res.ok) _availableServers = await res.json();
+        } catch { /* keep empty */ }
+    }
+
+    function updateServerDdLabel(ddId) {
+        const dd = document.getElementById(ddId);
+        if (!dd) return;
+        const all = [...dd.querySelectorAll('input[type="checkbox"]')];
+        const checked = all.filter(cb => cb.checked);
+        const btn = dd.previousElementSibling;
+        if (!btn?.classList.contains('cb-dd-btn')) return;
+        const label = btn.querySelector('.cb-dd-label');
+        const clearIc = btn.querySelector('.cb-dd-clear');
+        if (checked.length === 0) {
+            if (label) label.textContent = 'None';
+            if (clearIc) clearIc.classList.add('hidden');
+        } else if (checked.length === all.length) {
+            if (label) label.textContent = 'All';
+            if (clearIc) clearIc.classList.remove('hidden');
+        } else {
+            const names = checked.map(cb => cb.closest('label')?.textContent.trim() || cb.value);
+            if (label) label.textContent = names.join(', ');
+            if (clearIc) clearIc.classList.remove('hidden');
+        }
+    }
+
+    function populateServerDd(ddId, selectedIds = []) {
+        const dd = document.getElementById(ddId);
+        if (!dd) return;
+        const selected = new Set(selectedIds.map(String));
+        dd.innerHTML = _availableServers.length
+            ? _availableServers.map(s => `
+                <label class="cb-dd-item">
+                    <input type="checkbox" value="${esc(s.server_id)}" class="accent-indigo-500"${selected.has(String(s.server_id)) ? ' checked' : ''}>
+                    ${esc(s.server_name)}
+                </label>`).join('')
+            : '<span class="cb-dd-item text-dim">No servers found</span>';
+        updateServerDdLabel(ddId);
+    }
+
+    function getServerDdValues(ddId) {
+        return [...document.querySelectorAll(`#${ddId} input[type="checkbox"]:checked`)].map(cb => cb.value);
+    }
+
+    function resetServerDd(ddId) {
+        const dd = document.getElementById(ddId);
+        dd?.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+        updateServerDdLabel(ddId);
+        dd?.classList.add('hidden');
+    }
+
+    // Wire cb-dd interactions for both modals once DOM is ready
+    initCbDdInteractions({ containers: [
+        document.getElementById('new-modal'),
+        document.getElementById('edit-modal'),
+    ]});
+
+    // Override label update for server dropdowns after initCbDdInteractions wires its own listener
+    ['new-modal', 'edit-modal'].forEach(modalId => {
+        document.getElementById(modalId)?.addEventListener('change', (e) => {
+            const dd = e.target.closest('#dd-new-servers, #dd-edit-servers');
+            if (dd) updateServerDdLabel(dd.id);
+        });
+    });
+
+    // Wire clear buttons for server dropdowns
+    wireCbDdClear('dd-new-servers-clear', 'dd-new-servers', () => updateServerDdLabel('dd-new-servers'));
+    wireCbDdClear('dd-edit-servers-clear', 'dd-edit-servers', () => updateServerDdLabel('dd-edit-servers'));
+
     // --- New User Modal ---
 
     let _authTab = 'local';
@@ -777,8 +854,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('auth-tab-local').addEventListener('click', () => setAuthTab('local'));
     document.getElementById('auth-tab-discord').addEventListener('click', () => setAuthTab('discord'));
 
-    document.getElementById('new-role').addEventListener('change', function () {
-        document.getElementById('new-servers-field').classList.toggle('hidden', this.value !== 'mod');
+    document.getElementById('new-role').addEventListener('change', async function () {
+        const isMod = this.value === 'mod';
+        document.getElementById('new-servers-field').classList.toggle('hidden', !isMod);
+        if (isMod) { await ensureServersLoaded(); populateServerDd('dd-new-servers', []); }
     });
 
     document.getElementById('new-modal-save').addEventListener('click', async () => {
@@ -802,8 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (role === 'mod') {
-            const ids = document.getElementById('new-server-ids').value.trim();
-            body.server_ids = ids ? ids.split(',').map(s => s.trim()).filter(Boolean) : [];
+            body.server_ids = getServerDdValues('dd-new-servers');
         }
 
         try {
@@ -835,7 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('new-discord-username').value = '';
         document.getElementById('new-role').value = 'mod';
         syncSuperAdminRoleOptions();
-        document.getElementById('new-server-ids').value = '';
+        resetServerDd('dd-new-servers');
         document.getElementById('new-servers-field').classList.add('hidden');
         document.getElementById('new-modal-error').classList.add('hidden');
         setAuthTab('local');
@@ -864,7 +942,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Servers field
         const serversField = document.getElementById('edit-servers-field');
         serversField.classList.toggle('hidden', u.role !== 'mod');
-        document.getElementById('edit-server-ids').value = (u.server_ids || []).join(', ');
+        if (u.role === 'mod') {
+            ensureServersLoaded().then(() => populateServerDd('dd-edit-servers', u.server_ids || []));
+        }
 
         // Avatar field — local accounts can upload profile picture
         const avatarField = document.getElementById('edit-avatar-field');
@@ -884,8 +964,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-modal-error').classList.add('hidden');
 
         // Show/hide servers when role changes
-        document.getElementById('edit-role').onchange = function () {
-            serversField.classList.toggle('hidden', this.value !== 'mod');
+        document.getElementById('edit-role').onchange = async function () {
+            const isMod = this.value === 'mod';
+            serversField.classList.toggle('hidden', !isMod);
+            if (isMod) { await ensureServersLoaded(); populateServerDd('dd-edit-servers', []); }
         };
 
         openModal('edit-modal');
@@ -913,8 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update server access for mod
             if (newRole === 'mod') {
-                const ids = document.getElementById('edit-server-ids').value.trim();
-                const server_ids = ids ? ids.split(',').map(s => s.trim()).filter(Boolean) : [];
+                const server_ids = getServerDdValues('dd-edit-servers');
                 const res = await fetch(`/api/users/${u.id}/servers`, {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ server_ids })

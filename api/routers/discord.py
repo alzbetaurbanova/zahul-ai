@@ -112,12 +112,30 @@ async def check_bot_status(_: dict = Depends(require_role("guest"))):
 
 
 @router.get("/invite")
-async def get_discord_invite(_: dict = Depends(require_role("mod"))):
-    # --- CHANGE THIS ---
+async def get_discord_invite(user: dict = Depends(require_role("mod"))):
     if bot_state.bot_instance and bot_state.bot_instance.invite_link:
+        db = Database()
+        db.log_admin('invite.copied', target='discord_invite', actor=user)
         return {"status": "active", "invite": bot_state.bot_instance.invite_link}
     else:
         return {"status": "inactive", "message": "Bot is not running or invite link is not yet available."}
+
+
+@router.get("/guilds")
+async def list_bot_guilds(user: dict = Depends(require_role("mod"))):
+    """Return all Discord guilds the bot is in, with a flag indicating if they have a DB entry."""
+    if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
+        raise HTTPException(status_code=503, detail="Bot is not running.")
+    db = Database()
+    db_server_ids = {s['server_id'] for s in db.list_servers()}
+    guilds = [
+        {"server_id": str(g.id), "server_name": g.name, "in_db": str(g.id) in db_server_ids}
+        for g in bot_state.bot_instance.guilds
+    ]
+    if user.get("role") == "mod":
+        allowed = set(db.get_user_server_access(int(user["id"])))
+        guilds = [g for g in guilds if g["server_id"] in allowed]
+    return guilds
 
 
 @router.get("/stream-logs")

@@ -1364,10 +1364,17 @@ body[data-page="users"] .tab-btn.tab-active::after {
 /* Modal Boxes                                                                 */
 /* ========================================================================== */
 .modal-box {
+    position: relative;
     background-color: var(--surface-deep);
     border-radius: 0.75rem;
     border: 1px solid var(--surface);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.btn-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
 }
 
 .modal-sm { width: 100%; max-width: 24rem; }
