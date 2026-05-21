@@ -96,10 +96,6 @@ async def get_allowed_models(current_user=Depends(require_role("admin"))):
     for p in (configs.get("multimodal_providers") or []):
         if isinstance(p, dict) and p.get("name"):
             add(p.get("allowed_models"), p["name"], p["name"])
-    vision_model = configs.get("multimodal_ai_model")
-    if vision_model and (vision_model, "vision") not in seen:
-        seen.add((vision_model, "vision"))
-        result.append({"display": f"{vision_model} (visual)", "model": vision_model, "source": "vision"})
     return result
 
 

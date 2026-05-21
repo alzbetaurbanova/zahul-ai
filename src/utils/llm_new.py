@@ -193,11 +193,17 @@ async def generate_response(task: QueueItem, db: Database):
                 primary_client = fallback_client
                 _effective_endpoint = bot_config.fallback_ai_endpoint
             elif _rule_source == "vision":
-                primary_client = AsyncOpenAI(
-                    base_url=bot_config.multimodal_ai_endpoint,
-                    api_key=bot_config.multimodal_ai_api or bot_config.ai_key,
-                )
-                _effective_endpoint = bot_config.multimodal_ai_endpoint
+                _vis_endpoint = bot_config.multimodal_ai_endpoint
+                _vis_key = bot_config.multimodal_ai_api or bot_config.ai_key
+                prov_name = bot_config.multimodal_ai_provider
+                if prov_name:
+                    for p in (bot_config.multimodal_providers or []):
+                        if p.name == prov_name:
+                            _vis_endpoint = p.endpoint
+                            _vis_key = p.api_key or bot_config.ai_key
+                            break
+                primary_client = AsyncOpenAI(base_url=_vis_endpoint, api_key=_vis_key)
+                _effective_endpoint = _vis_endpoint
             else:
                 for p in (bot_config.multimodal_providers or []):
                     if p.name == _rule_source:

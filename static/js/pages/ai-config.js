@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
         'fallback_use_different_endpoint', 'fallback_ai_endpoint', 'fallback_ai_key', 'fallback_allowed_models',
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
-        'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api',
+        'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
         'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
     ];
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
-        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint', 'fallback_ai_endpoint', 'discord_oauth_redirect_uri']) {
+        for (const urlField of ['ai_endpoint', 'public_url', 'fallback_ai_endpoint', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
@@ -187,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elements['ai_key'].value = '';
             elements['discord_key'].value = '';
             elements['fallback_ai_key'].value = '';
-            elements['multimodal_ai_api'].value = '';
             elements['discord_oauth_client_secret'].value = '';
             document.querySelectorAll('.provider-apikey').forEach(el => { el.value = ''; });
             await loadSecurityStatus();
@@ -470,10 +469,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.getElementById('providers-list');
         const models = Array.isArray(provider.allowed_models) ? provider.allowed_models.join('\n') : '';
         const card = document.createElement('div');
-        card.className = 'provider-card bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3';
+        card.className = 'provider-card border border-gray-700 rounded-lg p-4 space-y-3 bg-gray-900';
+        const headerName = provider.name ? escapeHtml(provider.name) : 'New Provider';
         card.innerHTML = `
             <div class="flex justify-between items-center">
-                <span class="text-sm font-semibold text-gray-300">Provider</span>
+                <span class="provider-header text-sm font-semibold text-gray-300">${headerName}</span>
                 <button type="button" class="provider-remove text-xs text-red-400 hover:text-red-300 transition-colors">
                     <i class="fas fa-trash mr-1"></i>Remove
                 </button>
@@ -501,6 +501,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         card.querySelector('.provider-remove').addEventListener('click', () => card.remove());
+        card.querySelector('.provider-name').addEventListener('input', function () {
+            card.querySelector('.provider-header').textContent = this.value.trim() || 'New Provider';
+        });
         card.querySelector('.provider-key-toggle').addEventListener('click', function () {
             const input = this.closest('.relative').querySelector('.provider-apikey');
             const icon = this.querySelector('i');
@@ -538,6 +541,22 @@ document.addEventListener('DOMContentLoaded', () => {
             : getModelsFromTextarea('primary_allowed_models');
     }
 
+    function getProviderModelDisplays() {
+        const out = [];
+        const seen = new Set();
+        document.querySelectorAll('.provider-card').forEach(card => {
+            const name = card.querySelector('.provider-name').value.trim();
+            if (!name) return;
+            card.querySelector('.provider-models').value
+                .split('\n').map(s => s.trim()).filter(Boolean)
+                .forEach(m => {
+                    const key = `${m}|${name}`;
+                    if (!seen.has(key)) { seen.add(key); out.push({ display: `${m} (${name})`, model: m, source: name }); }
+                });
+        });
+        return out;
+    }
+
     function setupModelComboboxes() {
         setupFilterCombobox(
             'base_llm',
@@ -552,6 +571,20 @@ document.addEventListener('DOMContentLoaded', () => {
             'fallback-llm-dd',
             () => getFallbackModels(),
             null,
+            null,
+            'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'multimodal_ai_model',
+            'multimodal-ai-model-dd',
+            () => getProviderModelDisplays().map(e => e.display),
+            (selected) => {
+                const entry = getProviderModelDisplays().find(e => e.display === selected);
+                if (entry) {
+                    elements['multimodal_ai_model'].value = entry.model;
+                    elements['multimodal_ai_provider'].value = entry.source;
+                }
+            },
             null,
             'hover:bg-gray-700'
         );

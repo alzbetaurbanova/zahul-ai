@@ -34,9 +34,10 @@ class BotConfig(BaseModel):
     max_tokens: int = Field(256, ge=64, le=4096)
     use_prefill: bool = False
     multimodal_enable: bool = False
+    multimodal_ai_model: str = ""
+    multimodal_ai_provider: str = ""
     multimodal_ai_endpoint: str = ""
     multimodal_ai_api: str = ""
-    multimodal_ai_model: str = ""
     multimodal_providers: List[MultimodalProvider] = Field(default_factory=list)
     dm_list : Optional[List[str]] = None # List of discord username that the bot is allowed to DM to
     concurrency : Optional[int] = Field(1, ge=1)

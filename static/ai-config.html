@@ -207,21 +207,12 @@
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Must support image inputs (e.g. google/gemini-2.0-flash).</span></span></label>
-                                    <input type="text" id="multimodal_ai_model" class="input-field" placeholder="e.g. google/gemini-2.0-flash">
-                                </div>
-                                <div>
-                                    <label for="multimodal_ai_endpoint" class="label-tt">Vision Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
-                                    <input type="url" id="multimodal_ai_endpoint" class="input-field" placeholder="e.g. https://openrouter.ai/api/v1">
-                                </div>
-                                <div>
-                                    <label for="multimodal_ai_api" class="label-tt">Vision API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to keep the existing key.</span></span></label>
+                                    <label for="multimodal_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured Multimodal Provider below.</span></span></label>
                                     <div class="relative">
-                                        <input type="password" id="multimodal_ai_api" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
-                                        <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="btn-eye">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
+                                        <input type="text" id="multimodal_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
+                                        <div id="multimodal-ai-model-dd" class="autocomplete-dd hidden"></div>
                                     </div>
+                                    <input type="hidden" id="multimodal_ai_provider">
                                 </div>
                             </div>
                             <div class="divider"></div>
