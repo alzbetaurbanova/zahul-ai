@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements['multimodal_ai_provider'].value = entry.source;
                 }
             },
-            null,
+            () => { elements['multimodal_ai_provider'].value = ''; },
             'hover:bg-gray-700'
         );
     }

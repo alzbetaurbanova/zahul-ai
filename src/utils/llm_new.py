@@ -202,6 +202,8 @@ async def generate_response(task: QueueItem, db: Database):
                             _vis_endpoint = p.endpoint
                             _vis_key = p.api_key or bot_config.ai_key
                             break
+                if not _vis_endpoint:
+                    raise ValueError("Vision source selected but no endpoint configured.")
                 primary_client = AsyncOpenAI(base_url=_vis_endpoint, api_key=_vis_key)
                 _effective_endpoint = _vis_endpoint
             else:
