@@ -66,6 +66,18 @@ document.addEventListener('DOMContentLoaded', function() {
     let availableServers = []; // {server_id, server_name}[] for model rules
     let modelRuleCounter = 0;
     let serversReadyPromise = Promise.resolve();
+    let allowedModels = [];
+
+    async function loadAllowedModels() {
+        try {
+            const res = await fetch('/api/config/models');
+            if (res.ok) allowedModels = await res.json();
+        } catch (_) {}
+    }
+
+    function allowedModelDisplays() {
+        return allowedModels.map(m => m.display);
+    }
 
     async function loadServerFilter() {
         try {
@@ -96,6 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Failed to load server filter.', 'error');
         }
     }
+
 
     function applyFilter() {
         const search = filterNameInput.value.trim().toLowerCase();
@@ -197,24 +210,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function addModelRule(rule = { servers: [], model: '' }) {
+    function addModelRule(rule = { servers: [], model: '', source: 'primary', triggers: [], temperature: null, max_tokens: null, history_limit: null, auto_cap: null }) {
         const id = modelRuleCounter++;
         const ddId = `mr-dd-${id}`;
         const allRuleServers = rule.servers || [];
+        const existingEntry = allowedModels.find(m => m.model === rule.model && m.source === (rule.source || 'primary'));
+        const displayValue = existingEntry ? existingEntry.display : (rule.model || '');
+        const triggersValue = Array.isArray(rule.triggers) ? rule.triggers.join(', ') : (rule.triggers || '');
         const div = document.createElement('div');
-        div.className = 'model-rule flex items-center gap-2';
+        div.className = 'model-rule border border-gray-700 rounded-lg p-3 bg-gray-900';
         div.innerHTML = `
-            <div class="mr-srv-wrap relative shrink-0">
-                <button type="button" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
-                    <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
-                    <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
-                </button>
-                <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
+            <div class="flex items-center gap-2">
+                <div class="mr-srv-wrap relative shrink-0">
+                    <button type="button" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
+                        <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
+                        <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
+                    </button>
+                    <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
+                    </div>
+                </div>
+                <div class="relative flex-1">
+                    <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="Model name (source)" value="${escapeHtml(displayValue)}">
+                    <button type="button" class="icon-clear-btn mr-remove" title="Remove rule"><i class="fas fa-times"></i></button>
+                    <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
+                    <input type="hidden" class="mr-source" value="${escapeHtml(rule.source || 'primary')}">
+                    <div id="mr-model-dd-${id}" class="autocomplete-dd hidden"></div>
                 </div>
             </div>
-            <input type="text" class="input-field flex-1 mr-model text-sm" placeholder="Model name (e.g. gpt-4o-mini)" value="${escapeHtml(rule.model || '')}">
-            <button type="button" class="btn-icon mr-remove shrink-0" title="Remove"><i class="fas fa-times"></i></button>`;
+            <div class="flex gap-2 mt-3">
+                <div class="flex-1">
+                    <label class="label-xs">Triggers <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Comma-separated words that trigger this character on the selected servers. Leave empty to use the character's default triggers.</span></span></label>
+                    <input type="text" class="mr-triggers input-field text-sm" placeholder="word1, word2" value="${escapeHtml(triggersValue)}">
+                </div>
+                <div class="shrink-0 w-36">
+                    <label class="label-xs">Auto Cap <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot chain length for this character on these servers. Leave empty to use the global or server cap.</span></span></label>
+                    <input type="number" class="mr-auto-cap input-field text-sm" min="0" placeholder="e.g. 2" value="${rule.auto_cap != null ? rule.auto_cap : ''}">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <div>
+                    <label class="label-xs">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Response randomness for this rule. 0 = predictable, 2 = chaotic. Leave empty to inherit.</span></span></label>
+                    <input type="number" class="mr-temperature input-field text-sm" min="0" max="2" step="0.1" placeholder="e.g. 0.7" value="${rule.temperature != null ? rule.temperature : ''}">
+                </div>
+                <div>
+                    <label class="label-xs">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length for this rule. Leave empty to inherit.</span></span></label>
+                    <input type="number" class="mr-max-tokens input-field text-sm" min="64" max="4096" placeholder="e.g. 256" value="${rule.max_tokens != null ? rule.max_tokens : ''}">
+                </div>
+                <div>
+                    <label class="label-xs">Message History <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context for this rule. Leave empty to inherit.</span></span></label>
+                    <input type="number" class="mr-history-limit input-field text-sm" min="1" max="50" placeholder="e.g. 10" value="${rule.history_limit != null ? rule.history_limit : ''}">
+                </div>
+            </div>`;
 
         const btn = div.querySelector('.mr-srv-btn');
         const dd = div.querySelector(`#${ddId}`);
@@ -259,14 +306,55 @@ document.addEventListener('DOMContentLoaded', function() {
             div.remove();
         });
         document.getElementById('model-rules-list').appendChild(div);
+        setupFilterCombobox(`mr-model-input-${id}`, `mr-model-dd-${id}`, allowedModelDisplays, (selected) => {
+            const entry = allowedModels.find(m => m.display === selected);
+            if (entry) {
+                div.querySelector('.mr-model').value = entry.model;
+                div.querySelector('.mr-source').value = entry.source;
+            }
+        }, null, 'hover:bg-gray-700');
         syncModelRuleWidths();
     }
 
     function getModelRules() {
-        return [...document.querySelectorAll('.model-rule')].map(div => ({
-            servers: [...div.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value),
-            model: div.querySelector('.mr-model').value.trim(),
-        })).filter(r => r.model);
+        return [...document.querySelectorAll('.model-rule')].map(div => {
+            const hiddenModel = div.querySelector('.mr-model').value.trim();
+            const display = div.querySelector('.mr-model-display').value.trim();
+            const model = hiddenModel || display;
+            const source = div.querySelector('.mr-source').value || 'primary';
+            const triggers = (div.querySelector('.mr-triggers').value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const tempVal = div.querySelector('.mr-temperature').value;
+            const tokVal = div.querySelector('.mr-max-tokens').value;
+            const histVal = div.querySelector('.mr-history-limit').value;
+            const capVal = div.querySelector('.mr-auto-cap').value;
+            const temperature = tempVal !== '' ? parseFloat(tempVal) : null;
+            const max_tokens = tokVal !== '' ? parseInt(tokVal) : null;
+            const history_limit = histVal !== '' ? parseInt(histVal) : null;
+            const auto_cap = capVal !== '' ? parseInt(capVal) : null;
+            return {
+                servers: [...div.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value),
+                model, source, triggers, temperature, max_tokens, history_limit, auto_cap,
+            };
+        }).filter(r => r.model || r.triggers.length || r.temperature !== null || r.max_tokens !== null || r.history_limit !== null || r.auto_cap !== null);
+    }
+
+    function updateModelRulesHint() {
+        const hint = document.getElementById('model-rules-toggle-hint');
+        if (!hint) return;
+        const enabled = document.getElementById('model-rules-enabled').checked;
+        if (enabled) {
+            hint.textContent = 'toggle off = server/global default';
+            hint.classList.remove('text-indigo-400');
+            return;
+        }
+        const count = document.querySelectorAll('#model-rules-list .model-rule').length;
+        if (count > 0) {
+            hint.textContent = `toggle off = server/global default · ${count} rule${count === 1 ? '' : 's'} saved (inactive)`;
+            hint.classList.add('text-indigo-400');
+        } else {
+            hint.textContent = 'toggle off = server/global default';
+            hint.classList.remove('text-indigo-400');
+        }
     }
 
     function loadModelRules(enabled, rules) {
@@ -274,9 +362,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('model-rules-body').classList.toggle('hidden', !enabled);
         document.getElementById('model-rules-list').innerHTML = '';
         modelRuleCounter = 0;
-        (rules || []).forEach(r => addModelRule(r));
+        const list = rules || [];
+        list.forEach(r => addModelRule(r));
+        if (enabled && list.length === 0) addModelRule();
         syncModelRuleWidths();
         applyModelRulesModRestrictions();
+        updateModelRulesHint();
     }
 
     function applyModelRulesModRestrictions() {
@@ -294,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (mod) {
             addBtn.classList.add('hidden');
             body.querySelectorAll('.mr-remove').forEach(btn => btn.classList.add('hidden'));
-            body.querySelectorAll('.mr-model').forEach(inp => {
+            body.querySelectorAll('.mr-model-display, .mr-triggers, .mr-temperature, .mr-max-tokens, .mr-history-limit').forEach(inp => {
                 inp.disabled = true;
                 inp.classList.add('input-readonly');
             });
@@ -307,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             addBtn.classList.remove('hidden');
             body.querySelectorAll('.mr-remove').forEach(btn => btn.classList.remove('hidden'));
-            body.querySelectorAll('.mr-model').forEach(inp => {
+            body.querySelectorAll('.mr-model-display, .mr-triggers, .mr-temperature, .mr-max-tokens, .mr-history-limit').forEach(inp => {
                 inp.disabled = false;
                 inp.classList.remove('input-readonly');
             });
@@ -322,13 +413,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('model-rules-enabled').addEventListener('change', e => {
         document.getElementById('model-rules-body').classList.toggle('hidden', !e.target.checked);
-        if (e.target.checked) syncModelRuleWidths();
+        if (e.target.checked) {
+            if (document.querySelectorAll('.model-rule').length === 0) addModelRule();
+            syncModelRuleWidths();
+        }
+        updateModelRulesHint();
     });
     document.getElementById('add-model-rule-btn').addEventListener('click', () => addModelRule());
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.mr-srv-btn') && !e.target.closest('[id^="mr-dd-"]'))
             document.querySelectorAll('[id^="mr-dd-"]').forEach(d => d.classList.add('hidden'));
     });
+
 
     // --- Core Functions ---
 
@@ -428,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
         avatarUploadInput.classList.add('invisible');
         avatarUploadInput.classList.remove('visible');
         loadModelRules(false, []);
+
     }
 
     async function handleFormSubmit(event) {
@@ -867,6 +964,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(() => {})
         .finally(() => {
             serversReadyPromise = loadServerFilter();
+            loadAllowedModels();
             fetchAndDisplayCharacters();
         });
     });

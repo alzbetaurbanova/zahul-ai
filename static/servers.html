@@ -129,7 +129,7 @@
     </div>
 
     <!-- "Edit Server" Modal -->
-    <div id="server-edit-modal" class="modal-backdrop hidden">
+    <div id="server-edit-modal" class="modal-backdrop top hidden" style="padding-top: 12rem">
         <div class="modal-box modal-md p-6 mx-4 max-h-[90vh] overflow-y-auto">
             <div class="flex-between mb-6">
                 <h2 id="server-edit-title" class="heading-card">Server Settings</h2>
@@ -137,7 +137,7 @@
             </div>
 
             <!-- Default Character -->
-            <div class="space-y-4 mb-6">
+            <div class="space-y-4">
                 <div>
                     <label for="srv-default-character" class="label-form">Default Character</label>
                     <div class="relative">
@@ -146,13 +146,10 @@
                     </div>
                     <p id="srv-default-character-status" class="text-hint mt-2"></p>
                 </div>
-                <div class="flex justify-end">
-                    <button id="srv-save-character-btn" type="button" class="btn-green">Save Character</button>
-                </div>
             </div>
 
             <!-- Server AI Overrides -->
-            <div class="divider pt-6">
+            <div class="divider mt-6 pt-6">
                 <div class="flex-between mb-4">
                     <div>
                         <h2 class="heading-section">Server Overrides</h2>
@@ -163,59 +160,68 @@
                         <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
                 </div>
-                <form id="server-config-form">
-                    <div id="sc-fields" class="hidden">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-                            <div class="sm:col-span-2 lg:col-span-3">
-                                <label class="label-xs">API Endpoint</label>
-                                <input type="url" id="sc-ai-endpoint" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Primary Model</label>
-                                <input type="text" id="sc-base-llm" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Fallback Model</label>
-                                <input type="text" id="sc-fallback-llm" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Temperature</label>
-                                <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Max Tokens</label>
-                                <input type="number" id="sc-max-tokens" min="64" max="4096" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Message History</label>
-                                <input type="number" id="sc-history-limit" min="1" max="50" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Auto Cap</label>
-                                <input type="number" id="sc-auto-cap" min="0" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Token Limit / min</label>
-                                <input type="number" id="sc-token-limit-tpm" min="0" class="input-field">
-                            </div>
-                            <div>
-                                <label class="label-xs">Token Limit / day</label>
-                                <input type="number" id="sc-token-limit-tpd" min="0" class="input-field">
-                            </div>
-                            <div class="toggle-row">
-                                <span class="text-secondary">Use Prefill</span>
-                                <select id="sc-use-prefill" class="select-inline">
-                                    <option value="">— default —</option>
-                                    <option value="true">Enabled</option>
-                                    <option value="false">Disabled</option>
-                                </select>
-                            </div>
+                <div id="sc-fields" class="hidden space-y-3">
+                    <!-- Row 1: Primary + Fallback model -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="relative">
+                            <label class="label-xs">Primary Model</label>
+                            <input type="text" id="sc-base-llm" autocomplete="off" class="input-field">
+                            <div id="sc-base-llm-dd" class="autocomplete-dd hidden"></div>
                         </div>
-                        <div class="flex justify-end">
-                            <button type="submit" class="btn-primary">Save Overrides</button>
+                        <div class="relative">
+                            <label class="label-xs">Fallback Model</label>
+                            <input type="text" id="sc-fallback-llm" autocomplete="off" class="input-field">
+                            <div id="sc-fallback-llm-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>
-                </form>
+                    <!-- Row 2: Temperature, Max Tokens, Message History, Auto Cap -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <div>
+                            <label class="label-xs">Temperature</label>
+                            <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-xs">Max Tokens</label>
+                            <input type="number" id="sc-max-tokens" min="64" max="4096" class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-xs">Message History</label>
+                            <input type="number" id="sc-history-limit" min="1" max="50" class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-xs">Auto Cap</label>
+                            <input type="number" id="sc-auto-cap" min="0" class="input-field">
+                        </div>
+                    </div>
+                    <!-- Row 3: Token limits + Prefill -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <div>
+                            <label class="label-xs">Token Limit / min</label>
+                            <input type="number" id="sc-token-limit-tpm" min="0" class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-xs">Token Limit / day</label>
+                            <input type="number" id="sc-token-limit-tpd" min="0" class="input-field">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="label-xs">Use Prefill</label>
+                            <div class="flex items-center h-9">
+                                <label class="toggle-wrap">
+                                    <input type="checkbox" id="sc-use-prefill" class="sr-only peer">
+                                    <div class="toggle-track"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="button" id="sc-reset-btn" class="btn-gray text-sm">Load global defaults</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unified save -->
+            <div class="flex justify-end pt-6">
+                <button type="button" id="srv-save-btn" class="btn-green px-6">Save</button>
             </div>
         </div>
     </div>

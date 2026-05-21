@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentChannel = null;
     let availableCharacters = [];
     let globalDefaultCharacter = '';
+    let serverAllowedModels = [];
     // DOM Elements
     const serverList = document.getElementById('server-list');
     const channelPanel = document.getElementById('channel-panel');
@@ -48,8 +49,14 @@ document.addEventListener('DOMContentLoaded', function() {
         scFields.classList.toggle('hidden', !enabled);
     }
 
+    async function loadServerAllowedModels() {
+        try {
+            const res = await fetch('/api/config/models');
+            if (res.ok) serverAllowedModels = await res.json();
+        } catch (_) {}
+    }
+
     function fillScFields(cfg) {
-        document.getElementById('sc-ai-endpoint').value = cfg.ai_endpoint ?? '';
         document.getElementById('sc-base-llm').value = cfg.base_llm ?? '';
         document.getElementById('sc-fallback-llm').value = cfg.fallback_llm ?? '';
         document.getElementById('sc-temperature').value = cfg.temperature ?? '';
@@ -58,20 +65,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sc-auto-cap').value = cfg.auto_cap ?? '';
         document.getElementById('sc-token-limit-tpm').value = cfg.token_limit_tpm ?? '';
         document.getElementById('sc-token-limit-tpd').value = cfg.token_limit_tpd ?? '';
-        document.getElementById('sc-use-prefill').value = cfg.use_prefill != null ? String(cfg.use_prefill) : '';
+        document.getElementById('sc-use-prefill').checked = cfg.use_prefill === true;
     }
 
     function clearScFields() {
-        ['sc-ai-endpoint','sc-base-llm','sc-fallback-llm','sc-temperature',
+        ['sc-base-llm','sc-fallback-llm','sc-temperature',
             'sc-max-tokens','sc-history-limit','sc-auto-cap',
             'sc-token-limit-tpm','sc-token-limit-tpd'].forEach(id => {
             document.getElementById(id).value = '';
         });
-        document.getElementById('sc-use-prefill').value = '';
+        document.getElementById('sc-use-prefill').checked = false;
     }
 
     function hasAnyOverride(cfg) {
-        const aiFields = ['ai_endpoint','base_llm','fallback_llm','temperature','max_tokens',
+        const aiFields = ['base_llm','fallback_llm','temperature','max_tokens',
                           'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd'];
         return aiFields.some(f => cfg[f] !== null && cfg[f] !== undefined);
     }
@@ -148,7 +155,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyModRestrictions() {
         const mod = isMod();
-        // Toggle — disabled for mods with tooltip
         scToggle.disabled = mod;
         const toggleLabel = scToggle.closest('label');
         if (toggleLabel) {
@@ -156,10 +162,6 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleLabel.style.opacity = mod ? '0.5' : '';
             toggleLabel.style.cursor = mod ? 'not-allowed' : '';
         }
-        // API Endpoint — disabled for mods
-        const endpointInput = document.getElementById('sc-ai-endpoint');
-        endpointInput.disabled = mod;
-        endpointInput.classList.toggle('input-readonly', mod);
     }
 
     async function openServerEditModal(server) {
@@ -181,25 +183,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('close-server-edit-modal-btn').addEventListener('click', () => serverEditModal.classList.add('hidden'));
     srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
-    document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
+    async function saveServerSettings() {
         if (!currentServer) return;
         const raw = (srvDefaultCharacterInput.value || '').trim();
         if (raw && !availableCharacters.includes(raw)) {
             showToast('Choose a character from the list or clear the field to inherit global default.', 'error');
             return;
         }
-        const value = raw || null;
+        const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
+        const str = (id) => document.getElementById(id).value.trim() || null;
+        const aiOverrides = scToggle.checked ? Object.fromEntries(Object.entries({
+            base_llm: str('sc-base-llm'),
+            fallback_llm: str('sc-fallback-llm'),
+            temperature: num('sc-temperature'),
+            max_tokens: num('sc-max-tokens'),
+            history_limit: num('sc-history-limit'),
+            auto_cap: num('sc-auto-cap'),
+            token_limit_tpm: num('sc-token-limit-tpm'),
+            token_limit_tpd: num('sc-token-limit-tpd'),
+            use_prefill: document.getElementById('sc-use-prefill').checked,
+        }).filter(([, v]) => v !== null)) : {};
+        const rangeChecks = [
+            ['temperature', 0, 2], ['max_tokens', 64, 4096], ['history_limit', 1, 50],
+            ['auto_cap', 0, Infinity], ['token_limit_tpm', 0, Infinity], ['token_limit_tpd', 0, Infinity],
+        ];
+        for (const [key, min, max] of rangeChecks) {
+            const value = aiOverrides[key];
+            if (value == null) continue;
+            if (value < min || value > max) {
+                showToast(`${key} must be between ${min} and ${max === Infinity ? '∞' : max}.`, 'error');
+                return;
+            }
+        }
+        // Build unified payload: default_character + AI overrides
+        const payload = { ...aiOverrides };
+        if (raw) payload.default_character = raw;
         try {
-            const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ default_character: value })
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            currentServer.defaultCharacter = value || '';
-            showToast('Server default character saved.');
+            if (!isMod()) {
+                const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
+                if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
+            }
+            if (Object.keys(payload).length) {
+                const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!patchResp.ok) throw new Error(`PATCH HTTP ${patchResp.status}`);
+            }
+            currentServer.defaultCharacter = raw || '';
+            showToast('Server settings saved.');
         } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
-    });
+    }
+
+    document.getElementById('srv-save-btn').addEventListener('click', saveServerSettings);
 
     async function loadServerConfig(serverId) {
         try {
@@ -220,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const globalCfg = await fetch('/api/config/').then(r => r.json());
                 fillScFields({
-                    ai_endpoint: globalCfg.ai_endpoint,
                     base_llm: globalCfg.base_llm,
                     fallback_llm: globalCfg.fallback_llm,
                     temperature: globalCfg.temperature,
@@ -254,60 +290,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('server-config-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!currentServer || !scToggle.checked) return;
-        const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
-        const str = (id) => document.getElementById(id).value.trim() || null;
-        const payload = Object.fromEntries(Object.entries({
-            ai_endpoint: str('sc-ai-endpoint'),
-            base_llm: str('sc-base-llm'),
-            fallback_llm: str('sc-fallback-llm'),
-            temperature: num('sc-temperature'),
-            max_tokens: num('sc-max-tokens'),
-            history_limit: num('sc-history-limit'),
-            auto_cap: num('sc-auto-cap'),
-            token_limit_tpm: num('sc-token-limit-tpm'),
-            token_limit_tpd: num('sc-token-limit-tpd'),
-            use_prefill: (() => { const v = document.getElementById('sc-use-prefill').value; return v !== '' ? v === 'true' : null; })(),
-        }).filter(([, v]) => v !== null));
-        if (isMod()) {
-            delete payload.ai_endpoint;
-        } else if (!isValidHttpUrl(payload.ai_endpoint || '')) {
-            showToast('API Endpoint must be a valid http/https URL.', 'error');
-            return;
-        }
-        const rangeChecks = [
-            ['temperature', 0, 2],
-            ['max_tokens', 64, 4096],
-            ['history_limit', 1, 50],
-            ['auto_cap', 0, Infinity],
-            ['token_limit_tpm', 0, Infinity],
-            ['token_limit_tpd', 0, Infinity],
-        ];
-        for (const [key, min, max] of rangeChecks) {
-            const value = payload[key];
-            if (value == null) continue;
-            if (value < min || value > max) {
-                showToast(`${key} must be between ${min} and ${max === Infinity ? 'infinity' : max}.`, 'error');
-                return;
-            }
-        }
+    document.getElementById('sc-reset-btn').addEventListener('click', async () => {
+        if (!currentServer) return;
         try {
-            if (!isMod()) {
-                const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
-                if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
-            }
-            if (Object.keys(payload).length) {
-                const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!patchResp.ok) throw new Error(`PATCH HTTP ${patchResp.status}`);
-            }
-            showToast('Server overrides saved.');
-        } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
+            const res = await fetch('/api/config');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const globalCfg = await res.json();
+            fillScFields(globalCfg);
+            setScEnabled(true);
+            await saveServerSettings();
+        } catch (e) { showToast(`Failed to load defaults: ${e.message}`, 'error'); }
     });
 
     function showEmptyChannelState(serverName) {
@@ -559,6 +551,15 @@ document.addEventListener('DOMContentLoaded', function() {
             () => updateSrvDefaultCharacterStatus(),
             'hover:bg-gray-700'
         );
+        const allServerModels = () => [...new Set(serverAllowedModels.map(m => m.model))];
+        setupFilterCombobox(
+            'sc-base-llm', 'sc-base-llm-dd',
+            allServerModels, null, null, 'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'sc-fallback-llm', 'sc-fallback-llm-dd',
+            allServerModels, null, null, 'hover:bg-gray-700'
+        );
     }
 
     // Form listener
@@ -574,5 +575,8 @@ document.addEventListener('DOMContentLoaded', function() {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
         })
         .catch(() => {})
-        .finally(() => fetchServers());
+        .finally(() => {
+            loadServerAllowedModels();
+            fetchServers();
+        });
 });

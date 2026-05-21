@@ -159,52 +159,89 @@ async def generate_response(task: QueueItem, db: Database):
             temperature = d["temperature"]
         if d.get("max_tokens") is not None:
             max_tokens = d["max_tokens"]
+        _rule_source = None
         if d.get("model_rules_enabled") and d.get("model_rules"):
             server_id = getattr(task, 'server_id', None)
             if server_id:
                 for rule in d["model_rules"]:
-                    if server_id in (rule.get("servers") or []) and rule.get("model"):
-                        effective_base_model = rule["model"]
+                    if server_id in (rule.get("servers") or []):
+                        if rule.get("model"):
+                            effective_base_model = rule["model"]
+                            _rule_source = rule.get("source") or "primary"
+                        if rule.get("temperature") is not None:
+                            temperature = rule["temperature"]
+                        if rule.get("max_tokens") is not None:
+                            max_tokens = rule["max_tokens"]
                         break
     
     try:
-        client = AsyncOpenAI(
+        primary_client = AsyncOpenAI(
             base_url=bot_config.ai_endpoint,
             api_key=bot_config.ai_key,
         )
-        
-        # The prompt is now fully constructed by the PromptEngineer
+        _diff_ep = bot_config.fallback_use_different_endpoint and bool(bot_config.fallback_ai_endpoint)
+        fallback_client = AsyncOpenAI(
+            base_url=bot_config.fallback_ai_endpoint,
+            api_key=bot_config.fallback_ai_key or bot_config.ai_key,
+        ) if _diff_ep else primary_client
+
+        _effective_endpoint = bot_config.ai_endpoint
+        _effective_provider = None
+
+        if _rule_source and _rule_source != "primary":
+            if _rule_source == "fallback":
+                primary_client = fallback_client
+                _effective_endpoint = bot_config.fallback_ai_endpoint
+            elif _rule_source == "vision":
+                primary_client = AsyncOpenAI(
+                    base_url=bot_config.multimodal_ai_endpoint,
+                    api_key=bot_config.multimodal_ai_api or bot_config.ai_key,
+                )
+                _effective_endpoint = bot_config.multimodal_ai_endpoint
+            else:
+                for p in (bot_config.multimodal_providers or []):
+                    if p.name == _rule_source:
+                        primary_client = AsyncOpenAI(
+                            base_url=p.endpoint,
+                            api_key=p.api_key or bot_config.ai_key,
+                        )
+                        _effective_endpoint = p.endpoint
+                        _effective_provider = p.name
+                        break
+
+        if char_data and char_data.get("data"):
+            d = char_data["data"]
+            prov_name = d.get("provider_override")
+            if prov_name:
+                for p in (bot_config.multimodal_providers or []):
+                    if p.name == prov_name:
+                        primary_client = AsyncOpenAI(
+                            base_url=p.endpoint,
+                            api_key=p.api_key or bot_config.ai_key,
+                        )
+                        _effective_endpoint = p.endpoint
+                        _effective_provider = p.name
+                        if d.get("provider_model"):
+                            effective_base_model = d["provider_model"]
+                        elif p.allowed_models:
+                            effective_base_model = p.allowed_models[0]
+                        break
+
         system_prompt = task.prompt
-        
-        # The user's most recent message is cleaned and used in the user role
         content_description = get_gif_content_description(task.message)
         user_message = content_description if content_description is not None else clean_string(task.message.content)
 
-        # --- PREFILL LOGIC ---
-        # Start with the base messages for the API call
         messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_message
-            }
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
         ]
 
-        # Check the database config. If use_prefill is True, add the assistant message.
         if bot_config.use_prefill:
-            # Construct the prefill string to guide the AI's response format
-            prefill_content = f"[Reply] {task.bot}:"
-            messages.append({
-                "role": "assistant",
-                "content": prefill_content
-            })
-        # --- END PREFILL LOGIC ---
+            messages.append({"role": "assistant", "content": f"[Reply] {task.bot}:"})
 
-        async def _call(model):
-            return await client.chat.completions.create(
+        async def _call(model, is_fallback=False):
+            c = fallback_client if is_fallback else primary_client
+            return await c.chat.completions.create(
                 model=model,
                 stop=task.stop,
                 max_tokens=max_tokens,
@@ -238,7 +275,7 @@ async def generate_response(task: QueueItem, db: Database):
         just_switched = False
         try:
             model = fallback_model if _fallback_active else effective_base_model
-            completion = await _call(model)
+            completion = await _call(model, is_fallback=_fallback_active)
         except RateLimitError:
             if not _fallback_active:
                 _fallback_active = True
@@ -248,7 +285,7 @@ async def generate_response(task: QueueItem, db: Database):
                 from datetime import datetime
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Rate limit — switching to fallback ({fallback_model}) until {back_at}")
-            completion = await _call(fallback_model)
+            completion = await _call(fallback_model, is_fallback=True)
 
         result = completion.choices[0].message.content if completion.choices else "//[OOC: AI returned no response.]"
         result = result.replace("[Reply]", "").replace(f"{task.bot}:", "").strip()
@@ -264,6 +301,12 @@ async def generate_response(task: QueueItem, db: Database):
         task.model_used = model
         task.temperature = temperature
         task.result = result
+        _prov_tag = f" [{_effective_provider}]" if _effective_provider else ""
+        _fb_tag = " fallback" if (_fallback_active and not just_switched) or just_switched else ""
+        _ep = bot_config.fallback_ai_endpoint if (_fallback_active or just_switched) else _effective_endpoint
+        _ep_label = _endpoint_label(_ep)
+        task.endpoint_label = _ep_label
+        print(f"[llm] {task.bot}: {model}{_prov_tag}{_fb_tag} ({_ep_label})")
 
     except Exception as e:
         # Preserve the detailed, existing error handling
@@ -352,6 +395,17 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         return clean_thonk(result), input_tokens, output_tokens, model, messages, temperature
     except Exception as e:
         return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None, None, None
+
+def _endpoint_label(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).hostname or ''
+        skip = {'api', 'www'}
+        tld = {'com', 'ai', 'io', 'net', 'org', 'dev', 'app', 'cloud'}
+        parts = [p for p in host.split('.') if p not in skip and p not in tld]
+        return parts[0] if parts else host
+    except Exception:
+        return url
 
 # --- Utility Functions (Unchanged) ---
 

@@ -410,15 +410,15 @@
         const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
         const sourceColor = item.source === 'scheduler' ? 'bg-indigo-900 text-indigo-300' : 'bg-gray-800 text-gray-300';
         return `<div data-log-id="${item.id}" class="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-lg p-4 cursor-pointer transition-colors">
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs px-2 py-0.5 rounded ${sourceColor}">${item.source || 'chat'}</span>
                     <span class="font-semibold text-white text-sm">${esc(item.character || '')}</span>
                     ${item.user && item.user !== 'system' ? `<span class="text-xs text-gray-500">← ${esc(item.user)}</span>` : ''}
                     ${item.channel_id ? `<span class="text-xs text-gray-600">${esc(resolveChannel(item.channel_id))}</span>` : ''}
-                    <span class="${statusColor} text-xs"><i class="fas fa-circle text-[8px]"></i> ${item.status}</span>
                 </div>
                 <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+                    <span class="${statusColor}">${item.status === 'error' ? 'error' : 'ok'}</span>
                     <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                     <span>${fmt(item.timestamp)}</span>
                 </div>
@@ -536,20 +536,22 @@
         body.innerHTML = `
             <div class="detail-content">
 
-                <div class="log-ts">${fmt(item.timestamp)}</div>
+                <div class="flex items-center justify-between log-ts">
+                    <span>${fmt(item.timestamp)}</span>
+                    <span class="${statusCls} mr-4">${item.status === 'error' ? 'error' : 'ok'}</span>
+                </div>
 
                 <div class="metadata-grid">
                     ${row('Character', esc(item.character || ''))}
                     ${row('User', esc(item.user || ''))}
                     ${row('Server', esc(chServer))}
                     ${row('Channel', esc(chChannel))}
-                    ${row('Model', esc(item.model || ''))}
+                    ${row('Source', esc(item.source || ''))}
                     ${row('Tokens in/out', `${item.input_tokens || 0} / ${item.output_tokens || 0}`)}
                     ${row('History', `${item.history_count ?? '—'} msgs`)}
                     ${row('Temperature', item.temperature != null ? item.temperature : '—')}
-                    ${row('Source', esc(item.source || ''))}
-                    ${row('Status', esc(item.status || ''), statusCls)}
                     ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
+                    ${item.model ? `<div class="metadata-label">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
                 </div>
 
                 <div class="log-section">

@@ -138,7 +138,7 @@ class Database:
             # Migrations for existing DBs
             try: conn.execute("ALTER TABLE characters ADD COLUMN created_by TEXT")
             except: pass
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -343,8 +343,18 @@ class Database:
     def set_config(self, key: str, value: Any):
         """Create or update a configuration key-value pair."""
         with self._get_connection() as conn:
-            # No change here, this was always correct.
             conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+            conn.commit()
+
+    def set_configs_bulk(self, items: Dict[str, Any]):
+        """Write multiple config key-value pairs in a single transaction."""
+        if not items:
+            return
+        with self._get_connection() as conn:
+            conn.executemany(
+                "REPLACE INTO config (key, value) VALUES (?, ?)",
+                [(k, json.dumps(v)) for k, v in items.items()]
+            )
             conn.commit()
 
     def get_config(self, key: str) -> Optional[Any]:
@@ -774,7 +784,8 @@ class Database:
     def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
-                    temperature: float = None, history_count: int = 0, task_id: int = None):
+                    temperature: float = None, history_count: int = 0, task_id: int = None,
+                    endpoint: str = None):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
@@ -784,11 +795,11 @@ class Database:
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count, task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id, endpoint)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count, task_id))
+                  temperature, history_count, task_id, endpoint))
             conn.commit()
 
     def log_admin(
@@ -869,7 +880,7 @@ class Database:
         with self._get_connection() as conn:
             total = conn.execute(f"SELECT COUNT(*) FROM {from_table} {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id,dl.endpoint FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}

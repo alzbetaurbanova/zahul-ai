@@ -16,7 +16,7 @@ from api.db.database import Database
 
 # --- HELPER FUNCTIONS FOR MULTI-CHARACTER LOGIC ---
 
-def find_all_triggered_characters(message: discord.Message, channel: ActiveChannel, db: Database) -> list[ActiveCharacter]:
+def find_all_triggered_characters(message: discord.Message, channel: ActiveChannel, db: Database, server_id: str = None) -> list[ActiveCharacter]:
     """
     Scans a message to find ALL whitelisted characters triggered by keywords.
     Instead of returning names, it returns a list of instantiated ActiveCharacter objects.
@@ -26,7 +26,7 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
 
     triggered_characters = []
     # Use a set to prevent adding the same character twice if multiple of their triggers match
-    triggered_names = set() 
+    triggered_names = set()
     message_lower = message.content.lower()
 
     for name in channel.whitelist:
@@ -36,6 +36,18 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
 
         name_trigger = char_data.get("name", "").lower()
         raw_triggers = char_data.get("triggers") or []
+
+        # Check for per-server trigger override
+        data = char_data.get("data", {})
+        if server_id and data.get("model_rules_enabled") and data.get("model_rules"):
+            for rule in data["model_rules"]:
+                if server_id in (rule.get("servers") or []):
+                    per_server_triggers = [t.strip() for t in (rule.get("triggers") or []) if t.strip()]
+                    if per_server_triggers:
+                        raw_triggers = per_server_triggers
+                        name_trigger = None  # suppress name auto-trigger when overriding
+                    break
+
         triggers = [t.lower() for t in raw_triggers]
         extended_triggers = triggers + ([name_trigger] if name_trigger else [])
 
@@ -79,7 +91,18 @@ async def _generate_and_send_for_character(
         return
 
     print(f"Processing chat for {character.name} in {channel.name}...")
-    
+
+    if server_id:
+        char_raw = db.get_character(character.name)
+        if char_raw:
+            data = char_raw.get("data", {})
+            if data.get("model_rules_enabled") and data.get("model_rules"):
+                for rule in data["model_rules"]:
+                    if server_id in (rule.get("servers") or []):
+                        if rule.get("history_limit") is not None:
+                            character.history_limit = rule["history_limit"]
+                        break
+
     prompter = PromptEngineer(character, message, channel, messenger)
     prompt = await prompter.create_prompt()
 
@@ -122,6 +145,7 @@ async def _generate_and_send_for_character(
         error_message=queue_item.result if is_error else None,
         temperature=queue_item.temperature,
         history_count=queue_item.history_count,
+        endpoint=queue_item.endpoint_label,
     )
 
     await messenger.send_message(character, message, queue_item)
@@ -188,6 +212,7 @@ async def generate_slash_tool_character_reply(
         error_message=queue_item.result if is_error else None,
         temperature=queue_item.temperature,
         history_count=queue_item.history_count,
+        endpoint=queue_item.endpoint_label,
     )
 
     try:
@@ -223,7 +248,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         await message.add_reaction('✨')
 
         # --- 2. Determine ALL Characters to Respond ---
-        responding_characters = find_all_triggered_characters(message, channel, db)
+        responding_characters = find_all_triggered_characters(message, channel, db, server_id)
         
         # If no triggers were found, check for fallbacks (mentions, DMs, etc.)
         if not responding_characters:

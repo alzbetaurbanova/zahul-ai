@@ -15,7 +15,7 @@
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
-    <script src="/static/js/pages/characters.js?v=2" defer></script>
+    <script src="/static/js/pages/characters.js" defer></script>
 
     <!-- Main Content -->
     <main class="p-6">
@@ -111,17 +111,17 @@
             
             <form id="character-form">
                 <!-- Name, Persona, Examples, Instructions (Unchanged) -->
-                <div><label for="name" class="label-form">Name</label><input type="text" id="name" class="input-field" required></div>
+                <div><label for="name" class="label-form label-tt">Name <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Unique display name of the character. Used as the webhook username in Discord.</span></span></label><input type="text" id="name" class="input-field" required></div>
 
                 <!-- Per-character overrides -->
                 <div class="grid grid-cols-3 gap-3">
-                    <div><label for="temperature" class="label-form">Temperature <span class="text-hint">(empty = global)</span></label><input type="number" id="temperature" min="0" max="2" step="0.1" class="input-field" placeholder="e.g. 0.7"></div>
-                    <div><label for="char-history-limit" class="label-form">History Limit <span class="text-hint">(empty = global)</span></label><input type="number" id="char-history-limit" min="1" max="50" step="1" class="input-field" placeholder="e.g. 10"></div>
-                    <div><label for="char-max-tokens" class="label-form">Max Tokens <span class="text-hint">(empty = global)</span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="input-field" placeholder="e.g. 256"></div>
+                    <div><label for="temperature" class="label-form label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Sampling temperature (0–2). Higher = more creative, lower = more focused. Leave empty to use the global setting.</span></span></label><input type="number" id="temperature" min="0" max="2" step="0.1" class="input-field" placeholder="e.g. 0.7"></div>
+                    <div><label for="char-history-limit" class="label-form label-tt">History Limit <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Number of past messages sent to the AI as context. Leave empty to use the global setting.</span></span></label><input type="number" id="char-history-limit" min="1" max="50" step="1" class="input-field" placeholder="e.g. 10"></div>
+                    <div><label for="char-max-tokens" class="label-form label-tt">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum number of tokens the AI can generate per reply. Leave empty to use the global setting.</span></span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="input-field" placeholder="e.g. 256"></div>
                 </div>
 
-                <div><label for="persona" class="label-form">Persona</label><textarea id="persona" rows="4" minlength="3" class="input-field"></textarea></div>
-                <div><label for="instructions" class="label-form">Instructions</label><textarea id="instructions" rows="4" minlength="3" class="input-field"></textarea></div>
+                <div><label for="persona" class="label-form label-tt">Persona <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Describes who the character is — personality, background, speaking style. Injected into the system prompt.</span></span></label><textarea id="persona" rows="4" minlength="3" class="input-field"></textarea></div>
+                <div><label for="instructions" class="label-form label-tt">Instructions <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Behavioral rules for the AI — language, formatting, restrictions. Appended after the persona in the system prompt.</span></span></label><textarea id="instructions" rows="4" minlength="3" class="input-field"></textarea></div>
 
                 <!-- Avatar -->
                 <div>
@@ -144,7 +144,7 @@
                     <div class="flex items-center gap-4 mb-8">
                         <img id="avatar-preview" src="/static/avatars/default_character_avatar.png" alt="" class="avatar-img w-24 h-24" onerror="this.src='/static/avatars/default_character_avatar.png'">
                         <div class="flex-grow space-y-2">
-                            <input type="url" id="avatar-url" class="input-field" placeholder="Paste image URL (https://...)">
+                            <input type="text" id="avatar-url" class="input-field" placeholder="Paste image URL (https://...)">
                             <div class="flex items-center gap-3">
                                 <input id="avatar-upload" type="file" accept="image/*" class="invisible">
                                 <a href="/editor" target="_blank" class="link-indigo-sm ml-auto"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
@@ -154,23 +154,23 @@
                 </div>
                 
                 <!-- Info -->
-                <div><label for="about" class="label-form">About</label><input type="text" id="about" class="input-field"></div>
+                <div><label for="about" class="label-form label-tt">About <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Short description shown on the character card in the UI. Not sent to the AI.</span></span></label><input type="text" id="about" class="input-field"></div>
 
                 <!-- NEW: Triggers -->
                 <div>
-                    <label for="triggers" class="label-form">Triggers</label>
+                    <label for="triggers" class="label-form label-tt">Triggers <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Words or phrases that make this character respond when found in a message. Use #channel-name as a trigger to always reply in that channel.</span></span></label>
                     <input type="text" id="triggers" class="input-field" placeholder="Comma-separated, e.g., hello, hey bot, respond">
                 </div>
 
                 <!-- Model Rules -->
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <label class="label-inline">Per-Server Model Override</label>
+                        <label class="label-inline">Per-Server Override</label>
                         <label class="toggle-wrap">
                             <input type="checkbox" id="model-rules-enabled" class="sr-only peer">
                             <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                         </label>
-                        <span class="text-hint">toggle off = server/global default</span>
+                        <span id="model-rules-toggle-hint" class="text-hint">toggle off = server/global default</span>
                     </div>
                     <div id="model-rules-body" class="hidden space-y-2">
                         <div id="model-rules-list" class="space-y-2"></div>
