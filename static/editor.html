@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body data-page="characters">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="characters">
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/editor.js" defer></script>
 
     <!-- Main -->
-    <main class="max-w-5xl mx-auto p-8 space-y-8">
+    <main class="flex-grow max-w-5xl mx-auto p-8 space-y-8 w-full">
         <h1 class="heading-page">Avatar Editor</h1>
 
         <div class="flex gap-10 flex-wrap">
@@ -93,7 +93,7 @@
             <img id="result-img" src="" alt="exported" class="rounded-lg max-w-xs border border-gray-700">
         </div>
     </main>
-
-    
+    <div id="footer-container"></div>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

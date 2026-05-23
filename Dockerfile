@@ -24,6 +24,9 @@ RUN uv sync --no-cache --no-install-project
 # --- Stage 2: Runtime ---
 FROM python:3.12-slim
 
+ARG ZAHUL_GIT_COMMIT=
+ENV ZAHUL_GIT_COMMIT=${ZAHUL_GIT_COMMIT}
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*

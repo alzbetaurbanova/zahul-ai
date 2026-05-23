@@ -26,6 +26,7 @@ from api.routers import users as users_router
 from api.routers import stats as stats_router
 from api.db.database import Database
 from api.auth import require_role
+from api.version_info import get_version_info
 
 # --- Default Data for First-Time Setup ---
 
@@ -222,6 +223,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/panel-hint",
             "/api/auth-enabled",
             "/api/auth-status",
+            "/api/version",
             "/api/auth/setup-super-admin",
             "/auth/discord/start",
             "/auth/discord/callback",
@@ -383,6 +385,12 @@ async def custom_redoc_html(_: dict = Depends(require_role("admin"))):
         redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.2.0/bundles/redoc.standalone.js",
         redoc_favicon_url="/favicon.ico",
     )
+
+@app.get("/api/version", include_in_schema=False)
+async def api_version():
+    """Public app version for the admin panel footer."""
+    return get_version_info()
+
 
 @app.get("/", response_class=FileResponse)
 async def get_root():

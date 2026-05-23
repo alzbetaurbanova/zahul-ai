@@ -35,7 +35,7 @@
             <!-- Filters -->
             <div id="characters-filters" class="filter-panel mb-6">
                 <div>
-                    <label class="label-xs">Character</label>
+                    <label for="filter-name" class="label-xs">Character</label>
                     <div class="relative">
                         <input type="text" id="filter-name" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
                         <button class="icon-clear-btn hidden" data-clear="filter-name" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
@@ -43,7 +43,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="label-xs">Server</label>
+                    <label for="server-filter" class="label-xs">Server</label>
                     <div class="relative">
                         <input type="text" id="server-filter" autocomplete="off" placeholder="all" class="input-field w-64 pr-8">
                         <button class="icon-clear-btn hidden" data-clear="server-filter" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
@@ -62,7 +62,7 @@
     </main>
 
     <!-- Hidden file input for import -->
-    <input type="file" id="import-file-input" class="hidden" accept=".json,.jsonc,.png">
+    <input type="file" id="import-file-input" class="hidden" accept=".json,.jsonc,.png" aria-label="Import character card file">
 
     <!-- Import Info Modal -->
     <div id="import-info-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
@@ -115,7 +115,7 @@
             
             <form id="character-form">
                 <!-- Name, Persona, Examples, Instructions (Unchanged) -->
-                <div><label for="name" class="label-form label-tt">Name <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Unique display name of the character. Used as the webhook username in Discord.</span></span></label><input type="text" id="name" class="input-field" required></div>
+                <div><label for="name" class="label-form label-tt">Name <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Unique display name of the character. Used as the webhook username in Discord.</span></span></label><input type="text" id="name" class="input-field" required autocomplete="off"></div>
 
                 <!-- Per-character overrides -->
                 <div class="grid grid-cols-3 gap-3">
@@ -130,7 +130,7 @@
                 <!-- Avatar -->
                 <div>
                     <div class="flex items-center gap-2 mb-5">
-                        <label class="label-inline">Avatar</label>
+                        <label for="avatar-url" class="label-inline">Avatar</label>
                         <div class="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
                             <button type="button" id="avatar-mode-url" class="mode-tab mode-tab-on">External URL</button>
                             <button type="button" id="avatar-mode-upload" class="mode-tab mode-tab-off">Upload (static)</button>
@@ -155,7 +155,7 @@
                         <div class="flex-grow space-y-2">
                             <input type="text" id="avatar-url" class="input-field" placeholder="Paste image URL (https://...)">
                             <div class="flex items-center gap-3">
-                                <input id="avatar-upload" type="file" accept="image/*" class="invisible">
+                                <input id="avatar-upload" type="file" accept="image/*" class="invisible" aria-label="Upload avatar image">
                                 <a href="/editor" target="_blank" class="link-indigo-sm ml-auto"><i class="fas fa-external-link-alt mr-1"></i>Avatar Editor</a>
                             </div>
                         </div>
@@ -174,10 +174,12 @@
                 <!-- Model Rules -->
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <label class="label-inline">Per-Server Override</label>
-                        <label class="toggle-wrap">
-                            <input type="checkbox" id="model-rules-enabled" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <label for="model-rules-enabled" class="flex items-center gap-3 cursor-pointer">
+                            <span class="label-inline">Per-Server Override</span>
+                            <span class="toggle-wrap">
+                                <input type="checkbox" id="model-rules-enabled" class="sr-only peer">
+                                <span class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></span>
+                            </span>
                         </label>
                         <span id="model-rules-toggle-hint" class="text-hint">toggle off = server/global default</span>
                     </div>
@@ -199,7 +201,7 @@
         </div>
     </div>
 
-
-    
+    <div id="footer-container"></div>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

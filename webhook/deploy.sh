@@ -46,9 +46,11 @@ fi
 
 echo "Deploying $PREV_SHA -> $NEW_SHA"
 
-# 3) Build only when dependencies or Docker config changed
+# 3) Build only when dependencies or Docker config changed (not version-only bumps)
 NEEDS_BUILD=false
-if git diff "$PREV_SHA" "$NEW_SHA" -- pyproject.toml uv.lock Dockerfile | grep -q .; then
+if git diff "$PREV_SHA" "$NEW_SHA" -- uv.lock Dockerfile | grep -q .; then
+    NEEDS_BUILD=true
+elif git diff "$PREV_SHA" "$NEW_SHA" -- pyproject.toml | grep -E '^[+-]' | grep -vqE '^[+-]version = '; then
     NEEDS_BUILD=true
 fi
 

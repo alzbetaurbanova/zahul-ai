@@ -35,6 +35,7 @@ dummies/
 
 # Claude Code
 .claude/
+CLAUDE.md
 tasks/
 
 # Node / Tailwind build

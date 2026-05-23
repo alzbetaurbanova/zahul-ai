@@ -44,6 +44,53 @@ html {
 #navbar-container {
     min-height: 64px;
 }
+
+#footer-container {
+    margin-top: auto;
+}
+
+#footer-container.footer-fixed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    margin-top: 0;
+}
+
+.site-footer {
+    background-color: var(--surface-deep);
+    border-top: 1px solid var(--dark);
+}
+
+.site-footer-inner {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--text-muted);
+}
+
+@media (min-width: 640px) {
+    .site-footer-inner {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+
+.site-footer-brand {
+    color: var(--text-dim);
+}
+
+.site-footer-version {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+}
 .nav-link {
     white-space: nowrap;
 }
@@ -78,10 +125,20 @@ html {
     background-color: var(--darker);
     border-top: 1px solid var(--surface);
     padding: 0.5rem 1rem 0.75rem;
-    display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
     align-items: center;
+}
+
+/* Tailwind .hidden must win; flex is applied only when menu is open */
+.nav-mobile-menu:not(.hidden) {
+    display: flex;
+}
+
+@media (min-width: 768px) {
+    .nav-mobile-menu {
+        display: none !important;
+    }
 }
 
 .nav-mobile-link {

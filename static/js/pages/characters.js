@@ -238,8 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
         div.innerHTML = `
             <div class="flex items-end gap-2">
                 <div class="mr-srv-wrap relative shrink-0">
-                    <label class="label-xs block mb-1">Server <span aria-hidden="true">*</span></label>
-                    <button type="button" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
+                    <label for="mr-srv-btn-${id}" class="label-xs block mb-1">Server <span aria-hidden="true">*</span></label>
+                    <button type="button" id="mr-srv-btn-${id}" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
                         <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
                         <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
                     </button>
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div class="relative flex-1 min-w-0">
-                    <label class="label-xs block mb-1">Model name (source) <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Leave empty to inherit the server or global default model.</span></span></label>
+                    <label for="mr-model-input-${id}" class="label-xs block mb-1">Model name (source) <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Leave empty to inherit the server or global default model.</span></span></label>
                     <div class="relative">
                         <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (primary)" value="${escapeHtml(displayValue)}">
                         <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
@@ -260,26 +260,26 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="flex gap-2 mt-3">
                 <div class="flex-1">
-                    <label class="label-xs">Triggers <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Comma-separated words that trigger this character on the selected servers. Leave empty to use the character's default triggers.</span></span></label>
-                    <input type="text" class="mr-triggers input-field text-sm" placeholder="word1, word2" value="${escapeHtml(triggersValue)}">
+                    <label for="mr-triggers-${id}" class="label-xs">Triggers <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Comma-separated words that trigger this character on the selected servers. Leave empty to use the character's default triggers.</span></span></label>
+                    <input type="text" id="mr-triggers-${id}" class="mr-triggers input-field text-sm" placeholder="word1, word2" value="${escapeHtml(triggersValue)}">
                 </div>
                 <div class="shrink-0 w-36">
-                    <label class="label-xs">Auto Cap <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot chain length for this character on these servers. Leave empty to use the global or server cap.</span></span></label>
-                    <input type="number" class="mr-auto-cap input-field text-sm" min="0" placeholder="e.g. 2" value="${rule.auto_cap != null ? rule.auto_cap : ''}">
+                    <label for="mr-auto-cap-${id}" class="label-xs">Auto Cap <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot chain length for this character on these servers. Leave empty to use the global or server cap.</span></span></label>
+                    <input type="number" id="mr-auto-cap-${id}" class="mr-auto-cap input-field text-sm" min="0" placeholder="e.g. 2" value="${rule.auto_cap != null ? rule.auto_cap : ''}">
                 </div>
             </div>
             <div class="grid grid-cols-3 gap-2 mt-3">
                 <div>
-                    <label class="label-xs">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Response randomness for this rule. 0 = predictable, 2 = chaotic. Leave empty to inherit.</span></span></label>
-                    <input type="number" class="mr-temperature input-field text-sm" min="0" max="2" step="0.1" placeholder="e.g. 0.7" value="${rule.temperature != null ? rule.temperature : ''}">
+                    <label for="mr-temperature-${id}" class="label-xs">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Response randomness for this rule. 0 = predictable, 2 = chaotic. Leave empty to inherit.</span></span></label>
+                    <input type="number" id="mr-temperature-${id}" class="mr-temperature input-field text-sm" min="0" max="2" step="0.1" placeholder="e.g. 0.7" value="${rule.temperature != null ? rule.temperature : ''}">
                 </div>
                 <div>
-                    <label class="label-xs">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length for this rule. Leave empty to inherit.</span></span></label>
-                    <input type="number" class="mr-max-tokens input-field text-sm" min="64" max="4096" placeholder="e.g. 256" value="${rule.max_tokens != null ? rule.max_tokens : ''}">
+                    <label for="mr-max-tokens-${id}" class="label-xs">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length for this rule. Leave empty to inherit.</span></span></label>
+                    <input type="number" id="mr-max-tokens-${id}" class="mr-max-tokens input-field text-sm" min="64" max="4096" placeholder="e.g. 256" value="${rule.max_tokens != null ? rule.max_tokens : ''}">
                 </div>
                 <div>
-                    <label class="label-xs">Message History <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context for this rule. Leave empty to inherit.</span></span></label>
-                    <input type="number" class="mr-history-limit input-field text-sm" min="1" max="50" placeholder="e.g. 10" value="${rule.history_limit != null ? rule.history_limit : ''}">
+                    <label for="mr-history-limit-${id}" class="label-xs">Message History <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context for this rule. Leave empty to inherit.</span></span></label>
+                    <input type="number" id="mr-history-limit-${id}" class="mr-history-limit input-field text-sm" min="1" max="50" placeholder="e.g. 10" value="${rule.history_limit != null ? rule.history_limit : ''}">
                 </div>
             </div>`;
 

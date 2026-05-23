@@ -20,6 +20,7 @@ services:
       - ./bot_run.py:/app/bot_run.py
       - ./api:/app/api
       - ./static:/app/static
+      - ./pyproject.toml:/app/pyproject.toml:ro
     restart: unless-stopped
     networks:
       - web
