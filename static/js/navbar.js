@@ -1,11 +1,22 @@
 (async function () {
     const container = document.getElementById('navbar-container');
-    container.style.minHeight = '64px';
+    const NAVBAR_CACHE_KEY = 'navbar-html';
 
-    const res = await fetch('/static/templates/navbar.html');
-    const html = await res.text();
-    container.style.minHeight = '';
-    container.innerHTML = html;
+    let html = localStorage.getItem(NAVBAR_CACHE_KEY);
+    if (html) {
+        container.innerHTML = html;
+        fetch('/static/templates/navbar.html', { credentials: 'omit' })
+            .then(r => r.text())
+            .then(fresh => { if (fresh !== html) localStorage.setItem(NAVBAR_CACHE_KEY, fresh); })
+            .catch(() => {});
+    } else {
+        container.style.minHeight = '64px';
+        const res = await fetch('/static/templates/navbar.html', { credentials: 'omit' });
+        html = await res.text();
+        localStorage.setItem(NAVBAR_CACHE_KEY, html);
+        container.style.minHeight = '';
+        container.innerHTML = html;
+    }
 
     // Apply cached avatar before other work to avoid default → reload flash
     if (localStorage.getItem('auth-enabled') === '1') {
@@ -274,7 +285,7 @@
     applyNavVisibility(_cachedAuth, _cachedRole);
 
     // Auth status: resolve actual state
-    fetch('/api/auth-status').then(r => r.json()).then(d => {
+    (window.__authStatus || fetch('/api/me').then(r => r.json())).then(d => {
         const authEnabled = d.panel_auth_enabled;
         const currentUser = d.current_user || null;
         const role = d.current_user?.role || '';

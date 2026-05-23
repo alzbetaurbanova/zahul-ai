@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Guard: only super admin/admin
-    fetch('/api/auth-status').then(r => r.json()).then(d => {
+    (window.__authStatus || fetch('/api/me').then(r => r.json())).then(d => {
         if (!d.panel_auth_enabled) {
             setSecurityOffWarning(true);
             _currentUserRole = d.current_user?.role || 'super_admin';

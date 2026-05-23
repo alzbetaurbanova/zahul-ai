@@ -196,6 +196,7 @@ def _discord_pending_api_allowed(request: Request) -> bool:
     path = _normalize_request_path(request.url.path)
     if method == "GET" and path in (
         "/api/auth-status",
+        "/api/me",
         "/api/users/me",
         "/api/users/requests/me",
     ):
@@ -223,6 +224,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/panel-hint",
             "/api/auth-enabled",
             "/api/auth-status",
+            "/api/me",
             "/api/version",
             "/api/auth/setup-super-admin",
             "/auth/discord/start",
@@ -528,6 +530,28 @@ async def auth_status(request: Request):
     }
     response = JSONResponse(payload)
     # Allowlisted route: scrub stale cookies here so the UI cannot look "logged in" with a dead session.
+    if token and not user:
+        _clear_session_cookie(response, request)
+    return response
+
+
+@app.get("/api/me", include_in_schema=False)
+async def get_me(request: Request):
+    db = Database()
+    raw_token = request.cookies.get("zahul_session")
+    token = (raw_token or "").strip() or None
+    user = db.get_user_from_session_token(token) if token else None
+    panel_auth = bool(db.get_config("panel_auth_enabled"))
+    payload = {
+        "panel_auth_enabled": panel_auth,
+        "current_user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+            "server_ids": db.get_user_server_access(user["id"]),
+        } if user else None,
+    }
+    response = JSONResponse(payload)
     if token and not user:
         _clear_session_cookie(response, request)
     return response

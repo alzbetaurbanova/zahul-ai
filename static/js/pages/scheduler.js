@@ -1041,8 +1041,7 @@
 
         // --- Toast ---
         // Init
-        fetch('/api/auth-status')
-            .then(r => r.json())
+        (window.__authStatus || fetch('/api/me').then(r => r.json()))
             .then(d => {
                 currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
             })

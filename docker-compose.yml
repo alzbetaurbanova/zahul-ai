@@ -38,7 +38,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./static/error_handler:/srv/errors:ro
-      - ./static/img:/srv/static/img:ro
+      - ./static:/srv/static:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: on-failure

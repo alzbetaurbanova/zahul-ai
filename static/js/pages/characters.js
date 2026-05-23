@@ -1228,17 +1228,15 @@ document.addEventListener('DOMContentLoaded', function() {
     modalCloseBtn.addEventListener('click', closeModal);
 
     // --- Initial Load ---
-    fetch('/api/auth-status')
-        .then(r => r.json())
+    (window.__authStatus || fetch('/api/me').then(r => r.json()))
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
             currentUsername = d?.current_user?.username || '';
             currentUserServerIds = d?.current_user?.server_ids || [];
         })
         .catch(() => {})
-        .finally(async () => {
+        .finally(() => {
             serversReadyPromise = loadServerFilter();
-            await serversReadyPromise;
             loadAllowedModels();
             fetchAndDisplayCharacters();
         });

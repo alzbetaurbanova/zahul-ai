@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    fetch('/api/auth-status').then(r => r.json()).then(d => {
+    (window.__authStatus || fetch('/api/auth-status').then(r => r.json())).then(d => {
         const role = d.current_user?.role;
         const allowed = role === 'super_admin';
         if (d.panel_auth_enabled && !allowed) {
