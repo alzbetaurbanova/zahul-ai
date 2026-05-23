@@ -38,7 +38,8 @@
                     <label class="label-xs">Character</label>
                     <div class="relative">
                         <input type="text" id="filter-name" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
-                        <button class="icon-clear-btn hidden" data-clear="filter-name" title="Clear"><i class="fas fa-times"></i></button>
+                        <button class="icon-clear-btn hidden" data-clear="filter-name" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="filter-name-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
                 <div>
@@ -52,7 +53,10 @@
                 <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
             </div>
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                <p class="text-dim col-span-full">Loading characters...</p>
+                <div class="panel-loader is-full-width" role="status" aria-live="polite">
+                    <span class="loader-spinner" aria-hidden="true"></span>
+                    <span class="panel-loader-label">Loading characters...</span>
+                </div>
             </div>
         </div>
     </main>
@@ -111,7 +115,7 @@
             
             <form id="character-form">
                 <!-- Name, Persona, Examples, Instructions (Unchanged) -->
-                <div><label for="name" class="label-form label-tt">Name <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Unique display name of the character. Used as the webhook username in Discord.</span></span></label><input type="text" id="name" class="input-field" required></div>
+                <div><label for="name" class="label-form label-tt">Name <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Unique display name of the character. Used as the webhook username in Discord.</span></span></label><input type="text" id="name" class="input-field" required></div>
 
                 <!-- Per-character overrides -->
                 <div class="grid grid-cols-3 gap-3">
@@ -120,8 +124,8 @@
                     <div><label for="char-max-tokens" class="label-form label-tt">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum number of tokens the AI can generate per reply. Leave empty to use the global setting.</span></span></label><input type="number" id="char-max-tokens" min="64" max="4096" step="1" class="input-field" placeholder="e.g. 256"></div>
                 </div>
 
-                <div><label for="persona" class="label-form label-tt">Persona <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Describes who the character is — personality, background, speaking style. Injected into the system prompt.</span></span></label><textarea id="persona" rows="4" minlength="3" class="input-field"></textarea></div>
-                <div><label for="instructions" class="label-form label-tt">Instructions <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Behavioral rules for the AI — language, formatting, restrictions. Appended after the persona in the system prompt.</span></span></label><textarea id="instructions" rows="4" minlength="3" class="input-field"></textarea></div>
+                <div><label for="persona" class="label-form label-tt">Persona <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Describes who the character is - personality, background, speaking style. Injected into the system prompt.</span></span></label><textarea id="persona" rows="4" minlength="3" class="input-field"></textarea></div>
+                <div><label for="instructions" class="label-form label-tt">Instructions <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Behavioral rules for the AI - language, formatting, restrictions. Appended after the persona in the system prompt.</span></span></label><textarea id="instructions" rows="4" minlength="3" class="input-field"></textarea></div>
 
                 <!-- Avatar -->
                 <div>
@@ -142,7 +146,12 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-4 mb-8">
-                        <img id="avatar-preview" src="/static/avatars/default_character_avatar.png" alt="" class="avatar-img w-24 h-24" onerror="this.src='/static/avatars/default_character_avatar.png'">
+                        <div id="avatar-preview-wrap" class="avatar-preview-wrap w-24 h-24">
+                            <div id="avatar-preview-loader" class="avatar-loader hidden" aria-hidden="true">
+                                <span class="loader-spinner"></span>
+                            </div>
+                            <img id="avatar-preview" alt="" class="avatar-img w-24 h-24">
+                        </div>
                         <div class="flex-grow space-y-2">
                             <input type="text" id="avatar-url" class="input-field" placeholder="Paste image URL (https://...)">
                             <div class="flex items-center gap-3">

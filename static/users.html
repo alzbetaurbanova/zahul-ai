@@ -44,7 +44,7 @@
                             <div id="filter-user-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>
-                    <div>
+                    <div id="users-filter-role">
                         <label class="label-xs">Role</label>
                         <div class="select-wrap">
                             <select id="filter-role" class="input-field">
@@ -59,7 +59,7 @@
                             <button class="icon-clear-btn hidden" data-clear="filter-role" title="Clear"><i class="fas fa-times"></i></button>
                         </div>
                     </div>
-                    <div>
+                    <div id="users-filter-type">
                         <label class="label-xs">Type</label>
                         <div class="select-wrap">
                             <select id="filter-auth" class="input-field">
@@ -113,7 +113,12 @@
                     </div>
                     <button id="clear-session-filters-btn" class="btn-clear-filter">Clear filters</button>
                 </div>
-                <div id="user-list" class="space-y-2"></div>
+                <div id="user-list" class="users-list-panel space-y-2">
+                    <div class="panel-loader" role="status" aria-live="polite">
+                        <span class="loader-spinner" aria-hidden="true"></span>
+                        <span class="panel-loader-label">Loading users...</span>
+                    </div>
+                </div>
                 <div id="users-pagination" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="users-pagination-info"></span>
@@ -130,7 +135,9 @@
                         <button id="users-next-btn" type="button" class="btn-page">Next →</button>
                     </div>
                 </div>
-                <div id="request-list" class="space-y-2 hidden"></div>
+                <div id="request-list" class="space-y-2 hidden">
+                    <div class="list-empty-state">No pending access requests.</div>
+                </div>
                 <div id="requests-pagination" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="requests-pagination-info"></span>
@@ -147,7 +154,12 @@
                         <button id="requests-next-btn" type="button" class="btn-page">Next →</button>
                     </div>
                 </div>
-                <div id="session-list" class="space-y-2 hidden"></div>
+                <div id="session-list" class="space-y-2 hidden">
+                    <div class="panel-loader" role="status" aria-live="polite">
+                        <span class="loader-spinner" aria-hidden="true"></span>
+                        <span class="panel-loader-label">Loading sessions...</span>
+                    </div>
+                </div>
                 <div id="session-list-footer" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="session-pagination-info"></span>

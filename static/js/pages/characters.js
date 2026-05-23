@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const avatarUrlInput = document.getElementById('avatar-url');
     const avatarUploadInput = document.getElementById('avatar-upload');
     const avatarPreview = document.getElementById('avatar-preview');
+    const avatarPreviewLoader = document.getElementById('avatar-preview-loader');
     const infoInput = document.getElementById('about');
     const temperatureInput = document.getElementById('temperature');
     const charHistoryLimitInput = document.getElementById('char-history-limit');
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const serverFilterInput = document.getElementById('server-filter');
     const filterNameInput = document.getElementById('filter-name');
     let allCharacters = [];
+    let characterNameOptions = [];
     let serverWhitelists = {}; // server_id -> Set of character names
     let serverNameMap = {};    // display name -> server_id
     let availableServers = []; // {server_id, server_name}[] for model rules
@@ -79,6 +81,26 @@ document.addEventListener('DOMContentLoaded', function() {
         return allowedModels.map(m => m.display);
     }
 
+    function wireServerFilterCombobox() {
+        if (typeof setupFilterCombobox !== 'function') return;
+        setupFilterCombobox(
+            'server-filter', 'server-filter-dd',
+            () => Object.keys(serverNameMap).sort((a, b) => a.localeCompare(b)),
+            applyFilter, applyFilter,
+            'hover:bg-gray-700'
+        );
+    }
+
+    function wireCharacterFilterCombobox() {
+        if (typeof setupFilterCombobox !== 'function') return;
+        setupFilterCombobox(
+            'filter-name', 'filter-name-dd',
+            () => characterNameOptions,
+            applyFilter, applyFilter,
+            'hover:bg-gray-700'
+        );
+    }
+
     async function loadServerFilter() {
         try {
             const res = await fetch('/api/servers/');
@@ -86,24 +108,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const servers = await res.json();
             const filtered = servers.filter(s => !s.server_name.toLowerCase().includes('direct message'));
             filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
-            // Load whitelists for all servers
-            await Promise.all(filtered.map(async s => {
-                const r = await fetch(`/api/servers/${s.server_id}/channels`);
-                if (!r.ok) return;
-                const channels = await r.json();
-                const names = new Set();
-                channels.forEach(ch => (ch.data.whitelist || []).forEach(n => names.add(n)));
-                serverWhitelists[s.server_id] = names;
-            }));
+            try {
+                const wlRes = await fetch('/api/servers/bulk/whitelists');
+                if (wlRes.ok) {
+                    const whitelists = await wlRes.json();
+                    for (const s of filtered) {
+                        serverWhitelists[s.server_id] = new Set(whitelists[s.server_id] || []);
+                    }
+                }
+            } catch (_) {}
             availableServers = filtered.map(s => ({ server_id: s.server_id, server_name: s.server_name }));
-            if (typeof setupFilterCombobox === 'function') {
-                setupFilterCombobox(
-                    'server-filter', 'server-filter-dd',
-                    () => Object.keys(serverNameMap),
-                    applyFilter, applyFilter,
-                    'hover:bg-gray-700'
-                );
-            }
+            wireServerFilterCombobox();
         } catch (e) {
             showToast('Failed to load server filter.', 'error');
         }
@@ -128,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('clear-filters-btn').addEventListener('click', () => {
         filterNameInput.value = '';
+        if ('dataset' in filterNameInput) filterNameInput.dataset.comboboxClearTouched = '';
         filterNameInput.dispatchEvent(new Event('input', { bubbles: true }));
         serverFilterInput.value = '';
         if ('dataset' in serverFilterInput) serverFilterInput.dataset.comboboxClearTouched = '';
@@ -220,8 +236,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const div = document.createElement('div');
         div.className = 'model-rule border border-gray-700 rounded-lg p-3 bg-gray-900';
         div.innerHTML = `
-            <div class="flex items-center gap-2">
+            <div class="flex items-end gap-2">
                 <div class="mr-srv-wrap relative shrink-0">
+                    <label class="label-xs block mb-1">Server <span aria-hidden="true">*</span></label>
                     <button type="button" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
                         <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
                         <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
@@ -230,13 +247,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
                     </div>
                 </div>
-                <div class="relative flex-1">
-                    <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="Model name (source)" value="${escapeHtml(displayValue)}">
-                    <button type="button" class="icon-clear-btn mr-remove" title="Remove rule"><i class="fas fa-times"></i></button>
-                    <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
-                    <input type="hidden" class="mr-source" value="${escapeHtml(rule.source || 'primary')}">
-                    <div id="mr-model-dd-${id}" class="autocomplete-dd hidden"></div>
+                <div class="relative flex-1 min-w-0">
+                    <label class="label-xs block mb-1">Model name (source) <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Leave empty to inherit the server or global default model.</span></span></label>
+                    <div class="relative">
+                        <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (primary)" value="${escapeHtml(displayValue)}">
+                        <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
+                        <input type="hidden" class="mr-source" value="${escapeHtml(rule.source || 'primary')}">
+                        <div id="mr-model-dd-${id}" class="autocomplete-dd hidden"></div>
+                    </div>
                 </div>
+                <button type="button" class="model-rule-remove-btn mr-remove shrink-0" title="Remove rule" aria-label="Remove rule"><i class="fas fa-trash"></i></button>
             </div>
             <div class="flex gap-2 mt-3">
                 <div class="flex-1">
@@ -312,16 +332,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 div.querySelector('.mr-model').value = entry.model;
                 div.querySelector('.mr-source').value = entry.source;
             }
-        }, null, 'hover:bg-gray-700');
+        }, (value) => {
+            if (!value.trim()) {
+                div.querySelector('.mr-model').value = '';
+                div.querySelector('.mr-source').value = 'primary';
+            }
+        }, 'hover:bg-gray-700');
         syncModelRuleWidths();
+    }
+
+    function resolveRuleModel(div) {
+        const display = (div.querySelector('.mr-model-display')?.value || '').trim();
+        let model = (div.querySelector('.mr-model')?.value || '').trim();
+        let source = (div.querySelector('.mr-source')?.value || '').trim() || 'primary';
+        if (!model && display) {
+            const entry = allowedModels.find(m => m.display === display);
+            if (entry) {
+                model = entry.model;
+                source = entry.source;
+                div.querySelector('.mr-model').value = model;
+                div.querySelector('.mr-source').value = source;
+            }
+        }
+        return model ? { model, source } : null;
+    }
+
+    function ruleElementHasOverride(div) {
+        if (resolveRuleModel(div)) return true;
+        const triggers = (div.querySelector('.mr-triggers')?.value || '')
+            .split(',').map(s => s.trim()).filter(Boolean);
+        if (triggers.length) return true;
+        if (div.querySelector('.mr-temperature')?.value !== '') return true;
+        if (div.querySelector('.mr-max-tokens')?.value !== '') return true;
+        if (div.querySelector('.mr-history-limit')?.value !== '') return true;
+        if (div.querySelector('.mr-auto-cap')?.value !== '') return true;
+        return false;
+    }
+
+    function validateModelRules() {
+        if (isMod()) return null;
+        const enabled = document.getElementById('model-rules-enabled').checked;
+        if (!enabled) return null;
+
+        const ruleEls = [...document.querySelectorAll('#model-rules-list .model-rule')];
+        if (ruleEls.length === 0) {
+            return 'Per-server override is on - add at least one rule or turn it off.';
+        }
+
+        for (const div of ruleEls) {
+            const servers = [...div.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+            if (servers.length === 0) {
+                return 'Select at least one server.';
+            }
+            if (!ruleElementHasOverride(div)) {
+                return 'Set at least one override (model, triggers, temperature, etc.) for each rule.';
+            }
+        }
+        return null;
     }
 
     function getModelRules() {
         return [...document.querySelectorAll('.model-rule')].map(div => {
-            const hiddenModel = div.querySelector('.mr-model').value.trim();
-            const display = div.querySelector('.mr-model-display').value.trim();
-            const model = hiddenModel || display;
-            const source = div.querySelector('.mr-source').value || 'primary';
+            const resolved = resolveRuleModel(div);
+            const model = resolved?.model || '';
+            const source = resolved?.source || 'primary';
             const triggers = (div.querySelector('.mr-triggers').value || '').split(',').map(s => s.trim()).filter(Boolean);
             const tempVal = div.querySelector('.mr-temperature').value;
             const tokVal = div.querySelector('.mr-max-tokens').value;
@@ -335,7 +409,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 servers: [...div.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value),
                 model, source, triggers, temperature, max_tokens, history_limit, auto_cap,
             };
-        }).filter(r => r.model || r.triggers.length || r.temperature !== null || r.max_tokens !== null || r.history_limit !== null || r.auto_cap !== null);
+        }).filter(r => {
+            if (!r.servers.length) return false;
+            return Boolean(
+                r.model
+                || (r.triggers && r.triggers.length)
+                || r.temperature != null
+                || r.max_tokens != null
+                || r.history_limit != null
+                || r.auto_cap != null
+            );
+        });
     }
 
     function updateModelRulesHint() {
@@ -428,12 +512,140 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Core Functions ---
 
+    const DEFAULT_CHARACTER_AVATAR = '/static/avatars/default_character_avatar.png';
+
+    /** Matches api/routers/characters.py _safe_avatar_filename (Unicode isalnum). */
+    function safeAvatarFileName(name) {
+        const out = [...(name || '')].filter(c => c === '-' || c === '_' || /\p{L}|\p{N}/u.test(c)).join('');
+        return out || 'avatar';
+    }
+
+    function staticAvatarPathForName(name) {
+        return `/static/avatars/${safeAvatarFileName(name)}.png`;
+    }
+
+    /** Encode filename for HTTP (Miloš.png -> Milo%C5%A1.png). */
+    function encodeStaticAvatarUrl(path) {
+        if (!path || !path.startsWith('/static/avatars/')) return path;
+        const rel = path.slice('/static/avatars/'.length).split('?')[0];
+        return `/static/avatars/${encodeURIComponent(rel)}`;
+    }
+
+    function isHttpAvatarUrl(value) {
+        return /^https?:\/\//i.test((value || '').trim());
+    }
+
+    /** Display avatar as stored: static path or external URL (no silent static override). */
+    function resolveAvatarDisplay(avatar) {
+        const trimmed = (avatar || '').trim();
+        const fallback = DEFAULT_CHARACTER_AVATAR;
+        if (!trimmed) {
+            return { primary: fallback, external: '', fallback };
+        }
+        if (trimmed.startsWith('/static/')) {
+            return { primary: encodeStaticAvatarUrl(trimmed), external: '', fallback };
+        }
+        if (isHttpAvatarUrl(trimmed)) {
+            return { primary: trimmed, external: '', fallback };
+        }
+        return { primary: trimmed, external: '', fallback };
+    }
+
+    function setAvatarPreviewLoading(loading) {
+        if (!avatarPreviewLoader) return;
+        avatarPreviewLoader.classList.toggle('hidden', !loading);
+        avatarPreview.classList.toggle('is-loading', loading);
+    }
+
+    function finishAvatarPreviewLoad() {
+        setAvatarPreviewLoading(false);
+    }
+
+    function applyAvatarDisplayToImg(img, avatar) {
+        const isPreview = img === avatarPreview;
+        const { primary, external, fallback } = resolveAvatarDisplay(avatar);
+        const fallbackSrc = encodeStaticAvatarUrl(fallback);
+
+        const done = () => {
+            if (isPreview) finishAvatarPreviewLoad();
+        };
+
+        if (isPreview) {
+            setAvatarPreviewLoading(true);
+            img.onload = null;
+            img.onerror = null;
+            img.removeAttribute('src');
+        }
+
+        img.onerror = function onAvatarImgError() {
+            if (external && img.src !== external) {
+                img.src = external;
+                return;
+            }
+            if (img.src !== fallbackSrc && img.src !== fallback) {
+                img.src = fallbackSrc;
+                return;
+            }
+            img.onerror = null;
+            done();
+        };
+        img.onload = () => {
+            img.onload = null;
+            done();
+        };
+        img.src = primary;
+        if (img.complete && img.naturalWidth > 0) {
+            img.onload = null;
+            done();
+        }
+    }
+
+    /** Character grid only: try local static/avatars/{name}.png first, then DB URL, then default. */
+    function resolveListCardAvatar(char) {
+        const avatar = (char.avatar || '').trim();
+        const fallback = DEFAULT_CHARACTER_AVATAR;
+        if (avatar.startsWith('/static/')) {
+            return {
+                primary: encodeStaticAvatarUrl(avatar),
+                external: '',
+                fallback,
+            };
+        }
+        const staticPath = encodeStaticAvatarUrl(staticAvatarPathForName(char.name));
+        const external = isHttpAvatarUrl(avatar) ? avatar : '';
+        return { primary: staticPath, external, fallback };
+    }
+
+    function wireAvatarImgSrc(img, { primary, external, fallback }) {
+        const fallbackSrc = encodeStaticAvatarUrl(fallback);
+        img.onerror = function onAvatarImgError() {
+            if (external && img.src !== external) {
+                img.src = external;
+                return;
+            }
+            if (img.src !== fallbackSrc && img.src !== fallback) {
+                img.src = fallbackSrc;
+                return;
+            }
+            img.onerror = null;
+        };
+        img.src = primary;
+    }
+
+    function applyCharacterCardAvatar(img, char) {
+        img.alt = char.name;
+        wireAvatarImgSrc(img, resolveListCardAvatar(char));
+    }
+
     async function fetchAndDisplayCharacters() {
-        characterGrid.innerHTML = '<p class="text-gray-400 col-span-full">Loading characters...</p>';
+        showPanelLoader(characterGrid, 'Loading characters...', 'full-width');
         try {
             const response = await fetch(API_BASE);
             if (!response.ok) throw new Error('Failed to fetch character list');
             const characters = await response.json(); // Gets List[CharacterListItem]
+            allCharacters = characters;
+            characterNameOptions = characters.map(c => c.name).sort((a, b) => a.localeCompare(b));
+            wireCharacterFilterCombobox();
 
             characterGrid.innerHTML = ''; // Clear loading message
 
@@ -446,10 +658,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
-                    <img src="${char.avatar || '/static/avatars/default_character_avatar.png'}" alt="${char.name}" class="w-full h-full object-cover transition-transform group-hover:scale-110" onerror="this.src='/static/avatars/default_character_avatar.png'">
+                    <img alt="" class="character-card-img">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                    <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${char.name}</h3>
+                    <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${escapeHtml(char.name)}</h3>
                 `;
+                applyCharacterCardAvatar(card.querySelector('img'), char);
                 card.addEventListener('click', () => loadCharacterForEdit(char.id));
                 characterGrid.appendChild(card);
             });
@@ -457,17 +670,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error(error);
-            characterGrid.innerHTML = '<p class="text-red-500 col-span-full">Failed to load characters.</p>';
+            characterGrid.innerHTML = '<p class="grid-full-width list-load-error">Failed to load characters.</p>';
             showToast('Failed to load characters.', 'error');
         }
     }
 
     async function loadCharacterForEdit(id) {
+        setAvatarPreviewLoading(true);
+        avatarPreview.removeAttribute('src');
         try {
             const response = await fetch(`${API_BASE}/${id}`);
             const char = await response.json();
 
-            resetForm();
+            resetForm({ skipAvatar: true });
             currentCharacterId = char.id;
             currentCharacterName = char.name;
             currentCharCreatedBy = char.created_by || null;
@@ -477,10 +692,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             personaInput.value = char.data.persona;
             instructionsInput.value = char.data.instructions;
-            const isStaticAvatar = char.data.avatar && char.data.avatar.startsWith('/static/');
-            _savedStaticUrl = isStaticAvatar ? char.data.avatar : '';
-            _savedExternalUrl = char.data.avatar_source || (!isStaticAvatar && char.data.avatar) || '';
-            avatarUrlInput.value = char.data.avatar || '';
+            const avatar = (char.data.avatar || '').trim();
+            const isStaticAvatar = avatar.startsWith('/static/');
+            _savedStaticUrl = isStaticAvatar ? avatar : '';
+            _savedExternalUrl = char.data.avatar_source || (!isStaticAvatar && isHttpAvatarUrl(avatar) ? avatar : '') || '';
+            if (isStaticAvatar) {
+                setAvatarMode('upload');
+            } else {
+                setAvatarMode('url');
+            }
             infoInput.value = char.data.about || '';
             temperatureInput.value = char.data.temperature != null ? char.data.temperature : '';
             charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
@@ -489,8 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
             await serversReadyPromise;
             loadModelRules(char.data.model_rules_enabled || false, char.data.model_rules || []);
 
-            updateAvatarPreview(char.data.avatar);
-            if (isStaticAvatar) setAvatarMode('upload');
+            updateAvatarPreview(avatarUrlInput.value);
 
             const canEdit = canEditCurrentCharacter();
             saveBtn.textContent = 'Save Changes';
@@ -499,11 +718,12 @@ document.addEventListener('DOMContentLoaded', function() {
             exportBtn.classList.remove('hidden');
             openModal();
         } catch (error) {
-            showToast(`Failed to load character: ${name}`, 'error');
+            updateAvatarPreview(DEFAULT_CHARACTER_AVATAR);
+            showToast('Failed to load character.', 'error');
         }
     }
 
-    const resetForm = () => {
+    const resetForm = (opts = {}) => {
         currentCharacterName = null;
         currentCharacterId = null;
         currentCharCreatedBy = null;
@@ -515,7 +735,9 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.classList.remove('hidden');
         deleteBtn.classList.add('hidden');
         exportBtn.classList.add('hidden');
-        updateAvatarPreview('/static/avatars/default_character_avatar.png');
+        if (!opts.skipAvatar) {
+            updateAvatarPreview(DEFAULT_CHARACTER_AVATAR);
+        }
         _savedExternalUrl = '';
         _savedStaticUrl = '';
         currentAvatarMode = 'url';
@@ -550,16 +772,30 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         const avatarUrl = avatarUrlInput.value.trim();
-        if (avatarUrl && !isValidHttpUrl(avatarUrl) && !avatarUrl.startsWith('/static/')) {
-            showToast('Avatar URL must be a valid http/https URL.', 'error');
+        if (currentAvatarMode === 'url') {
+            if (avatarUrl && !isValidHttpUrl(avatarUrl)) {
+                showToast('Avatar URL must be a valid http/https URL.', 'error');
+                return;
+            }
+        } else if (avatarUrl && !avatarUrl.startsWith('/static/')) {
+            showToast('Upload mode expects a static avatar path.', 'error');
+            return;
+        }
+
+        const modelRulesError = validateModelRules();
+        if (modelRulesError) {
+            showToast(modelRulesError, 'error');
             return;
         }
 
         // Gather all data from the form
+        const avatarForDb = currentAvatarMode === 'url'
+            ? (isHttpAvatarUrl(avatarUrl) ? avatarUrl : (_savedExternalUrl && isHttpAvatarUrl(_savedExternalUrl) ? _savedExternalUrl : null))
+            : (avatarUrl || null);
         const characterData = {
             persona: personaInput.value,
             instructions: instructionsInput.value,
-            avatar: avatarUrl || null,
+            avatar: avatarForDb,
             avatar_source: (currentAvatarMode === 'upload' && _savedExternalUrl) ? _savedExternalUrl : null,
             about: infoInput.value.trim() || null,
             temperature: temperatureInput.value !== '' ? parseFloat(temperatureInput.value) : null,
@@ -608,9 +844,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const result = await response.json();
+            if (result.triggers) {
+                triggersInput.value = result.triggers.join(', ');
+            }
+            if (result.data?.model_rules) {
+                await serversReadyPromise;
+                loadModelRules(result.data.model_rules_enabled || false, result.data.model_rules || []);
+            }
             showToast(`Character '${result.name}' saved successfully!`);
-            closeModal();
             await fetchAndDisplayCharacters();
+            closeModal();
 
         } catch (error) {
             showToast(`Error saving character: ${error.message}`, 'error');
@@ -672,33 +915,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setAvatarMode(mode) {
         currentAvatarMode = mode;
+        const cur = avatarUrlInput.value.trim();
+
         if (mode === 'url') {
             avatarModeUrl.classList.replace('mode-tab-off', 'mode-tab-on');
             avatarModeUpload.classList.replace('mode-tab-on', 'mode-tab-off');
             avatarUploadInput.classList.add('invisible');
             avatarUploadInput.classList.remove('visible');
             avatarUrlInput.placeholder = 'Paste image URL (https://...)';
-            if (_savedExternalUrl) {
-                avatarUrlInput.value = _savedExternalUrl;
-                updateAvatarPreview(_savedExternalUrl);
+            if (cur.startsWith('/static/') && !_savedStaticUrl) {
+                _savedStaticUrl = cur;
             }
+            avatarUrlInput.value = isHttpAvatarUrl(_savedExternalUrl) ? _savedExternalUrl : '';
+            updateAvatarPreview(avatarUrlInput.value);
+            return;
+        }
+
+        avatarModeUpload.classList.replace('mode-tab-off', 'mode-tab-on');
+        avatarModeUrl.classList.replace('mode-tab-on', 'mode-tab-off');
+        avatarUploadInput.classList.remove('invisible');
+        avatarUploadInput.classList.add('visible');
+        avatarUrlInput.placeholder = 'Paste URL to auto-download, or pick a file below';
+        if (isHttpAvatarUrl(cur)) {
+            _savedExternalUrl = cur;
+        }
+        if (_savedStaticUrl) {
+            avatarUrlInput.value = _savedStaticUrl;
+            updateAvatarPreview(_savedStaticUrl);
+        } else if (isHttpAvatarUrl(cur)) {
+            mirrorUrl(cur);
         } else {
-            avatarModeUpload.classList.replace('mode-tab-off', 'mode-tab-on');
-            avatarModeUrl.classList.replace('mode-tab-on', 'mode-tab-off');
-            avatarUploadInput.classList.remove('invisible');
-            avatarUploadInput.classList.add('visible');
-            avatarUrlInput.placeholder = 'Paste URL to auto-download, or pick a file below';
-            const existingUrl = avatarUrlInput.value.trim();
-            if (existingUrl.startsWith('http')) {
-                if (existingUrl === _savedExternalUrl && _savedStaticUrl) {
-                    avatarUrlInput.value = _savedStaticUrl;
-                    updateAvatarPreview(_savedStaticUrl);
-                } else {
-                    _savedExternalUrl = existingUrl;
-                    _savedStaticUrl = '';
-                    mirrorUrl(existingUrl);
-                }
-            }
+            avatarUrlInput.value = '';
+            updateAvatarPreview('');
         }
     }
     avatarModeUrl.addEventListener('click', () => setAvatarMode('url'));
@@ -728,12 +976,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     let _mirrorTimer = null;
-    avatarUrlInput.addEventListener('input', () => {
-        if (currentAvatarMode !== 'upload') return;
-        const url = avatarUrlInput.value.trim();
-        if (!url.startsWith('http')) return;
+    avatarUrlInput.addEventListener('input', (e) => {
+        const v = e.target.value.trim();
+        if (currentAvatarMode === 'url') {
+            if (isHttpAvatarUrl(v)) _savedExternalUrl = v;
+            updateAvatarPreview(e.target.value);
+            return;
+        }
+        updateAvatarPreview(e.target.value);
+        if (!v.startsWith('http')) return;
         clearTimeout(_mirrorTimer);
-        _mirrorTimer = setTimeout(() => mirrorUrl(url), 800);
+        _mirrorTimer = setTimeout(() => mirrorUrl(v), 800);
     });
 
     // Avatar upload logic
@@ -770,9 +1023,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const updateAvatarPreview = (url) => {
-        const fallback = '/static/avatars/default_character_avatar.png';
-        avatarPreview.src = url || fallback;
-        avatarPreview.onerror = () => { avatarPreview.src = fallback; };
+        if (url && url.startsWith('blob:')) {
+            setAvatarPreviewLoading(true);
+            avatarPreview.removeAttribute('src');
+            avatarPreview.onload = () => {
+                avatarPreview.onload = null;
+                finishAvatarPreviewLoad();
+            };
+            avatarPreview.onerror = () => {
+                avatarPreview.onerror = null;
+                finishAvatarPreviewLoad();
+            };
+            avatarPreview.src = url;
+            if (avatarPreview.complete && avatarPreview.naturalWidth > 0) {
+                avatarPreview.onload = null;
+                finishAvatarPreviewLoad();
+            }
+            return;
+        }
+        applyAvatarDisplayToImg(avatarPreview, url);
     };
 
     // --- Import Info Modal ---
@@ -949,7 +1218,6 @@ document.addEventListener('DOMContentLoaded', function() {
     deleteBtn.addEventListener('click', handleDelete);
     exportBtn.addEventListener('click', handleExport);
     avatarUploadInput.addEventListener('change', (e) => uploadFile(e.target.files[0]));
-    avatarUrlInput.addEventListener('input', (e) => updateAvatarPreview(e.target.value));
     importFileInput.addEventListener('change', handleFileImport);
     modalCloseBtn.addEventListener('click', closeModal);
 
@@ -962,8 +1230,9 @@ document.addEventListener('DOMContentLoaded', function() {
             currentUserServerIds = d?.current_user?.server_ids || [];
         })
         .catch(() => {})
-        .finally(() => {
+        .finally(async () => {
             serversReadyPromise = loadServerFilter();
+            await serversReadyPromise;
             loadAllowedModels();
             fetchAndDisplayCharacters();
         });

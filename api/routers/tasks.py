@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Any, Dict, List, Optional
 from api.db.database import Database
-from api.models.models import Task, TaskCreate, TaskUpdate
+from api.models.models import Task, TaskCreate, TaskListResponse, TaskUpdate
 from api.auth import require_role
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -152,23 +152,44 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-@router.get("/")
-def list_tasks(user: dict = Depends(require_role("mod")), type: Optional[str] = None, status: List[str] = Query(default=[])):
+@router.get("/", response_model=TaskListResponse)
+def list_tasks(
+    user: dict = Depends(require_role("mod")),
+    type: Optional[str] = None,
+    status: List[str] = Query(default=[]),
+    character: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    server_id: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+):
     try:
-        tasks = db.list_tasks(type=type, status=status)
-        # Validate each task against the Task model to ensure data integrity
+        allowed_server_ids = None
+        if (user or {}).get("role") == "mod":
+            allowed_server_ids = db.get_user_server_access(user.get("id")) or []
+
+        offset = (page - 1) * limit
+        rows, total = db.list_tasks_page(
+            type=type or None,
+            status=status or None,
+            character_contains=(character or "").strip() or None,
+            date_from=date_from or None,
+            date_to=date_to or None,
+            server_id=server_id or None,
+            allowed_server_ids=allowed_server_ids,
+            offset=offset,
+            limit=limit,
+        )
         validated_tasks = []
-        for task in tasks:
-            if not _can_access_task(user, task):
-                continue
+        for task in rows:
             try:
-                task['next_run'] = compute_next_run(task)
+                task["next_run"] = compute_next_run(task)
                 validated_tasks.append(Task(**task))
             except Exception as e:
-                # Log the problematic task instead of crashing
                 import sys
                 print(f"Warning: Task validation failed for ID {task.get('id')}: {e}", file=sys.stderr)
-        return validated_tasks
+        return TaskListResponse(items=validated_tasks, total=total, page=page, limit=limit)
     except Exception as e:
         import sys
         print(f"Error in list_tasks: {e}", file=sys.stderr)

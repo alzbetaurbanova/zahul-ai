@@ -60,19 +60,34 @@
         return d.getDate() + ' ' + d.toLocaleString('en', { month: 'short' });
     }
 
+    function showActivityLoader() {
+        const loader = document.getElementById('activity-loader');
+        const wrap = document.getElementById('chart-wrap');
+        const empty = document.getElementById('chart-empty');
+        if (loader) showPanelLoader(loader, 'Loading activity...');
+        loader?.removeAttribute('hidden');
+        wrap?.setAttribute('hidden', '');
+        empty?.setAttribute('hidden', '');
+    }
+
+    function hideActivityLoader() {
+        document.getElementById('activity-loader')?.setAttribute('hidden', '');
+    }
+
     function renderChart(rows) {
+        hideActivityLoader();
         const wrap = document.getElementById('chart-wrap');
         const empty = document.getElementById('chart-empty');
 
         if (!rows || !rows.length) {
-            wrap.classList.add('hidden');
-            empty.classList.remove('hidden');
+            wrap.setAttribute('hidden', '');
+            empty.removeAttribute('hidden');
             if (chart) { chart.destroy(); chart = null; }
             return;
         }
 
-        wrap.classList.remove('hidden');
-        empty.classList.add('hidden');
+        wrap.removeAttribute('hidden');
+        empty.setAttribute('hidden', '');
 
         const labels = rows.map(r => formatLabel(r.day, activeDays));
         const ok = rows.map(r => Math.max(0, r.total - r.errors));
@@ -153,6 +168,7 @@
     }
 
     async function load(days) {
+        showActivityLoader();
         try {
             const data = await fetchAll(days);
             cachedByChar = data.byChar;
@@ -163,6 +179,8 @@
             renderChart(data.timeseries);
             renderAllBarLists();
         } catch {
+            hideActivityLoader();
+            if (chart) document.getElementById('chart-wrap')?.removeAttribute('hidden');
             showToast('Failed to load stats', 'error');
         }
     }

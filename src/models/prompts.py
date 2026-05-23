@@ -72,9 +72,13 @@ class PromptEngineer:
         Gathers context, pre-renders nested templates in character data,
         and then renders the final prompt string.
         """
-        from src.utils.llm_new import get_bot_config
-        bot_config = get_bot_config(self.db)
-        history_limit = self.bot.history_limit if self.bot.history_limit is not None else bot_config.history_limit
+        from src.utils.llm_new import get_effective_config
+        bot_config = get_effective_config(self.db, self.channel.server_id)
+        history_limit = (
+            self.bot.history_limit
+            if self.bot.history_limit is not None
+            else bot_config.history_limit
+        )
         history = await get_history(self.message.channel, self.db, limit=history_limit)
         self.history_count = history.count('[Reply]') if history else 0
 

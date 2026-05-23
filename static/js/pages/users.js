@@ -37,9 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const _initialPage = Number.isInteger(_urlPageNum) && _urlPageNum > 0 ? _urlPageNum : 1;
 
     let _currentUserRole = '';
+    let _currentUserId = null;
     let _allUsers = [];
     let _requests = [];
+    let _requestsLoaded = false;
     let _sessions = [];
+    let _sessionsLoaded = false;
     let _activeTab = 'users';
     let _usersPage = _initialTabFromUrl === 'users' ? _initialPage : 1;
     let _usersTotalPages = 1;
@@ -177,9 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!d.panel_auth_enabled) {
             setSecurityOffWarning(true);
             _currentUserRole = d.current_user?.role || 'super_admin';
+            _currentUserId = d.current_user?.id ?? null;
             syncSuperAdminRoleOptions();
             loadUsers();
-            refreshRequestsBadge();
+            loadRequests();
             return;
         }
         setSecurityOffWarning(false);
@@ -188,15 +192,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         _currentUserRole = d.current_user.role || '';
+        _currentUserId = d.current_user.id ?? null;
         syncSuperAdminRoleOptions();
         loadUsers();
-        refreshRequestsBadge();
+        loadRequests();
     }).catch(() => {
         setSecurityOffWarning(true);
         _currentUserRole = 'super_admin';
         syncSuperAdminRoleOptions();
         loadUsers();
-        refreshRequestsBadge();
+        loadRequests();
     });
 
     // Close buttons wired by data-modal attribute
@@ -245,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadUsers() {
         const list = document.getElementById('user-list');
+        showPanelLoader(list, 'Loading users...');
         try {
             _allUsers = await fetch('/api/users/').then(r => r.json());
             renderUsers();
@@ -265,27 +271,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function refreshRequestsBadge() {
-        try {
-            const res = await fetch('/api/users/requests');
-            const data = await res.json();
-            if (!res.ok) return;
-            const n = Array.isArray(data) ? data.length : 0;
-            updateRequestsBadge(n);
-        } catch (_) {}
-    }
-
-    async function loadRequests() {
+    async function loadRequests(options = {}) {
+        const { silent = false } = options;
         const list = document.getElementById('request-list');
         try {
             const res = await fetch('/api/users/requests');
             const data = await res.json();
             if (!res.ok) throw new Error(parseApiError(data, 'Failed to load requests.'));
             _requests = Array.isArray(data) ? data : [];
+            _requestsLoaded = true;
             updateRequestsBadge(_requests.length);
             renderRequests();
         } catch (e) {
-            list.innerHTML = `<div class="text-red-400 text-center py-12">Failed to load requests: ${esc(String(e))}</div>`;
+            if (!_requestsLoaded) {
+                list.innerHTML = `<div class="list-empty-state list-load-error">Failed to load requests: ${esc(String(e))}</div>`;
+                updateRequestsFooter(0);
+            } else if (!silent) {
+                showToast(String(e), 'error');
+            }
         }
     }
 
@@ -298,7 +301,9 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('tab-active', active);
             btn.classList.toggle('text-white', active);
         });
-        document.getElementById('users-filters').classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('users-filters').classList.toggle('hidden', resolvedTab === 'sessions');
+        document.getElementById('users-filter-role')?.classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('users-filter-type')?.classList.toggle('hidden', resolvedTab !== 'users');
         document.getElementById('sessions-filters').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('user-list').classList.toggle('hidden', resolvedTab !== 'users');
         document.getElementById('users-pagination').classList.toggle('hidden', resolvedTab !== 'users');
@@ -306,8 +311,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('requests-pagination').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('session-list').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('session-list-footer').classList.toggle('hidden', resolvedTab !== 'sessions');
-        if (resolvedTab === 'requests') loadRequests();
-        if (resolvedTab === 'sessions') loadSessions();
+        if (resolvedTab === 'requests') {
+            if (_requestsLoaded) {
+                renderRequests();
+                loadRequests({ silent: true });
+            } else {
+                loadRequests();
+            }
+        }
+        if (resolvedTab === 'sessions') {
+            if (_sessionsLoaded) {
+                renderFilteredSessions();
+                loadSessions({ silent: true });
+            } else {
+                loadSessions();
+            }
+        }
         if (syncUrl) syncUsersUrl();
     }
 
@@ -377,18 +396,26 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    async function loadSessions() {
+    async function loadSessions(options = {}) {
+        const { silent = false } = options;
         const list = document.getElementById('session-list');
-        list.innerHTML = '<div class="text-gray-500 text-center py-8">Loading...</div>';
+        if (!silent) showPanelLoader(list, 'Loading sessions...');
         try {
             const res = await fetch('/api/users/sessions');
             const data = await res.json();
             if (!res.ok) throw new Error(parseApiError(data, 'Failed to load sessions.'));
             _sessions = Array.isArray(data) ? data : [];
-            renderFilteredSessions();
+            _sessionsLoaded = true;
+            if (_activeTab === 'sessions') renderFilteredSessions();
         } catch (e) {
-            list.innerHTML = `<div class="text-red-400 text-center py-8">Failed to load: ${esc(String(e))}</div>`;
-            updateSessionFooter(0);
+            if (!_sessionsLoaded) {
+                if (_activeTab === 'sessions') {
+                    list.innerHTML = `<div class="list-empty-state list-load-error">Failed to load: ${esc(String(e))}</div>`;
+                    updateSessionFooter(0);
+                }
+            } else if (!silent) {
+                showToast(String(e), 'error');
+            }
         }
     }
 
@@ -449,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/users/sessions', { method: 'DELETE' });
                 if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
                 showToast('All sessions revoked.', 'success');
-                await loadSessions();
+                await loadSessions({ silent: true });
             } catch (err) {
                 showToast(String(err), 'error');
             } finally {
@@ -561,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSessions(sessions) {
         const list = document.getElementById('session-list');
         if (!sessions.length) {
-            list.innerHTML = '<div class="text-gray-500 text-center py-12">No active sessions.</div>';
+            list.innerHTML = '<div class="list-empty-state">No active sessions.</div>';
             return;
         }
         const DEFAULT_AVATAR = '/static/avatars/default_user_avatar.png';
@@ -606,7 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await fetch(`/api/users/sessions/${encodedToken}`, { method: 'DELETE' });
                     if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
                     showToast('Session revoked.', 'success');
-                    loadSessions();
+                    loadSessions({ silent: true });
                 } catch (e) {
                     showToast(String(e), 'error');
                     btn.disabled = false;
@@ -703,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRequests() {
         const list = document.getElementById('request-list');
         if (!_requests.length) {
-            list.innerHTML = '<div class="text-gray-500 text-center py-12">No pending access requests.</div>';
+            list.innerHTML = '<div class="list-empty-state">No pending access requests.</div>';
             updateRequestsFooter(0);
             return;
         }
@@ -1027,6 +1054,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(parseApiError(data, 'Avatar upload failed'));
+                    if (_currentUserId != null && u.id === _currentUserId && data.avatar_url) {
+                        window.dispatchEvent(new CustomEvent('user-avatar-updated', {
+                            detail: { avatar_url: data.avatar_url },
+                        }));
+                    }
                 }
             }
 

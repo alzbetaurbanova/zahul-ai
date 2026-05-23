@@ -139,7 +139,7 @@
             <!-- Default Character -->
             <div class="space-y-4">
                 <div>
-                    <label for="srv-default-character" class="label-form">Default Character</label>
+                    <label for="srv-default-character" class="label-form label-tt">Default Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Default character for channels on this server when no trigger matches. Clear to inherit from global AI Config. Channels can still override per channel.</span></span></label>
                     <div class="relative">
                         <input type="text" id="srv-default-character" autocomplete="off" class="input-field pr-8" placeholder="Inherit global or choose…">
                         <div id="srv-default-character-dd" class="autocomplete-dd hidden"></div>
@@ -152,7 +152,7 @@
             <div class="divider mt-6 pt-6">
                 <div class="flex-between mb-4">
                     <div>
-                        <h2 class="heading-section">Server Overrides</h2>
+                        <h2 class="heading-section label-tt">Server Overrides <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When enabled, the fields below replace global AI Config for this server only. Leave a field empty to inherit that value from global.</span></span></h2>
                         <p class="text-hint mt-0.5">Override global AI Config for this server only.</p>
                     </div>
                     <label class="toggle-wrap">
@@ -164,12 +164,12 @@
                     <!-- Row 1: Primary + Fallback model -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="relative">
-                            <label class="label-xs">Primary Model</label>
+                            <label for="sc-base-llm" class="label-xs label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Model for responses on this server. Leave empty to inherit from global AI Config.</span></span></label>
                             <input type="text" id="sc-base-llm" autocomplete="off" class="input-field">
                             <div id="sc-base-llm-dd" class="autocomplete-dd hidden"></div>
                         </div>
                         <div class="relative">
-                            <label class="label-xs">Fallback Model</label>
+                            <label for="sc-fallback-llm" class="label-xs label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Model used when the primary hits a rate limit. Leave empty to inherit from global.</span></span></label>
                             <input type="text" id="sc-fallback-llm" autocomplete="off" class="input-field">
                             <div id="sc-fallback-llm-dd" class="autocomplete-dd hidden"></div>
                         </div>
@@ -177,34 +177,34 @@
                     <!-- Row 2: Temperature, Max Tokens, Message History, Auto Cap -->
                     <div class="grid grid-cols-4 gap-3">
                         <div>
-                            <label class="label-xs">Temperature</label>
+                            <label for="sc-temperature" class="label-xs label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Sampling randomness (0-2). Leave empty to inherit from global.</span></span></label>
                             <input type="number" id="sc-temperature" min="0" max="2" step="0.05" class="input-field">
                         </div>
                         <div>
-                            <label class="label-xs">Max Tokens</label>
+                            <label for="sc-max-tokens" class="label-xs label-tt">Max Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Maximum response length in tokens. Leave empty to inherit from global.</span></span></label>
                             <input type="number" id="sc-max-tokens" min="64" max="4096" class="input-field">
                         </div>
                         <div>
-                            <label class="label-xs">Message History</label>
+                            <label for="sc-history-limit" class="label-xs label-tt">Message History <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">How many past messages the AI sees as context. Leave empty to inherit from global.</span></span></label>
                             <input type="number" id="sc-history-limit" min="1" max="50" class="input-field">
                         </div>
                         <div>
-                            <label class="label-xs">Auto Cap</label>
+                            <label for="sc-auto-cap" class="label-xs label-tt">Auto Cap <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Max bot-to-bot replies per chain on this server. Leave empty to inherit from global.</span></span></label>
                             <input type="number" id="sc-auto-cap" min="0" class="input-field">
                         </div>
                     </div>
                     <!-- Row 3: Token limits + Prefill -->
                     <div class="grid grid-cols-4 gap-3">
                         <div>
-                            <label class="label-xs">Token Limit / min</label>
+                            <label for="sc-token-limit-tpm" class="label-xs label-tt">Token Limit / min <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Per-minute token threshold that switches to the fallback model. Leave empty to inherit. 0 disables.</span></span></label>
                             <input type="number" id="sc-token-limit-tpm" min="0" class="input-field">
                         </div>
                         <div>
-                            <label class="label-xs">Token Limit / day</label>
+                            <label for="sc-token-limit-tpd" class="label-xs label-tt">Token Limit / day <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Daily token budget for the primary model on this server. Leave empty to inherit. 0 disables.</span></span></label>
                             <input type="number" id="sc-token-limit-tpd" min="0" class="input-field">
                         </div>
                         <div class="col-span-2">
-                            <label class="label-xs">Use Prefill</label>
+                            <label for="sc-use-prefill" class="label-xs label-tt">Use Prefill <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Injects a partial assistant response to guide output format. May not work with all providers.</span></span></label>
                             <div class="flex items-center h-9">
                                 <label class="toggle-wrap">
                                     <input type="checkbox" id="sc-use-prefill" class="sr-only peer">

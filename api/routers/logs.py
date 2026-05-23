@@ -1,8 +1,13 @@
+import json
+from typing import Optional, List, Callable, Any
+
 from fastapi import APIRouter, HTTPException, Query, Depends
-from fastapi.responses import JSONResponse
-from typing import Optional, List
+from fastapi.responses import StreamingResponse
 from api.db.database import Database
 from api.auth import require_role
+
+EXPORT_BATCH_SIZE = 2000
+EXPORT_MAX_ROWS = 50000
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 db = Database()
@@ -30,6 +35,39 @@ def _discord_server_scope(user: dict, server_id: Optional[str] = None) -> List[s
         _ensure_mod_server(user, server_id)
         return [server_id]
     return mod_servers
+
+
+def _stream_json_export(list_fn: Callable[..., dict], filename: str, **list_kwargs: Any) -> StreamingResponse:
+    """Stream a JSON array in batches to avoid loading huge tables into memory."""
+
+    def generate():
+        yield b"["
+        first = True
+        total = 0
+        page = 1
+        while total < EXPORT_MAX_ROWS:
+            result = list_fn(page=page, limit=EXPORT_BATCH_SIZE, **list_kwargs)
+            items = result.get("items") or []
+            if not items:
+                break
+            for item in items:
+                if total >= EXPORT_MAX_ROWS:
+                    break
+                if not first:
+                    yield b","
+                yield json.dumps(item, default=str).encode("utf-8")
+                first = False
+                total += 1
+            if len(items) < EXPORT_BATCH_SIZE:
+                break
+            page += 1
+        yield b"]"
+
+    return StreamingResponse(
+        generate(),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def _log_in_scope(user: dict, log: dict) -> bool:
@@ -85,16 +123,18 @@ def export_discord_logs(
     server_id: Optional[str] = None,
 ):
     server_scope = _discord_server_scope(current_user, server_id=server_id)
-    result = db.list_discord_logs(
-        page=1, limit=100000,
-        from_date=from_date, to_date=to_date,
-        character=character, channel_id=channel_id,
-        user=user, model=model, source=source, status=status,
+    return _stream_json_export(
+        db.list_discord_logs,
+        "discord_logs.json",
+        from_date=from_date,
+        to_date=to_date,
+        character=character,
+        channel_id=channel_id,
+        user=user,
+        model=model,
+        source=source,
+        status=status,
         server_ids=server_scope,
-    )
-    return JSONResponse(
-        content=result["items"],
-        headers={"Content-Disposition": "attachment; filename=discord_logs.json"}
     )
 
 
@@ -162,15 +202,11 @@ def export_admin_logs(
     user: Optional[str] = None,
     action: List[str] = Query(default=[]),
 ):
-    result = db.list_admin_logs(
-        page=1,
-        limit=100000,
+    return _stream_json_export(
+        db.list_admin_logs,
+        "admin_logs.json",
         from_date=from_date,
         to_date=to_date,
         user=user,
         action=action,
-    )
-    return JSONResponse(
-        content=result["items"],
-        headers={"Content-Disposition": "attachment; filename=admin_logs.json"}
     )

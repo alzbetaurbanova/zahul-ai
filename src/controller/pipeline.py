@@ -13,6 +13,12 @@ from src.utils.llm_new import generate_response
 from src.utils.discord_utils import format_trigger_for_log
 from api.models.models import BotConfig
 from api.db.database import Database
+from src.utils.character_triggers import (
+    apply_history_limit_from_rules,
+    extended_triggers,
+    get_whitelist_characters,
+)
+from src.utils.llm_new import get_bot_config
 
 # --- HELPER FUNCTIONS FOR MULTI-CHARACTER LOGIC ---
 
@@ -29,37 +35,17 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
     triggered_names = set()
     message_lower = message.content.lower()
 
-    for name in channel.whitelist:
-        char_data = db.get_character(name)
-        if not char_data or char_data['name'] in triggered_names:
+    for char_data in get_whitelist_characters(db, channel.whitelist):
+        if char_data['name'] in triggered_names:
             continue
 
-        name_trigger = char_data.get("name", "").lower()
-        raw_triggers = char_data.get("triggers") or []
-
-        # Check for per-server trigger override
-        data = char_data.get("data", {})
-        if server_id and data.get("model_rules_enabled") and data.get("model_rules"):
-            for rule in data["model_rules"]:
-                if server_id in (rule.get("servers") or []):
-                    per_server_triggers = [t.strip() for t in (rule.get("triggers") or []) if t.strip()]
-                    if per_server_triggers:
-                        raw_triggers = per_server_triggers
-                        name_trigger = None  # suppress name auto-trigger when overriding
-                    break
-
-        triggers = [t.lower() for t in raw_triggers]
-        extended_triggers = triggers + ([name_trigger] if name_trigger else [])
-
-        for trigger in extended_triggers:
+        for trigger in extended_triggers(char_data, server_id):
             if not trigger:
                 continue
-            # Use whole-word matching for better accuracy
             if re.search(r'\b' + re.escape(trigger) + r'\b', message_lower):
-                # We found a match, so create the character object and add it
                 triggered_characters.append(ActiveCharacter(char_data, db))
                 triggered_names.add(char_data['name'])
-                break # Move to the next character in the whitelist
+                break
 
     return triggered_characters
 
@@ -92,16 +78,7 @@ async def _generate_and_send_for_character(
 
     print(f"Processing chat for {character.name} in {channel.name}...")
 
-    if server_id:
-        char_raw = db.get_character(character.name)
-        if char_raw:
-            data = char_raw.get("data", {})
-            if data.get("model_rules_enabled") and data.get("model_rules"):
-                for rule in data["model_rules"]:
-                    if server_id in (rule.get("servers") or []):
-                        if rule.get("history_limit") is not None:
-                            character.history_limit = rule["history_limit"]
-                        break
+    apply_history_limit_from_rules(character, server_id)
 
     prompter = PromptEngineer(character, message, channel, messenger)
     prompt = await prompter.create_prompt()
@@ -229,7 +206,7 @@ async def generate_slash_tool_character_reply(
 # --- CORRECT WORKER FUNCTION ---
 async def process_message(zahul, db: Database, message: discord.Message, messenger: DiscordMessenger, queue: asyncio.Queue):
     try:
-        bot_config = BotConfig(**db.list_configs())
+        bot_config = get_bot_config(db)
 
         # --- 1. Load Channel ---
         is_dm = isinstance(message.channel, discord.DMChannel)
@@ -284,7 +261,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         await asyncio.gather(*generation_tasks)
 
         # --- 4. Final Cleanup ---
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.3)
         try:
             await message.remove_reaction('✨', zahul.user)
         except discord.NotFound:
@@ -315,7 +292,7 @@ async def think(zahul, db: Database, queue: asyncio.Queue) -> None:
 
         # 2. Get dynamic config
         try:
-            bot_config = BotConfig(**db.list_configs())
+            bot_config = get_bot_config(db)
             concurrency_limit = bot_config.concurrency
             if concurrency_limit < 1: 
                 concurrency_limit = 1

@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div>
-                <label class="label-tt">Allowed Models <span class="text-hint font-normal">(one per line — first is default)</span></label>
+                <label class="label-tt">Allowed Models <span class="text-hint font-normal">(one per line - first is default)</span></label>
                 <textarea class="provider-models input-field font-mono" rows="3" placeholder="e.g. google/gemini-2.0-flash">${escapeHtml(models)}</textarea>
             </div>
         `;

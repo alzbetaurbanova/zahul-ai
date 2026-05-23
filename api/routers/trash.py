@@ -2,6 +2,7 @@ import json
 import sqlite3
 from fastapi import APIRouter, HTTPException, Depends
 from api.auth import require_role
+from api.db import cache as db_cache
 
 router = APIRouter(prefix="/api/trash", tags=["Trash"])
 
@@ -67,6 +68,7 @@ def _restore_record(db, source_table: str, data: dict):
                 conn.executemany("INSERT INTO character_triggers (character_id, trigger) VALUES (?, ?)",
                                  [(actual_id, t) for t in triggers])
             conn.commit()
+        db_cache.invalidate_characters()
         return db.get_character(name)
 
     elif source_table == "scheduled_tasks":
@@ -100,6 +102,7 @@ def _restore_record(db, source_table: str, data: dict):
                     (ch["channel_id"], ch["server_id"], ch["server_name"], json.dumps(ch.get("data", {})))
                 )
             conn.commit()
+        db_cache.invalidate_channels()
         return db.get_server(data["server_id"])
 
     elif source_table == "channels":
@@ -109,6 +112,7 @@ def _restore_record(db, source_table: str, data: dict):
                 (data["channel_id"], data["server_id"], data["server_name"], json.dumps(data.get("data", {})))
             )
             conn.commit()
+        db_cache.invalidate_channels(data["channel_id"])
         return db.get_channel(data["channel_id"])
 
     elif source_table == "presets":

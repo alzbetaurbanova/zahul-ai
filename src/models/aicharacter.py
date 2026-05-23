@@ -26,8 +26,8 @@ class ActiveCharacter:
         self.name: str = character_data['name']
         self.triggers: List[str] = character_data.get('triggers', [])
         
-        # Unpack the nested 'data' dictionary
         data = character_data.get('data', {})
+        self.data: Dict[str, Any] = data
         self.persona: str = data.get('persona', '')
         self.instructions: str = data.get('instructions', '')
         self.avatar: Optional[str] = data.get('avatar', None)
@@ -41,7 +41,7 @@ class ActiveCharacter:
         """
         Returns the character whose name or trigger appears earliest in the text.
         """
-        all_characters = db.list_characters()
+        all_characters = db.get_character_map_by_name().values()
         text_lower = text.lower()
 
         earliest_match = None  # (index, character_data)

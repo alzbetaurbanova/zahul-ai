@@ -1,5 +1,4 @@
 import asyncio
-import random
 import re
 import discord
 import os
@@ -16,7 +15,12 @@ from src.utils.discord_utils import extract_valid_urls, get_gif_content_descript
 
 def get_bot_config(db: Database) -> BotConfig:
     """Helper to fetch all config key-values from the DB and return a BotConfig object."""
-    return BotConfig(**db.list_configs())
+    from src.utils.llm_new import get_bot_config as _cached_bot_config
+    return _cached_bot_config(db)
+
+
+_CAPTION_SEMAPHORE = asyncio.Semaphore(2)
+_CAPTION_SPACING_SEC = 0.75
 
 
 class _HistoryFormatter:
@@ -92,14 +96,12 @@ class _HistoryFormatter:
 
         temp_image_path = None
         try:
-            await asyncio.sleep(random.uniform(1, 5)) # Add pause to prevent rate limit
-            # Create a unique temporary filename to avoid conflicts
-            ext = image_attachment.filename.split('.')[-1]
-            temp_image_path = f"temp_caption_{uuid.uuid4()}.{ext}"
-            await image_attachment.save(temp_image_path)
-            
-            # Generate new caption using our standalone, database-aware function
-            new_caption = await describe_image(temp_image_path, self.db)
+            async with _CAPTION_SEMAPHORE:
+                await asyncio.sleep(_CAPTION_SPACING_SEC)
+                ext = image_attachment.filename.split('.')[-1]
+                temp_image_path = f"temp_caption_{uuid.uuid4()}.{ext}"
+                await image_attachment.save(temp_image_path)
+                new_caption = await describe_image(temp_image_path, self.db)
             
             # Save the new caption to the database for future use
             if new_caption and "<ERROR>" not in new_caption:

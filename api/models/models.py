@@ -243,3 +243,10 @@ class Task(BaseModel):
     created_at: str
     next_run: Optional[str] = None
     error_message: Optional[str] = None
+
+
+class TaskListResponse(BaseModel):
+    items: List[Task]
+    total: int
+    page: int
+    limit: int

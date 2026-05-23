@@ -341,7 +341,7 @@
             updatePagination();
             return;
         }
-        list.innerHTML = '<div class="text-gray-500 text-center py-12">Loading...</div>';
+        showPanelLoader(list, 'Loading logs...');
         try {
             const res = await fetch(`/api/logs/${apiTab}?${buildParams()}`);
             const data = await res.json().catch(() => ({}));

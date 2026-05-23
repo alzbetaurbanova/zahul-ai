@@ -7,8 +7,8 @@ from api.db.database import Database
 from api.models.models import BotConfig
 
 def get_bot_config(db: Database) -> BotConfig:
-    all_db_configs = db.list_configs()
-    return BotConfig(**all_db_configs)
+    from src.utils.llm_new import get_bot_config as _cached
+    return _cached(db)
 
 async def describe_image(image_path: str, db: Database) -> str:
     """

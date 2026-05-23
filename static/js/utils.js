@@ -26,6 +26,22 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+function panelLoaderHtml(label = 'Loading...', modifier = '') {
+    const modCls = modifier ? ` is-${modifier}` : '';
+    return [
+        '<div class="panel-loader', modCls, '" role="status" aria-live="polite">',
+        '<span class="loader-spinner" aria-hidden="true"></span>',
+        '<span class="panel-loader-label">', escapeHtml(label), '</span>',
+        '</div>',
+    ].join('');
+}
+
+function showPanelLoader(container, label = 'Loading...', modifier = '') {
+    if (!container) return;
+    if (container.querySelector('.panel-loader')) return;
+    container.innerHTML = panelLoaderHtml(label, modifier);
+}
+
 /** Combobox clear (X) only after user types or picks from list — not on programmatic value. */
 function resetFilterComboboxTouch(inputId) {
     const input = typeof inputId === 'string' ? document.getElementById(inputId) : inputId;
