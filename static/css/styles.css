@@ -58,6 +58,10 @@ site-footer.footer-fixed {
     z-index: 10;
 }
 
+site-footer {
+    display: block;
+}
+
 .site-footer {
     background-color: var(--surface-deep);
     border-top: 1px solid var(--dark);
