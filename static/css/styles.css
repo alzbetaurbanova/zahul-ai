@@ -1772,6 +1772,17 @@ body[data-page="logs"] #detail-modal .modal-box {
     animation: loader-spin 0.75s linear infinite;
 }
 
+.loader-spinner-sm {
+    display: inline-block;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid var(--surface-raised);
+    border-top-color: #818cf8;
+    border-radius: 50%;
+    animation: loader-spin 0.75s linear infinite;
+    vertical-align: middle;
+}
+
 .panel-loader {
     display: flex;
     flex-direction: column;

@@ -188,13 +188,13 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'starting':
                 controlStatusIndicator.classList.add('status-starting');
                 controlStatusText.textContent = 'Starting';
-                powerBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Starting...';
+                powerBtn.innerHTML = '<span class="loader-spinner-sm mr-2" aria-hidden="true"></span> Starting...';
                 powerBtn.disabled = true;
                 break;
             case 'stopping':
                 controlStatusIndicator.classList.add('status-stopping');
                 controlStatusText.textContent = 'Stopping';
-                powerBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Stopping...';
+                powerBtn.innerHTML = '<span class="loader-spinner-sm mr-2" aria-hidden="true"></span> Stopping...';
                 powerBtn.disabled = true;
                 break;
             case 'crashed':
