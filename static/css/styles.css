@@ -49,13 +49,13 @@ html {
     margin-top: auto;
 }
 
-#footer-container.footer-fixed {
+site-footer.footer-fixed {
+    display: block;
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 10;
-    margin-top: 0;
 }
 
 .site-footer {
@@ -90,6 +90,11 @@ html {
 .site-footer-version {
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
+}
+
+.site-footer-version [data-version] {
+    display: inline-block;
+    min-width: 4ch;
 }
 .nav-link {
     white-space: nowrap;

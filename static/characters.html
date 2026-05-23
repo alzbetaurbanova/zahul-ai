@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body class="bg-darker text-light" data-page="characters">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="characters">
     <div id="toast-container" class="toast z-50"></div>
 
     <div id="navbar-container"></div>
@@ -18,7 +18,7 @@
     <script src="/static/js/pages/characters.js" defer></script>
 
     <!-- Main Content -->
-    <main class="p-6">
+    <main class="flex-grow p-6">
         <div class="max-w-4xl mx-auto">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <h1 class="heading-page">Character Management</h1>
@@ -201,7 +201,7 @@
         </div>
     </div>
 
-    <div id="footer-container"></div>
+    <site-footer></site-footer>
     <script src="/static/js/footer.js" defer></script>
 </body>
 </html>
