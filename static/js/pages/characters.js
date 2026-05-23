@@ -524,11 +524,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return `/static/avatars/${safeAvatarFileName(name)}.png`;
     }
 
-    /** Encode filename for HTTP (Miloš.png -> Milo%C5%A1.png). */
+    /** Encode filename for HTTP (Miloš.png -> Milo%C5%A1.png). Idempotent if already encoded. */
     function encodeStaticAvatarUrl(path) {
         if (!path || !path.startsWith('/static/avatars/')) return path;
         const rel = path.slice('/static/avatars/'.length).split('?')[0];
-        return `/static/avatars/${encodeURIComponent(rel)}`;
+        let decoded = rel;
+        try {
+            decoded = decodeURIComponent(rel);
+        } catch {
+            /* keep rel as-is */
+        }
+        return `/static/avatars/${encodeURIComponent(decoded)}`;
     }
 
     function isHttpAvatarUrl(value) {

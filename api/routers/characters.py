@@ -15,7 +15,7 @@ This file manages the full lifecycle of characters via RESTful endpoints:
 import asyncio
 import os
 import httpx
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
 from typing import List, Optional
@@ -59,14 +59,14 @@ def _local_avatar_path(name: str) -> Optional[str]:
 
 def _resolve_list_avatar(name: str, avatar: Optional[str]) -> str:
     """
-    Return a URL-safe avatar path for list/grid display only.
-    Does not change stored character data; never replaces external URLs with static files.
+    Return a canonical static avatar path for list/grid display (unencoded filename).
+    Encoding for HTTP is done in the browser; never double-encode here.
     """
     av = (avatar or "").strip()
     if av.startswith("/static/"):
-        rel = av.removeprefix("/static/avatars/").split("?", 1)[0]
+        rel = unquote(av.removeprefix("/static/avatars/").split("?", 1)[0])
         if rel and os.path.isfile(os.path.join(_AVATARS_DIR, rel)):
-            return _static_avatar_url(rel)
+            return f"/static/avatars/{rel}"
     return av
 
 
