@@ -1089,7 +1089,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     opacity: 1;
 }
 
-.tt .tt-body.tt-right {
+.tt .tt-body.tt-right,
+.tt .tt-body.tt-align-left {
     left: 0;
     transform: none;
 }
@@ -1293,11 +1294,170 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
     justify-content: center;
     z-index: 50;
     padding: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .modal-backdrop.top {
     align-items: flex-start;
     padding-top: 4rem;
+}
+
+.modal-backdrop-top-offset {
+    padding-top: 12rem;
+}
+
+.modal-box-padded {
+    padding: 1.5rem;
+    box-sizing: border-box;
+}
+
+.modal-box-scroll {
+    max-height: 90vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 0;
+}
+
+.modal-title-row {
+    margin-bottom: 1.5rem;
+}
+
+.modal-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+}
+
+.form-section-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.divider-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+}
+
+.field-hint {
+    margin-top: 0.5rem;
+}
+
+/* Server settings modal (overrides form) */
+.server-config-modal {
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+    container-type: inline-size;
+    container-name: server-config;
+}
+
+.server-config-header {
+    gap: 0.75rem;
+    min-width: 0;
+    margin-bottom: 1rem;
+}
+
+.server-config-header-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.server-config-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+.server-config-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+@media (min-width: 640px) {
+    .server-config-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.server-config-grid > * {
+    min-width: 0;
+}
+
+.server-config-modal .label-tt {
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.server-config-modal .server-config-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Same 4-column tracks as row above — token limits align with Temperature / Max Tokens */
+@container server-config (min-width: 30rem) {
+    .server-config-modal .server-config-grid-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .server-config-modal .server-config-prefill-cell {
+        grid-column: span 2;
+    }
+}
+
+@container server-config (max-width: 29.99rem) {
+    .server-config-modal .server-config-prefill-cell {
+        grid-column: 1 / -1;
+    }
+}
+
+.server-config-prefill-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: center;
+    min-width: 0;
+}
+
+.server-config-prefill-cell > .label-tt {
+    margin-bottom: 0.25rem;
+}
+
+.server-config-prefill-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    width: 100%;
+}
+
+.server-config-prefill-controls .btn-gray-sm {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.5rem;
+}
+
+.server-config-modal .input-field {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.server-config-modal .flex-between {
+    min-width: 0;
+}
+
+.server-config-modal .flex-between > * {
+    min-width: 0;
 }
 
 .fieldset-section {
@@ -1674,6 +1834,14 @@ input.date-filter-md::-webkit-clear-button {
     right: 0.45rem;
 }
 
+.select-wrap.custom-select-enhanced .icon-clear-btn {
+    right: 1.55rem;
+}
+
+.select-wrap.custom-select-enhanced:has(.custom-select-btn.select-sm) .icon-clear-btn {
+    right: 1.35rem;
+}
+
 /* ========================================================================== */
 /* Dropdown (cb-dd) Styling                                                    */
 /* ========================================================================== */
@@ -1791,6 +1959,146 @@ input.date-filter-md::-webkit-clear-button {
 
 .cb-dd-item:hover {
     background-color: var(--surface);
+}
+
+/* ========================================================================== */
+/* Custom single-select (replaces native <select> UI)                          */
+/* ========================================================================== */
+select.custom-select-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.select-wrap.custom-select-enhanced {
+    display: inline-flex;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+.custom-select-sizer {
+    position: absolute;
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.select-wrap.custom-select-enhanced::after {
+    display: none;
+}
+
+.custom-select-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    border: 1px solid var(--surface-raised);
+    background-color: var(--surface);
+    color: var(--light);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    padding: 0.5rem 0.75rem;
+    padding-right: 2rem;
+    position: relative;
+}
+
+.select-wrap.custom-select-enhanced:has(.icon-clear-btn) .custom-select-btn {
+    padding-right: 3.5rem;
+}
+
+.custom-select-btn.select-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    padding-right: 1.75rem;
+    line-height: 1.25rem;
+}
+
+.select-wrap.custom-select-enhanced:has(.icon-clear-btn) .custom-select-btn.select-sm {
+    padding-right: 3rem;
+}
+
+.custom-select-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.custom-select-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-select-chevron {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    pointer-events: none;
+}
+
+.custom-select-dd {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    z-index: 40;
+    background-color: var(--surface-deep);
+    border: 1px solid var(--surface-raised);
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    padding: 0.25rem 0;
+    max-height: min(16rem, 50vh);
+    overflow-y: auto;
+}
+
+.custom-select-dd.hidden {
+    display: none !important;
+}
+
+.custom-select-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--light);
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.custom-select-option.is-selected {
+    color: var(--primary-light);
+    font-weight: 500;
+}
+
+.custom-select-option.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.custom-select-option:hover:not(.is-disabled) {
+    background-color: var(--surface);
+}
+
+/* Users / Sessions filters: short option lists — no scroll clip */
+body[data-page="users"] #users-filter-role .custom-select-dd,
+body[data-page="users"] #users-filter-type .custom-select-dd,
+body[data-page="users"] #sessions-filters .custom-select-dd {
+    max-height: none;
+    overflow-y: visible;
 }
 
 /* ========================================================================== */
@@ -1997,6 +2305,8 @@ body[data-page="logs"] .tab-lock-wrap {
     border-radius: 0.75rem;
     border: 1px solid var(--surface);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .btn-modal-close {
@@ -2006,7 +2316,10 @@ body[data-page="logs"] .tab-lock-wrap {
 }
 
 .modal-sm { width: 100%; max-width: 24rem; }
-.modal-md { width: 100%; max-width: 42rem; }
+.modal-md {
+    width: 100%;
+    max-width: min(42rem, calc(100vw - 2rem));
+}
 .modal-lg { width: 100%; max-width: 52rem; }
 
 .modal-header {

@@ -41,6 +41,9 @@
     --text-soft:     #4f5d6e;   /* secondary text */
     --text-dim:      #697889;   /* tertiary text */
     --text-muted:    #8492a3;   /* faint text */
+
+    --tooltip-bg:     color-mix(in srgb, var(--darker) 50%, var(--surface-deep) 50%);
+    --tooltip-border: #b4c4d6;
 }
 
 /* ── Tailwind custom-colour overrides ────────────────────────────────────── */
@@ -138,20 +141,6 @@
 [data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
 [data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
 
-/* Character cards: light gray overlay (more transparent than dark scrim) */
-[data-theme="light"] .character-card-overlay {
-    background-image: linear-gradient(
-        to top,
-        rgb(226 232 240 / 0.72),
-        rgb(226 232 240 / 0.2) 40%,
-        transparent 55%
-    );
-}
-
-[data-theme="light"] .character-card-title {
-    color: #1e293b;
-}
-
 /* ── Misc ────────────────────────────────────────────────────────────────── */
 [data-theme="light"] input[type="date"],
 [data-theme="light"] input[type="datetime-local"] { color-scheme: light; }
@@ -197,7 +186,8 @@
 
 /* Combobox / picker dropdown hover — same tint as .nav-link:hover */
 [data-theme="light"] .combobox-item:hover,
-[data-theme="light"] .scheduler-combobox-item:hover {
+[data-theme="light"] .scheduler-combobox-item:hover,
+[data-theme="light"] .custom-select-option:hover:not(.is-disabled) {
     background-color: rgba(99, 102, 241, 0.1);
 }
 
@@ -223,4 +213,23 @@
 [data-theme="light"] .toggle-track::after {
     background-color: #ffffff;
     border-color: var(--surface-raised);
+}
+
+/* ── Tooltips ───────────────────────────────────────────────────────────── */
+[data-theme="light"] .tt .tt-body {
+    color: var(--light);
+    background: var(--tooltip-bg);
+    border-color: var(--tooltip-border);
+    box-shadow: 0 4px 14px rgba(27, 39, 52, 0.12);
+}
+
+[data-theme="light"] .tooltip-popup {
+    color: var(--text-soft);
+    background-color: var(--tooltip-bg);
+    border-color: var(--tooltip-border);
+    box-shadow: 0 4px 14px rgba(27, 39, 52, 0.12);
+}
+
+[data-theme="light"] .tooltip-text {
+    color: var(--light);
 }

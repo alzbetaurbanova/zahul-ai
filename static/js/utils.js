@@ -370,6 +370,198 @@ function initDateFilterMd(inputId, onChange) {
     sync();
 }
 
+let _customSelectOutsideCloseBound = false;
+
+function getSelectDisplayLabel(select) {
+    const opt = select.options[select.selectedIndex];
+    return opt ? opt.textContent.trim() : '';
+}
+
+function closeAllCustomSelectDropdowns() {
+    document.querySelectorAll('.custom-select-dd').forEach(dd => dd.classList.add('hidden'));
+    document.querySelectorAll('.custom-select-btn').forEach(btn => btn.setAttribute('aria-expanded', 'false'));
+}
+
+function measureSelectOptionTextWidth(text, styles, sizer) {
+    const sample = String(text || '').trim();
+    if (!sample) return 0;
+    sizer.textContent = sample;
+    sizer.style.font = styles.font;
+    if (sizer.offsetWidth > 0) return sizer.offsetWidth;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 0;
+    ctx.font = `${styles.fontStyle} ${styles.fontVariant} ${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+    return ctx.measureText(sample).width;
+}
+
+function syncCustomSelectWidth(select) {
+    const wrap = select?.closest('.custom-select-enhanced');
+    const btn = wrap?.querySelector('.custom-select-btn');
+    if (!wrap || !btn) return;
+
+    let sizer = wrap.querySelector('.custom-select-sizer');
+    if (!sizer) {
+        sizer = document.createElement('span');
+        sizer.className = 'custom-select-sizer';
+        sizer.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(sizer);
+    }
+
+    const styles = getComputedStyle(btn);
+
+    let maxTextW = 0;
+    [...select.options].forEach((opt) => {
+        if (opt.hidden) return;
+        maxTextW = Math.max(maxTextW, measureSelectOptionTextWidth(opt.textContent, styles, sizer));
+    });
+
+    const clearBtn = wrap.querySelector('.icon-clear-btn');
+    const isSm = select.classList.contains('select-sm');
+    const padL = parseFloat(styles.paddingLeft) || 0;
+    const padR = clearBtn
+        ? (isSm ? 48 : 56)
+        : (parseFloat(styles.paddingRight) || 0);
+    const borderX = (parseFloat(styles.borderLeftWidth) || 0) + (parseFloat(styles.borderRightWidth) || 0);
+    const fixedWidth = Math.ceil(maxTextW + padL + padR + borderX);
+
+    wrap.dataset.customSelectWidth = String(fixedWidth);
+    wrap.style.minWidth = `${fixedWidth}px`;
+    if (select.classList.contains('w-full')) {
+        wrap.style.width = '100%';
+    } else {
+        wrap.style.width = `${fixedWidth}px`;
+    }
+}
+
+function refreshCustomSelect(select) {
+    if (!select || select.dataset.customSelect !== '1') return;
+    const wrap = select.closest('.custom-select-enhanced');
+    const label = wrap?.querySelector('.custom-select-label');
+    if (label) label.textContent = getSelectDisplayLabel(select);
+    if (typeof select._customSelectBuildOptions === 'function') select._customSelectBuildOptions();
+    const btn = wrap?.querySelector('.custom-select-btn');
+    if (btn) btn.disabled = select.disabled;
+    syncCustomSelectWidth(select);
+}
+
+/** Replace native select UI with custom dropdown; keeps the select for value/events. */
+function setupCustomSelect(select) {
+    if (!select || select.tagName !== 'SELECT') return;
+    if (select.dataset.customSelectSkip === '1') return;
+    if (select.dataset.customSelect === '1') {
+        refreshCustomSelect(select);
+        return;
+    }
+    select.dataset.customSelect = '1';
+
+    let wrap = select.closest('.select-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'select-wrap custom-select-enhanced relative';
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+    } else {
+        wrap.classList.add('custom-select-enhanced', 'relative');
+    }
+
+    select.classList.add('custom-select-native');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'custom-select-btn';
+    if (select.classList.contains('select-sm')) btn.classList.add('select-sm');
+    for (const cls of select.classList) {
+        if (/^w-/.test(cls) || cls === 'text-sm' || cls === 'py-2' || cls === 'px-2') btn.classList.add(cls);
+    }
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'custom-select-label';
+    labelSpan.textContent = getSelectDisplayLabel(select);
+
+    const chevron = document.createElement('i');
+    chevron.className = 'fas fa-chevron-down custom-select-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+
+    btn.appendChild(labelSpan);
+    btn.appendChild(chevron);
+
+    const dd = document.createElement('div');
+    dd.className = 'custom-select-dd hidden';
+    dd.setAttribute('role', 'listbox');
+
+    select.insertAdjacentElement('afterend', btn);
+    btn.insertAdjacentElement('afterend', dd);
+
+    function buildOptions() {
+        dd.innerHTML = '';
+        [...select.options].forEach(opt => {
+            if (opt.hidden) return;
+            const row = document.createElement('div');
+            row.className = 'custom-select-option';
+            row.setAttribute('role', 'option');
+            row.dataset.value = opt.value;
+            row.textContent = opt.textContent;
+            if (opt.value === select.value) row.classList.add('is-selected');
+            if (opt.disabled) row.classList.add('is-disabled');
+            row.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                if (opt.disabled) return;
+                select.value = opt.value;
+                labelSpan.textContent = opt.textContent.trim();
+                closeAllCustomSelectDropdowns();
+                buildOptions();
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                select.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            dd.appendChild(row);
+        });
+    }
+
+    select._customSelectBuildOptions = buildOptions;
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (select.disabled) return;
+        const wasOpen = !dd.classList.contains('hidden');
+        closeAllCustomSelectDropdowns();
+        if (!wasOpen) {
+            buildOptions();
+            dd.classList.remove('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+        }
+    });
+
+    select.addEventListener('change', () => refreshCustomSelect(select));
+
+    const observer = new MutationObserver(() => refreshCustomSelect(select));
+    observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
+
+    btn.disabled = select.disabled;
+    buildOptions();
+    syncCustomSelectWidth(select);
+}
+
+function initCustomSelects(root = document) {
+    root.querySelectorAll('select:not([data-custom-select-skip])').forEach(setupCustomSelect);
+    if (!_customSelectOutsideCloseBound) {
+        _customSelectOutsideCloseBound = true;
+        document.addEventListener('click', closeAllCustomSelectDropdowns);
+    }
+}
+
+function bootCustomSelects() {
+    initCustomSelects(document);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootCustomSelects);
+} else {
+    bootCustomSelects();
+}
+
 const ROLE_LEVELS = { super_admin: 4, admin: 3, mod: 2, guest: 1, pending: 0, rejected: 0, user: 0 };
 
 function roleAtLeast(role, minRole) {
@@ -382,3 +574,6 @@ function canMutate(role) {
 
 window.roleAtLeast = roleAtLeast;
 window.canMutate = canMutate;
+window.setupCustomSelect = setupCustomSelect;
+window.refreshCustomSelect = refreshCustomSelect;
+window.initCustomSelects = initCustomSelects;

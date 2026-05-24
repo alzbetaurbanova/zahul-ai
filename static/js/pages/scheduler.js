@@ -83,6 +83,7 @@
             if (selectedValue && options.some(opt => opt.value === selectedValue)) {
                 statusSelect.value = selectedValue;
             }
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(statusSelect);
         }
 
         // Type pill buttons

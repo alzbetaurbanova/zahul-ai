@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fixed === 'pending' || fixed === 'rejected') sel.value = fixed;
         else if (assignable.includes(u.role)) sel.value = u.role;
         else sel.value = u.role;
+        if (typeof refreshCustomSelect === 'function') refreshCustomSelect(sel);
     }
     function syncSuperAdminRoleOptions() {
         const allowSuperAdminRole = _currentUserRole === 'super_admin';
@@ -166,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!allowSuperAdminRole && select.value === 'super_admin') {
                 select.value = 'admin';
             }
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(select);
         });
     }
 
@@ -321,6 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (resolvedTab === 'sessions') {
+            const sessionsFilters = document.getElementById('sessions-filters');
+            if (typeof initCustomSelects === 'function' && sessionsFilters) {
+                initCustomSelects(sessionsFilters);
+            }
+            ['filter-session-browser', 'filter-session-os'].forEach((id) => {
+                const sel = document.getElementById(id);
+                if (sel && typeof refreshCustomSelect === 'function') refreshCustomSelect(sel);
+            });
             if (_sessionsLoaded) {
                 renderFilteredSessions();
                 loadSessions({ silent: true });
@@ -461,6 +471,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initSessionFilters() {
         initSessionCombobox();
+        const sessionsFilters = document.getElementById('sessions-filters');
+        if (typeof initCustomSelects === 'function' && sessionsFilters) {
+            initCustomSelects(sessionsFilters);
+        }
+        if (typeof initFilterClear === 'function' && sessionsFilters) {
+            initFilterClear(() => {
+                document.getElementById('filter-session-user-dd')?.classList.add('hidden');
+                _sessionPage = 1;
+                renderFilteredSessions();
+            }, sessionsFilters);
+        }
         document.getElementById('filter-session-browser')?.addEventListener('change', () => {
             _sessionPage = 1;
             renderFilteredSessions();
@@ -497,19 +518,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('clear-session-filters-btn')?.addEventListener('click', () => {
             const fu = document.getElementById('filter-session-user');
             if (fu) { fu.value = ''; if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu); }
-            document.getElementById('filter-session-browser').value = '';
-            document.getElementById('filter-session-os').value = '';
+            ['filter-session-browser', 'filter-session-os'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.value = '';
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
             document.getElementById('filter-session-user-dd')?.classList.add('hidden');
             document.querySelectorAll('#sessions-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
             document.querySelectorAll('#sessions-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
             _sessionPage = 1;
             renderFilteredSessions();
         });
-        if (typeof initFilterClear === 'function') initFilterClear(() => {
-            document.getElementById('filter-session-user-dd')?.classList.add('hidden');
-            _sessionPage = 1;
-            renderFilteredSessions();
-        }, document.getElementById('sessions-filters'));
     }
 
     function updateSessionFooter(totalItems) {
@@ -753,6 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
         }).join('');
+        if (typeof initCustomSelects === 'function') initCustomSelects(list);
         list.querySelectorAll('[data-request-id]').forEach(row => {
             const requestId = row.getAttribute('data-request-id');
             const approveBtn = row.querySelector('.request-approve-btn');
