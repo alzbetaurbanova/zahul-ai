@@ -2,6 +2,11 @@ import json
 from typing import Optional, List, Callable, Any
 
 from fastapi import APIRouter, HTTPException, Query, Depends
+from pydantic import BaseModel
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[int]
 from fastapi.responses import StreamingResponse
 from api.db.database import Database
 from api.auth import require_role
@@ -148,8 +153,17 @@ def get_discord_log(log_id: int, current_user: dict = Depends(require_role("gues
     return log
 
 
+@router.delete("/discord/bulk", status_code=200)
+def bulk_delete_discord_logs(body: BulkDeleteRequest, current_user: dict = Depends(require_role("super_admin"))):
+    if not body.ids:
+        raise HTTPException(status_code=422, detail="No IDs provided")
+    deleted = db.delete_discord_logs_bulk(body.ids)
+    db.log_admin('log.bulk_delete', target=f"discord_logs ({deleted} entries)", actor=current_user)
+    return {"deleted": deleted}
+
+
 @router.delete("/discord/{log_id}", status_code=204)
-def delete_discord_log(log_id: int, current_user: dict = Depends(require_role("admin"))):
+def delete_discord_log(log_id: int, current_user: dict = Depends(require_role("super_admin"))):
     log = db.get_discord_log(log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
@@ -165,8 +179,17 @@ def get_admin_log(log_id: int, _: dict = Depends(require_role("admin"))):
     return log
 
 
+@router.delete("/admin/bulk", status_code=200)
+def bulk_delete_admin_logs(body: BulkDeleteRequest, current_user: dict = Depends(require_role("super_admin"))):
+    if not body.ids:
+        raise HTTPException(status_code=422, detail="No IDs provided")
+    deleted = db.delete_admin_logs_bulk(body.ids)
+    db.log_admin('log.bulk_delete', target=f"admin_logs ({deleted} entries)", actor=current_user)
+    return {"deleted": deleted}
+
+
 @router.delete("/admin/{log_id}", status_code=204)
-def delete_admin_log(log_id: int, current_user: dict = Depends(require_role("admin"))):
+def delete_admin_log(log_id: int, current_user: dict = Depends(require_role("super_admin"))):
     log = db.get_admin_log(log_id)
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")

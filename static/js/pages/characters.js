@@ -193,15 +193,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function measureDropdownWidth(dd) {
-        const wasHidden = dd.classList.contains('hidden');
-        dd.classList.remove('hidden');
-        dd.style.visibility = 'hidden';
-        dd.style.width = 'max-content';
-        const w = dd.scrollWidth;
-        dd.style.visibility = '';
-        dd.style.width = '';
-        if (wasHidden) dd.classList.add('hidden');
-        return w;
+        const measurer = document.createElement('span');
+        measurer.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;font-size:0.875rem;';
+        document.body.appendChild(measurer);
+        let maxW = 0;
+        dd.querySelectorAll('label > span').forEach(span => {
+            measurer.textContent = span.textContent;
+            // label: px-3 (24px) + gap-2 (8px) + checkbox (~16px) = 48px overhead
+            const w = measurer.offsetWidth + 48;
+            if (w > maxW) maxW = w;
+        });
+        document.body.removeChild(measurer);
+        return maxW;
     }
 
     function syncModelRuleWidths() {

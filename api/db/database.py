@@ -945,6 +945,19 @@ class Database:
             conn.execute("DELETE FROM discord_logs WHERE id = ?", (log_id,))
             conn.commit()
 
+    def delete_discord_logs_bulk(self, log_ids: list[int]) -> int:
+        if not log_ids:
+            return 0
+        trash = _get_trash_db()
+        with self._get_connection() as conn:
+            placeholders = ",".join("?" * len(log_ids))
+            rows = conn.execute(f"SELECT * FROM discord_logs WHERE id IN ({placeholders})", log_ids).fetchall()
+            for row in rows:
+                trash.move_to_trash("discord_logs", str(row["id"]), dict(row))
+            result = conn.execute(f"DELETE FROM discord_logs WHERE id IN ({placeholders})", log_ids)
+            conn.commit()
+            return result.rowcount
+
     # ------------------------------------------------------
     # Logs
     # ------------------------------------------------------
@@ -1075,6 +1088,19 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM admin_logs WHERE id = ?", (log_id,))
             conn.commit()
+
+    def delete_admin_logs_bulk(self, log_ids: list[int]) -> int:
+        if not log_ids:
+            return 0
+        trash = _get_trash_db()
+        with self._get_connection() as conn:
+            placeholders = ",".join("?" * len(log_ids))
+            rows = conn.execute(f"SELECT * FROM admin_logs WHERE id IN ({placeholders})", log_ids).fetchall()
+            for row in rows:
+                trash.move_to_trash("admin_logs", str(row["id"]), dict(row))
+            result = conn.execute(f"DELETE FROM admin_logs WHERE id IN ({placeholders})", log_ids)
+            conn.commit()
+            return result.rowcount
 
     def list_admin_logs(self, page: int = 1, limit: int = 50, **filters) -> Dict:
         conditions, params = [], []

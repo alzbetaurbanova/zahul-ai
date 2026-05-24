@@ -114,8 +114,6 @@ async def check_bot_status(_: dict = Depends(require_role("guest"))):
 @router.get("/invite")
 async def get_discord_invite(user: dict = Depends(require_role("mod"))):
     if bot_state.bot_instance and bot_state.bot_instance.invite_link:
-        db = Database()
-        db.log_admin('invite.copied', target='discord_invite', actor=user)
         return {"status": "active", "invite": bot_state.bot_instance.invite_link}
     else:
         return {"status": "inactive", "message": "Bot is not running or invite link is not yet available."}
