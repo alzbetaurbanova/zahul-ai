@@ -22,3 +22,4 @@ class QueueItem:
     temperature: float = None
     history_count: int = 0
     server_id: str = None
+    endpoint_label: str = None

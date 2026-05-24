@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - Logs</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Logs</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="bg-darker text-light min-h-screen" data-page="logs">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="logs">
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/logs.js" defer></script>
 
-    <main class="p-6">
-        <div class="max-w-6xl mx-auto">
-            <div class="flex-between mb-6">
-                <h1 class="page-title">Logs</h1>
+    <main class="page">
+        <div class="main-content">
+            <div class="flex flex-wrap items-center justify-between">
+                <div class="page-heading">
+                    <h1 class="page-title">Logs</h1>
+                    <p class="page-subtitle">Browse Discord activity and admin audit logs.</p>
+                </div>
                 <button id="export-btn" class="btn-gray text-sm"><i class="fas fa-download mr-2"></i>Export JSON</button>
             </div>
 
@@ -29,23 +34,48 @@
 
             <!-- Discord Filters -->
             <div id="discord-filters" class="filter-panel mb-5">
-                <div><label class="label-xs">From</label><div class="relative"><input type="date" id="df-from" class="input-field pr-8"><button id="df-from-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="label-xs">To</label><div class="relative"><input type="date" id="df-to" class="input-field pr-8"><button id="df-to-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
+                <div><label class="label-xs">Server</label>
+                    <div class="relative">
+                        <input type="text" id="df-server" autocomplete="off" placeholder="all" class="input-field w-auto pr-8">
+                        <button class="icon-clear-btn hidden" data-clear="df-server" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="df-server-dd" class="autocomplete-dd hidden"></div>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-xs" for="df-from">From</label>
+                    <div class="date-filter-wrap">
+                        <div class="date-filter-clip">
+                            <input type="date" id="df-from" class="input-field date-filter-md">
+                        </div>
+                        <button type="button" id="df-from-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
+                        <button type="button" id="df-from-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-xs" for="df-to">To</label>
+                    <div class="date-filter-wrap">
+                        <div class="date-filter-clip">
+                            <input type="date" id="df-to" class="input-field date-filter-md">
+                        </div>
+                        <button type="button" id="df-to-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
+                        <button type="button" id="df-to-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
                 <div><label class="label-xs">Character</label>
                     <div class="relative">
-                        <input type="text" id="df-character" autocomplete="off" placeholder="any" class="input-field w-32 pr-8">
+                        <input type="text" id="df-character" autocomplete="off" placeholder="all" class="input-field w-36 pr-8">
                         <button class="icon-clear-btn hidden" data-clear="df-character" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="df-character-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
                 <div><label class="label-xs">User</label>
                     <div class="relative">
-                        <input type="text" id="df-user" autocomplete="off" placeholder="any" class="input-field w-32 pr-8">
+                        <input type="text" id="df-user" autocomplete="off" placeholder="all" class="input-field w-36 pr-8">
                         <button class="icon-clear-btn hidden" data-clear="df-user" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="df-user-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
-                <div class="relative w-56">
+                <div class="relative w-36">
                     <label class="label-xs">Source</label>
                     <button type="button" class="cb-dd-btn w-full" data-dd="dd-source">
                         <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
@@ -59,7 +89,7 @@
                         <label class="cb-dd-item"><input type="checkbox" value="scheduler" class="df-source-cb accent-indigo-500"> Scheduler</label>
                     </div>
                 </div>
-                <div class="relative w-56">
+                <div class="relative w-36">
                     <label class="label-xs">Status</label>
                     <button type="button" class="cb-dd-btn w-full" data-dd="dd-status">
                         <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
@@ -78,11 +108,9 @@
 
             <!-- Admin Filters -->
             <div id="admin-filters" class="filter-panel mb-5 hidden">
-                <div><label class="label-xs">From</label><div class="relative"><input type="date" id="af-from" class="input-field pr-8"><button id="af-from-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
-                <div><label class="label-xs">To</label><div class="relative"><input type="date" id="af-to" class="input-field pr-8"><button id="af-to-clear" class="icon-clear-btn"><i class="fas fa-times"></i></button></div></div>
                 <div><label class="label-xs">User</label>
                     <div class="relative">
-                        <input type="text" id="af-user" autocomplete="off" placeholder="any" class="input-field w-40 pr-8">
+                        <input type="text" id="af-user" autocomplete="off" placeholder="all" class="input-field w-40 pr-8">
                         <button class="icon-clear-btn hidden" data-clear="af-user" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="af-user-dd" class="autocomplete-dd hidden"></div>
                     </div>
@@ -141,11 +169,36 @@
                         </div>
                     </div>
                 </div>
+                <div>
+                    <label class="label-xs" for="af-from">From</label>
+                    <div class="date-filter-wrap">
+                        <div class="date-filter-clip">
+                            <input type="date" id="af-from" class="input-field date-filter-md">
+                        </div>
+                        <button type="button" id="af-from-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
+                        <button type="button" id="af-from-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-xs" for="af-to">To</label>
+                    <div class="date-filter-wrap">
+                        <div class="date-filter-clip">
+                            <input type="date" id="af-to" class="input-field date-filter-md">
+                        </div>
+                        <button type="button" id="af-to-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
+                        <button type="button" id="af-to-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
                 <button id="admin-clear-btn" class="btn-clear-filter">Clear filters</button>
             </div>
 
             <!-- Log List -->
-            <div id="log-list" class="space-y-2"></div>
+            <div id="log-list" class="space-y-2">
+                <div class="panel-loader" role="status" aria-live="polite">
+                    <span class="loader-spinner" aria-hidden="true"></span>
+                    <span class="panel-loader-label">Loading logs...</span>
+                </div>
+            </div>
 
             <!-- Pagination -->
             <div id="pagination" class="pagination-bar">
@@ -178,6 +231,7 @@
         </div>
     </div>
 
-
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

@@ -22,14 +22,15 @@ Securing who may open the panel (password, OAuth) is separate: see [Panel Securi
 ## Core AI settings
 
 
-| Field                 | Description                                              |
-| --------------------- | -------------------------------------------------------- |
-| **AI Endpoint URL**   | Base URL of your AI provider (OpenAI-compatible)         |
-| **Primary Model**     | Default model for replies - must match the provider’s id |
-| **Temperature**       | Randomness (0-2); typical default around `0.7`           |
-| **History Limit**     | How many past messages the model sees                    |
-| **Max Output Tokens** | Cap on reply length                                      |
-| **Chain Limit**       | Max bot-to-bot replies in a chain before stopping        |
+| Field                  | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| **AI Endpoint URL**    | Base URL of your AI provider (OpenAI-compatible)         |
+| **Primary Model**      | Default model for replies - must match the provider’s id |
+| **Allowed Models**     | One model id per line; populates the Primary Model dropdown and dropdowns in other sections (e.g. character overrides). No effect on the bot at runtime - you can still type any model freely. |
+| **Temperature**        | Randomness (0-2); typical default around `0.7`           |
+| **History Limit**      | How many past messages the model sees                    |
+| **Max Output Tokens**  | Cap on reply length                                      |
+| **Chain Limit**        | Max bot-to-bot replies in a chain before stopping        |
 
 
 ### Common endpoint examples
@@ -45,7 +46,18 @@ Securing who may open the panel (password, OAuth) is separate: see [Panel Securi
 
 ## Fallback and rate limits
 
-When the primary model hits rate limits, the bot can switch to a **fallback model** for a configurable duration. Tune fallback model, duration, and token thresholds in AI Config.
+When the primary model hits rate limits, the bot switches to a **fallback model** for a configurable duration.
+
+| Field                           | Description                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Fallback Model**              | Model used during fallback; dropdown is populated from Allowed Models                       |
+| **Fallback Duration**           | How long fallback stays active after a rate limit hit (seconds)                             |
+| **Rate Limit Trigger**          | Per-minute token threshold that triggers the switch (0 = disabled)                          |
+| **Daily Token Budget**          | Total daily token budget for the primary model; when reached, switches for the fallback duration (0 = disabled) |
+| **Use different endpoint**      | When enabled, the fallback model uses its own endpoint and API key instead of the primary   |
+| **Fallback Endpoint URL**       | Shown when "Use different endpoint" is on                                                   |
+| **Fallback API Key**            | Shown when "Use different endpoint" is on; blank save keeps the stored value                |
+| **Fallback Allowed Models**     | Shown when "Use different endpoint" is on; populates the Fallback Model dropdown. When the toggle is off, the Fallback Model dropdown uses the primary Allowed Models list instead. |
 
 ## Keys and integration
 

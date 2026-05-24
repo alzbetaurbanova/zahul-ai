@@ -5,10 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy">
-    <title>zahul-ai - Admin Panel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Admin Panel</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 <body class="bg-darker text-light" data-page="dashboard">
     <div class="flex flex-col min-h-screen">
@@ -19,7 +21,7 @@
 
         <!-- Main Content -->
         <main class="page">
-            <div class="main-content max-w-7xl w-full">
+            <div class="main-content">
                 <div class="page-heading">
                     <h1 class="page-title">Admin Dashboard</h1>
                     <p class="page-subtitle">Manage your zahul-ai instance</p>
@@ -55,20 +57,6 @@
                             </div>
                         </div>
 
-                        <!-- Stats shortcut -->
-                        <a href="/stats" class="card-dark card-link group flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
-                                    <i class="fas fa-chart-bar text-indigo-400 text-sm"></i>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-white">Stats</div>
-                                    <div class="text-xs text-gray-500">Usage, tokens &amp; activity</div>
-                                </div>
-                            </div>
-                            <i class="fas fa-arrow-right text-gray-600 group-hover:text-indigo-400 transition-colors text-xs"></i>
-                        </a>
-
                         <!-- Servers shortcut -->
                         <a href="/servers" class="card-dark card-link group flex items-center justify-between">
                             <div class="flex items-center gap-3">
@@ -78,6 +66,20 @@
                                 <div>
                                     <div class="text-sm font-medium text-white">Servers</div>
                                     <div class="text-xs text-gray-500">Channels &amp; configuration</div>
+                                </div>
+                            </div>
+                            <i class="fas fa-arrow-right text-gray-600 group-hover:text-indigo-400 transition-colors text-xs"></i>
+                        </a>
+
+                        <!-- Stats shortcut -->
+                        <a href="/stats" class="card-dark card-link group flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-chart-bar text-indigo-400 text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Stats</div>
+                                    <div class="text-xs text-gray-500">Usage, tokens &amp; activity</div>
                                 </div>
                             </div>
                             <i class="fas fa-arrow-right text-gray-600 group-hover:text-indigo-400 transition-colors text-xs"></i>
@@ -93,7 +95,7 @@
                                     <span class="text-xs text-gray-400 mr-2">Auto-scroll</span>
                                     <label class="toggle-wrap">
                                         <input id="auto-scroll-toggle" type="checkbox" value="" class="sr-only peer" checked>
-                                        <div class="dashboard-toggle-ui"></div>
+                                        <div class="toggle-track"></div>
                                     </label>
                                 </div>
                             </div>
@@ -108,8 +110,8 @@
                 </div>
             </div>
         </main>
+        <site-footer></site-footer>
     </div>
-
-    
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

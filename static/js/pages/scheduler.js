@@ -97,6 +97,12 @@
             reminderFields.classList.toggle('hidden', isSchedule);
             scheduleFields.classList.toggle('hidden', !isSchedule);
             document.getElementById('name-field').classList.toggle('hidden', !isSchedule);
+            const nameInput = document.getElementById('f-name');
+            const scheduledInput = document.getElementById('f-scheduled-time');
+            const repeatTimeInput = document.getElementById('f-repeat-time');
+            if (nameInput) nameInput.required = isSchedule;
+            if (scheduledInput) scheduledInput.required = !isSchedule;
+            if (repeatTimeInput) repeatTimeInput.required = isSchedule;
             if (isSchedule) {
                 setMessageMode('exact');
                 document.getElementById('f-instructions').placeholder = "e.g. Write a dramatic scene about today's events.";
@@ -197,44 +203,97 @@
 
         // Populate character dropdown
         let _charNames = [];
+        let _charactersPromise = null;
 
         async function loadCharacters() {
-            try {
-                const data = await fetch('/api/characters').then(r => r.json());
-                _charNames = data.map(c => c.name);
-                data.forEach(c => { _charCache[c.name] = c; });
-            } catch { _charNames = []; }
+            if (!_charactersPromise) {
+                _charactersPromise = fetch('/api/characters')
+                    .then(r => r.json())
+                    .then(data => {
+                        _charNames = data.map(c => c.name);
+                        data.forEach(c => { _charCache[c.name] = c; });
+                        return data;
+                    })
+                    .catch(() => {
+                        _charNames = [];
+                        return [];
+                    });
+            }
+            await _charactersPromise;
             setupFilterCombobox('f-character', 'f-character-dd', _charNames, null, null, 'hover:bg-gray-700');
             setupFilterCombobox(
                 'filter-character',
                 'filter-character-dd',
                 _charNames,
-                () => { currentPage = 1; renderTasks(allTasks); },
-                () => { currentPage = 1; renderTasks(allTasks); },
+                () => { currentPage = 1; fetchTasks(); },
+                () => { currentPage = 1; fetchTasks(); },
                 'hover:bg-gray-700'
             );
         }
 
+        // --- Server filter ---
+        let serverNameMap = {};   // server_name -> server_id
+        let channelServerMap = {}; // channel_id -> server_id
+        let _serversCache = null;
+        let _serversPromise = null;
+
+        async function loadServers() {
+            if (_serversCache) return _serversCache;
+            if (!_serversPromise) {
+                _serversPromise = fetch('/api/servers/')
+                    .then(r => r.json())
+                    .then(data => { _serversCache = data; return data; })
+                    .catch(() => []);
+            }
+            return _serversPromise;
+        }
+
+        async function loadServerFilter() {
+            try {
+                const servers = await loadServers();
+                const filtered = servers.filter(s =>
+                    s.server_id !== 'DM_VIRTUAL_SERVER' &&
+                    !s.server_name.toLowerCase().includes('direct message')
+                );
+                filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
+                if (typeof setupFilterCombobox === 'function') {
+                    setupFilterCombobox(
+                        'filter-server', 'filter-server-dd',
+                        () => Object.keys(serverNameMap),
+                        () => { currentPage = 1; fetchTasks(); },
+                        () => { currentPage = 1; fetchTasks(); },
+                        'hover:bg-gray-700'
+                    );
+                }
+            } catch { serverNameMap = {}; }
+        }
+
         // --- Target comboboxes ---
-        let _channelOptions = [];  // [{id, label}]
+        let _channelOptions = [];  // [{id, label, server_id}]
         let _dmOptions = [];
+        let _targetOptionsPromise = null;
 
         async function loadTargetOptions() {
-            try {
-                const servers = await fetch('/api/servers/').then(r => r.json());
-                _channelOptions = [];
-                for (const srv of servers) {
-                    if (srv.server_id === 'DM_VIRTUAL_SERVER') continue;
-                    const channels = await fetch(`/api/servers/${srv.server_id}/channels`).then(r => r.json());
-                    for (const ch of channels) {
-                        _channelOptions.push({ id: ch.channel_id, label: `#${ch.data.name}`, sub: srv.server_name });
+            if (_targetOptionsPromise) return _targetOptionsPromise;
+            _targetOptionsPromise = (async () => {
+                try {
+                    const [channels, cfg] = await Promise.all([
+                        fetch('/api/servers/bulk/channel-options').then(r => r.json()),
+                        fetch('/api/config/').then(r => r.json()),
+                    ]);
+                    _channelOptions = Array.isArray(channels) ? channels : [];
+                    channelServerMap = {};
+                    for (const ch of _channelOptions) {
+                        channelServerMap[ch.id] = ch.server_id;
                     }
+                    _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
+                } catch {
+                    _channelOptions = [];
+                    channelServerMap = {};
+                    _dmOptions = [];
                 }
-            } catch { _channelOptions = []; }
-            try {
-                const cfg = await fetch('/api/config/').then(r => r.json());
-                _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
-            } catch { _dmOptions = []; }
+            })();
+            return _targetOptionsPromise;
         }
 
         function makeCombobox(inputId, dropdownId, options, initialId = '') {
@@ -274,7 +333,7 @@
                         <span class="scheduler-combobox-label">${esc(o.label)}</span>
                         <span class="scheduler-combobox-sub">${esc(o.sub)}</span>
                     </div>`).join('');
-                dropdown.querySelectorAll('.combobox-item').forEach(item => {
+                dropdown.querySelectorAll('.scheduler-combobox-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
                         input.dataset.comboboxClearTouched = '1';
@@ -368,75 +427,92 @@
         // --- Character cache ---
         let _charCache = {};
         async function ensureCharCache() {
-            if (Object.keys(_charCache).length) return;
-            try {
-                const chars = await fetch('/api/characters').then(r => r.json());
-                chars.forEach(c => { _charCache[c.name] = c; });
-            } catch {}
+            await loadCharacters();
         }
 
-        // --- Fetch and render tasks ---
-        let allTasks = [];
+        // --- Fetch and render tasks (server-side pagination) ---
+        let pageTasks = [];
+        let totalTasks = 0;
         const _sqp = new URLSearchParams(location.search);
         let PAGE_SIZE = parseInt(_sqp.get('limit')) || 25;
         let currentPage = parseInt(_sqp.get('page')) || 1;
         const resetPageAndFetch = () => { currentPage = 1; fetchTasks(); };
-        const SCHEDULER_BADGE_BASE = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium';
+        const SCHEDULER_BADGE_BASE = 'scheduler-badge';
+
+        function buildTasksQueryParams() {
+            const params = new URLSearchParams();
+            params.set('page', String(currentPage));
+            params.set('limit', String(PAGE_SIZE));
+            const type = document.getElementById('filter-type').value;
+            if (type) params.set('type', type);
+            [...document.querySelectorAll('.filter-status-cb:checked')].forEach(el => {
+                params.append('status', el.value);
+            });
+            const charFilter = (document.getElementById('filter-character').value || '').trim();
+            if (charFilter) params.set('character', charFilter);
+            const from = document.getElementById('filter-from').value;
+            const to = document.getElementById('filter-to').value;
+            if (from) params.set('date_from', from);
+            if (to) params.set('date_to', to);
+            const serverName = (document.getElementById('filter-server')?.value || '').trim();
+            const selectedServerId = serverNameMap[serverName];
+            if (selectedServerId) params.set('server_id', selectedServerId);
+            return params;
+        }
 
         async function fetchTasks() {
-            await ensureCharCache();
-            const type = document.getElementById('filter-type').value;
-            const statuses = [...document.querySelectorAll('.filter-status-cb:checked')].map(el => el.value);
-            let url = API + '/?';
-            if (type) url += `type=${encodeURIComponent(type)}&`;
-            statuses.forEach(s => url += `status=${encodeURIComponent(s)}&`);
+            showPanelLoader(taskList, 'Loading tasks...');
             try {
-                const response = await fetch(url);
+                await ensureCharCache();
+                const response = await fetch(`${API}/?${buildTasksQueryParams().toString()}`);
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error(`Failed to load tasks. Status: ${response.status}`, errorData);
                     showToast(`Failed to load tasks (${response.status}).`, 'error');
+                    taskList.innerHTML = '<div class="text-gray-500 text-center py-12">Failed to load tasks.</div>';
                     return;
                 }
-                allTasks = await response.json();
-                renderTasks(allTasks);
-            } catch (err) { 
+                const data = await response.json();
+                pageTasks = data.items || [];
+                totalTasks = data.total ?? pageTasks.length;
+                if (!pageTasks.length && totalTasks > 0 && currentPage > 1) {
+                    currentPage = 1;
+                    return fetchTasks();
+                }
+                renderTasksPage(pageTasks, totalTasks);
+            } catch (err) {
                 console.error('Error loading tasks:', err);
-                showToast(`Failed to load tasks: ${err.message}`, 'error'); 
+                showToast(`Failed to load tasks: ${err.message}`, 'error');
+                taskList.innerHTML = '<div class="text-gray-500 text-center py-12">Failed to load tasks.</div>';
             }
         }
 
-        function applyFilters(tasks) {
-            const from = document.getElementById('filter-from').value;
-            const to = document.getElementById('filter-to').value;
-            const charFilter = (document.getElementById('filter-character').value || '').toLowerCase();
-            return tasks.filter(t => {
-                const dateStr = t.scheduled_time || t.created_at || '';
-                const d = dateStr.substring(0, 10);
-                if (from && d < from) return false;
-                if (to && d > to) return false;
-                if (charFilter && !t.character.toLowerCase().includes(charFilter)) return false;
-                return true;
-            });
+        async function getTaskForAction(id) {
+            const cached = pageTasks.find(t => t.id === id);
+            if (cached) return cached;
+            try {
+                const r = await fetch(`${API}/${id}`);
+                if (!r.ok) return null;
+                return await r.json();
+            } catch {
+                return null;
+            }
         }
 
-        function renderTasks(tasks) {
-            const filtered = applyFilters(tasks);
-            if (!filtered.length) {
+        function renderTasksPage(items, total) {
+            if (!items.length) {
                 taskList.innerHTML = '<div class="scheduler-list-state"><i class="fas fa-calendar-xmark scheduler-list-state-icon"></i>No tasks found.</div>';
-                updatePagination(0);
+                updatePagination(total);
                 return;
             }
-            const start = (currentPage - 1) * PAGE_SIZE;
-            const pageItems = filtered.slice(start, start + PAGE_SIZE);
-            taskList.innerHTML = pageItems.map(t => taskCard(t)).join('');
+            taskList.innerHTML = items.map(t => taskCard(t)).join('');
             taskList.querySelectorAll('[data-action]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     if (btn.dataset.action !== 'detail') e.stopPropagation();
                     handleAction(btn.dataset.action, parseInt(btn.dataset.id));
                 });
             });
-            updatePagination(filtered.length);
+            updatePagination(total);
         }
 
         function updatePagination(total) {
@@ -461,21 +537,21 @@
             const map = {
                 active:    'bg-green-900 text-green-300',
                 upcoming:  'bg-blue-900 text-blue-300',
-                done:      'bg-gray-700 text-gray-400',
+                done:      'scheduler-badge--status-done',
                 disabled:  'bg-red-900 text-red-300',
-                failed:    'bg-orange-900 text-orange-300',
+                failed:    'scheduler-badge--status-failed',
             };
-            return `<span class="${SCHEDULER_BADGE_BASE} ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[status] || 'scheduler-badge--status-done'}">${status}</span>`;
         }
 
         function modeBadge(mode) {
             const map = {
-                exact:        'bg-gray-800 text-gray-300',
-                instructions: 'bg-gray-800 text-gray-300',
+                exact:        'scheduler-badge--mode-neutral',
+                instructions: 'scheduler-badge--mode-neutral',
                 generate:     'bg-purple-900 text-purple-300',
             };
             const label = mode === 'instructions' ? 'Instructions' : mode === 'generate' ? 'Generate' : 'Exact';
-            return `<span class="${SCHEDULER_BADGE_BASE} ${map[mode] || 'bg-gray-800 text-gray-300'}">${label}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[mode] || 'scheduler-badge--mode-neutral'}">${label}</span>`;
         }
 
         function normalizeTaskName(name) {
@@ -640,7 +716,7 @@
                 showToast('Task deleted.');
                 fetchTasks();
             } else if (action === 'toggle') {
-                const task = allTasks.find(t => t.id === id);
+                const task = await getTaskForAction(id);
                 if (!task) return;
                 const newStatus = task.status === 'disabled'
                     ? (task.type === 'schedule' ? 'active' : 'upcoming')
@@ -653,7 +729,7 @@
                 showToast(`Task ${newStatus}.`);
                 fetchTasks();
             } else if (action === 'duplicate') {
-                const task = allTasks.find(t => t.id === id);
+                const task = await getTaskForAction(id);
                 if (!task) return;
                 const body = {
                     type: task.type,
@@ -677,10 +753,10 @@
                 if (resp.ok) { showToast('Task duplicated.'); fetchTasks(); }
                 else showToast('Failed to duplicate.', 'error');
             } else if (action === 'detail') {
-                const task = allTasks.find(t => t.id === id);
+                const task = await getTaskForAction(id);
                 if (task) openDetail(task);
             } else if (action === 'edit') {
-                const task = allTasks.find(t => t.id === id);
+                const task = await getTaskForAction(id);
                 if (task) openModal(task);
             }
         }
@@ -893,9 +969,17 @@
         }
 
         // --- Pagination controls ---
-        document.getElementById('prev-btn').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTasks(allTasks); } });
-        document.getElementById('next-btn').addEventListener('click', () => { currentPage++; renderTasks(allTasks); });
-        document.getElementById('page-size-select').addEventListener('change', function() { PAGE_SIZE = parseInt(this.value); currentPage = 1; renderTasks(allTasks); });
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; fetchTasks(); }
+        });
+        document.getElementById('next-btn').addEventListener('click', () => {
+            if (currentPage * PAGE_SIZE < totalTasks) { currentPage++; fetchTasks(); }
+        });
+        document.getElementById('page-size-select').addEventListener('change', function() {
+            PAGE_SIZE = parseInt(this.value, 10);
+            currentPage = 1;
+            fetchTasks();
+        });
         document.getElementById('page-size-select').value = PAGE_SIZE;
 
         // --- Filters ---
@@ -917,6 +1001,13 @@
                 if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fc);
                 document.getElementById('filter-character-dd')?.classList.add('hidden');
                 fc.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            const fs = document.getElementById('filter-server');
+            if (fs) {
+                fs.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fs);
+                document.getElementById('filter-server-dd')?.classList.add('hidden');
+                fs.dispatchEvent(new Event('change', { bubbles: true }));
             }
             if (typeof clearCheckboxDropdownPrefix === 'function') {
                 clearCheckboxDropdownPrefix('filter-status');
@@ -951,24 +1042,26 @@
 
         // --- Toast ---
         // Init
-        fetch('/api/auth-status')
-            .then(r => r.json())
+        (window.__authStatus || fetch('/api/me').then(r => r.json()))
             .then(d => {
                 currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
             })
             .catch(() => {})
             .finally(() => {
                 loadCharacters();
-                loadTargetOptions().then(async () => {
-                    await fetchTasks();
+                loadServerFilter();
+                loadTargetOptions();
+                fetchTasks().then(() => {
                     const openId = new URLSearchParams(location.search).get('open');
-                    if (openId) {
-                        try {
-                            const res = await fetch(`${API}/${openId}`);
-                            if (res.ok) openDetail(await res.json());
-                            else if (res.status === 404) showToast('This task no longer exists.', 'error');
-                        } catch {}
-                    }
+                    if (!openId) return;
+                    fetch(`${API}/${openId}`)
+                        .then(res => {
+                            if (res.ok) return res.json();
+                            if (res.status === 404) showToast('This task no longer exists.', 'error');
+                            return null;
+                        })
+                        .then(task => { if (task) openDetail(task); })
+                        .catch(() => {});
                 });
             });
     })();

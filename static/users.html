@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - Users</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Users</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="bg-darker text-light min-h-screen" data-page="users">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="users">
     <div id="toast-container" class="toast z-50"></div>
 
     <div id="navbar-container"></div>
@@ -16,10 +18,13 @@
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/users.js" defer></script>
 
-    <main class="p-6">
-        <div class="max-w-4xl mx-auto">
-            <div class="flex-between mb-6 users-header">
-                <h1 class="heading-page">Users</h1>
+    <main class="page">
+        <div class="main-content">
+            <div class="flex flex-wrap items-center justify-between users-header">
+                <div class="page-heading">
+                    <h1 class="page-title">Users</h1>
+                    <p class="page-subtitle">Manage user accounts, access requests, and sessions.</p>
+                </div>
                 <button id="new-user-btn" class="btn-primary text-sm"><i class="fas fa-user-plus mr-2"></i>New User</button>
             </div>
             <div class="tabs-bar users-tabs">
@@ -39,12 +44,12 @@
                     <div>
                         <label class="label-xs">Search user</label>
                         <div class="relative">
-                            <input type="text" id="filter-user" autocomplete="off" placeholder="any" class="field w-48 pr-8">
+                            <input type="text" id="filter-user" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
                             <button id="filter-user-clear" class="icon-clear-btn" data-clear="filter-user" title="Clear user search"><i class="fas fa-times"></i></button>
                             <div id="filter-user-dd" class="autocomplete-dd hidden"></div>
                         </div>
                     </div>
-                    <div>
+                    <div id="users-filter-role">
                         <label class="label-xs">Role</label>
                         <div class="select-wrap">
                             <select id="filter-role" class="field">
@@ -59,7 +64,7 @@
                             <button class="icon-clear-btn hidden" data-clear="filter-role" title="Clear"><i class="fas fa-times"></i></button>
                         </div>
                     </div>
-                    <div>
+                    <div id="users-filter-type">
                         <label class="label-xs">Type</label>
                         <div class="select-wrap">
                             <select id="filter-auth" class="field">
@@ -76,7 +81,7 @@
                     <div>
                         <label class="label-xs">Search user</label>
                         <div class="relative">
-                            <input type="text" id="filter-session-user" autocomplete="off" placeholder="any" class="field w-48 pr-8">
+                            <input type="text" id="filter-session-user" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
                             <button id="filter-session-user-clear" class="icon-clear-btn" data-clear="filter-session-user" title="Clear user search"><i class="fas fa-times"></i></button>
                             <div id="filter-session-user-dd" class="autocomplete-dd hidden"></div>
                         </div>
@@ -113,7 +118,12 @@
                     </div>
                     <button id="clear-session-filters-btn" class="btn-clear-filter">Clear filters</button>
                 </div>
-                <div id="user-list" class="space-y-2"></div>
+                <div id="user-list" class="users-list-panel space-y-2">
+                    <div class="panel-loader" role="status" aria-live="polite">
+                        <span class="loader-spinner" aria-hidden="true"></span>
+                        <span class="panel-loader-label">Loading users...</span>
+                    </div>
+                </div>
                 <div id="users-pagination" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="users-pagination-info"></span>
@@ -130,7 +140,9 @@
                         <button id="users-next-btn" type="button" class="btn-page">Next →</button>
                     </div>
                 </div>
-                <div id="request-list" class="space-y-2 hidden"></div>
+                <div id="request-list" class="space-y-2 hidden">
+                    <div class="list-empty-state">No pending access requests.</div>
+                </div>
                 <div id="requests-pagination" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="requests-pagination-info"></span>
@@ -147,7 +159,12 @@
                         <button id="requests-next-btn" type="button" class="btn-page">Next →</button>
                     </div>
                 </div>
-                <div id="session-list" class="space-y-2 hidden"></div>
+                <div id="session-list" class="space-y-2 hidden">
+                    <div class="panel-loader" role="status" aria-live="polite">
+                        <span class="loader-spinner" aria-hidden="true"></span>
+                        <span class="panel-loader-label">Loading sessions...</span>
+                    </div>
+                </div>
                 <div id="session-list-footer" class="pagination-bar hidden">
                     <div class="flex items-center gap-2">
                         <span id="session-pagination-info"></span>
@@ -217,8 +234,17 @@
                     </select>
                 </div>
                 <div id="new-servers-field" class="hidden">
-                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
-                    <input type="text" id="new-server-ids" class="field" placeholder="e.g. 123456,789012">
+                    <label class="label-form">Server Access</label>
+                    <div class="relative">
+                        <button type="button" class="cb-dd-btn w-full" data-dd="dd-new-servers">
+                            <span class="cb-dd-label flex-1 min-w-0 text-left truncate">None</span>
+                            <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                                <i class="fas fa-times cb-dd-clear hidden" id="dd-new-servers-clear" title="Clear"></i>
+                                <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                            </span>
+                        </button>
+                        <div id="dd-new-servers" class="cb-dd hidden w-full"></div>
+                    </div>
                 </div>
                 <p id="new-modal-error" class="text-red-400 text-xs hidden"></p>
             </div>
@@ -255,8 +281,17 @@
                     </select>
                 </div>
                 <div id="edit-servers-field" class="hidden">
-                    <label class="label-form">Server IDs <span class="text-hint">(comma-separated)</span></label>
-                    <input type="text" id="edit-server-ids" class="field" placeholder="e.g. 123456,789012">
+                    <label class="label-form">Server Access</label>
+                    <div class="relative">
+                        <button type="button" class="cb-dd-btn w-full" data-dd="dd-edit-servers">
+                            <span class="cb-dd-label flex-1 min-w-0 text-left truncate">None</span>
+                            <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                                <i class="fas fa-times cb-dd-clear hidden" id="dd-edit-servers-clear" title="Clear"></i>
+                                <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                            </span>
+                        </button>
+                        <div id="dd-edit-servers" class="cb-dd hidden w-full"></div>
+                    </div>
                 </div>
                 <div id="edit-pw-field">
                     <label class="label-form">New password <span class="text-hint">(leave empty to keep)</span></label>
@@ -298,5 +333,7 @@
             </div>
         </div>
     </div>
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

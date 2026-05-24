@@ -3,25 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - Stats</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Stats</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="bg-darker text-light min-h-screen" data-page="stats">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="stats">
     <div id="toast-container" class="toast z-50"></div>
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/stats.js" defer></script>
 
-    <main class="flex-grow p-6">
-        <div class="max-w-4xl mx-auto">
-
-            <!-- Header -->
-            <div class="flex-between mb-6 flex-wrap gap-3">
-                <h1 class="heading-page">Stats</h1>
+    <main class="page">
+        <div class="main-content">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="page-heading">
+                    <h1 class="page-title">Stats</h1>
+                    <p class="page-subtitle">View message volume, errors, tokens, and usage over time.</p>
+                </div>
                 <div class="flex gap-1" id="range-btns">
                     <button class="range-btn" data-days="1">24h</button>
                     <button class="range-btn range-btn-active" data-days="7">7d</button>
@@ -55,9 +58,17 @@
             <!-- Activity chart -->
             <div class="card-dark mb-6">
                 <h2 class="heading-section mb-4">Activity</h2>
-                <div id="chart-empty" class="hidden text-gray-500 text-sm py-8 text-center">No data for this period</div>
-                <div class="relative h-52" id="chart-wrap">
-                    <canvas id="timeseries-chart"></canvas>
+                <div class="stats-activity-panel">
+                    <div id="activity-loader">
+                        <div class="panel-loader" role="status" aria-live="polite">
+                            <span class="loader-spinner" aria-hidden="true"></span>
+                            <span class="panel-loader-label">Loading activity...</span>
+                        </div>
+                    </div>
+                    <div id="chart-empty" class="stats-activity-empty" hidden>No data for this period</div>
+                    <div id="chart-wrap" class="stats-activity-chart" hidden>
+                        <canvas id="timeseries-chart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -121,5 +132,7 @@
 
         </div>
     </main>
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

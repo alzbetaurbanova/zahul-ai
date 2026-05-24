@@ -32,6 +32,43 @@ router = APIRouter(
 
 # --- Server Endpoints ---
 
+class ChannelOption(BaseModel):
+    id: str
+    label: str
+    sub: str = ""
+    server_id: str
+
+
+@router.get("/bulk/channel-options", response_model=List[ChannelOption])
+async def bulk_channel_options(user: dict = Depends(require_role("mod"))):
+    """All channel targets in one request (scheduler target combobox)."""
+    try:
+        allowed = None
+        if _is_limited_mod(user):
+            allowed = db.get_user_server_access(int(user["id"])) or []
+        return db.list_channel_options(allowed_server_ids=allowed)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/bulk/whitelists")
+async def bulk_whitelists(user: dict = Depends(require_role("mod"))):
+    """Whitelist character names per server in one request (for Characters filter UI)."""
+    try:
+        servers = db.list_servers()
+        if _is_limited_mod(user):
+            allowed = set(db.get_user_server_access(int(user["id"])))
+            servers = [s for s in servers if s.get("server_id") in allowed]
+        server_ids = [
+            s["server_id"]
+            for s in servers
+            if "direct message" not in (s.get("server_name") or "").lower()
+        ]
+        return db.list_whitelist_names_by_server_ids(server_ids)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/", response_model=List[Server])
 async def list_servers(user: dict = Depends(require_role("mod"))):
     """List all servers available in the database."""
@@ -82,12 +119,15 @@ async def get_server_config(server_id: str = Path(...), user: dict = Depends(req
     return db.get_server_config(server_id)
 
 @router.patch("/{server_id}/config", response_model=ServerConfig)
-async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), current_user: dict = Depends(require_role("admin"))):
+async def update_server_config(server_id: str = Path(...), body: ServerConfig = Body(...), current_user: dict = Depends(require_role("mod"))):
     """Set per-server config overrides. Only provided (non-null) fields are saved."""
+    _ensure_server_scope(current_user, server_id)
     if not db.get_server(server_id):
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     current = db.get_server_config(server_id)
     updates = body.model_dump(exclude_none=True)
+    if _is_limited_mod(current_user):
+        updates.pop('ai_endpoint', None)
     current.update(updates)
     db.set_server_config(server_id, current)
     db.log_admin('servers.override.on', target=server_id, detail=str(updates), actor=current_user)

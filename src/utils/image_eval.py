@@ -3,14 +3,12 @@ import re
 import traceback
 from openai import AsyncOpenAI
 
-# Adjust these import paths to match your project structure
 from api.db.database import Database
 from api.models.models import BotConfig
 
 def get_bot_config(db: Database) -> BotConfig:
-    """Helper to fetch all config key-values from the DB and return a BotConfig object."""
-    all_db_configs = db.list_configs()
-    return BotConfig(**all_db_configs)
+    from src.utils.llm_new import get_bot_config as _cached
+    return _cached(db)
 
 async def describe_image(image_path: str, db: Database) -> str:
     """
@@ -19,27 +17,34 @@ async def describe_image(image_path: str, db: Database) -> str:
     """
     bot_config = get_bot_config(db)
 
-    # 1. Check if the feature is enabled in the config
     if not bot_config.multimodal_enable:
         return "<ERROR> Image description is disabled in the bot's configuration."
 
-    # 2. Check if the required configuration values are set
-    if not bot_config.multimodal_ai_endpoint or not bot_config.multimodal_ai_model:
-        return "<ERROR> The multimodal endpoint or model is not configured in the bot's settings."
+    if not bot_config.multimodal_ai_model:
+        return "<ERROR> The vision model is not configured in the bot's settings."
+
+    # Resolve endpoint/key: prefer named provider, fall back to legacy flat fields
+    endpoint = bot_config.multimodal_ai_endpoint
+    api_key = bot_config.multimodal_ai_api or "none"
+    prov_name = bot_config.multimodal_ai_provider
+    if prov_name:
+        for p in (bot_config.multimodal_providers or []):
+            if p.name == prov_name:
+                endpoint = p.endpoint
+                api_key = p.api_key or "none"
+                break
+
+    if not endpoint:
+        return "<ERROR> The vision endpoint is not configured. Select a provider model or set a legacy endpoint."
 
     try:
         with open(image_path, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-        # 3. Use the configuration from the database
-        client = AsyncOpenAI(
-            base_url=bot_config.multimodal_ai_endpoint,
-            api_key=bot_config.multimodal_ai_api,  # Use the main AI key
-        )
+        client = AsyncOpenAI(base_url=endpoint, api_key=api_key)
 
-        # 4. Correctly await the asynchronous API call
         response = await client.chat.completions.create(
-            model=bot_config.multimodal_ai_model, # Use the configured model
+            model=bot_config.multimodal_ai_model,
             messages=[
                 {
                     "role": "user",

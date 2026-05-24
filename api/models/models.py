@@ -14,10 +14,18 @@ def _parse_iso_datetime(value: str) -> datetime:
 # Config (maps to the 'config' table)
 # ------------------------------------------------------
 
+class MultimodalProvider(BaseModel):
+    name: str = Field(..., min_length=1)
+    endpoint: str = ""
+    api_key: str = ""
+    allowed_models: List[str] = Field(default_factory=list)
+
+
 class BotConfig(BaseModel):
     default_character: str = Field(..., min_length=1)
     ai_endpoint: str = Field(..., min_length=1)
     base_llm: str = Field(..., min_length=1)
+    primary_allowed_models: List[str] = Field(default_factory=list)
     temperature: float = Field(0.7, ge=0, le=2)
     auto_cap: int = Field(2, ge=0)
     ai_key: str = Field("", description="Can be empty if not needed by the endpoint")
@@ -26,13 +34,19 @@ class BotConfig(BaseModel):
     max_tokens: int = Field(256, ge=64, le=4096)
     use_prefill: bool = False
     multimodal_enable: bool = False
-    multimodal_ai_endpoint: Optional[str] = None
-    multimodal_ai_api: Optional[str] = None # Key, I meant key, this is a fuckin' key
-    multimodal_ai_model: Optional[str] = None
+    multimodal_ai_model: str = ""
+    multimodal_ai_provider: str = ""
+    multimodal_ai_endpoint: str = ""
+    multimodal_ai_api: str = ""
+    multimodal_providers: List[MultimodalProvider] = Field(default_factory=list)
     dm_list : Optional[List[str]] = None # List of discord username that the bot is allowed to DM to
     concurrency : Optional[int] = Field(1, ge=1)
     fallback_llm: str = "llama-3.1-8b-instant"
     fallback_duration: int = Field(7200, ge=0)
+    fallback_use_different_endpoint: bool = False
+    fallback_ai_endpoint: str = ""
+    fallback_ai_key: str = ""
+    fallback_allowed_models: List[str] = Field(default_factory=list)
     token_limit_tpm: int = Field(12000, ge=0)
     token_limit_tpd: int = Field(100000, ge=0)
     panel_password_hint: str = ""
@@ -105,6 +119,10 @@ class CharacterData(BaseModel):
     temperature: Optional[float] = Field(None, ge=0, le=2)
     history_limit: Optional[int] = Field(None, ge=1, le=50)
     max_tokens: Optional[int] = Field(None, ge=64, le=4096)
+    model_rules_enabled: bool = False
+    model_rules: List[Dict[str, Any]] = Field(default_factory=list)
+    provider_override: Optional[str] = None
+    provider_model: Optional[str] = None
 
 
 class Character(BaseModel):
@@ -225,3 +243,10 @@ class Task(BaseModel):
     created_at: str
     next_run: Optional[str] = None
     error_message: Optional[str] = None
+
+
+class TaskListResponse(BaseModel):
+    items: List[Task]
+    total: int
+    page: int
+    limit: int

@@ -15,14 +15,117 @@ This file manages the full lifecycle of characters via RESTful endpoints:
 import asyncio
 import os
 import httpx
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
 from fastapi.responses import Response
-from typing import List
+from typing import List, Optional
 from api.auth import require_role, ROLE_LEVEL
 from api.url_safety import validate_proxy_image_url
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
+
+
+def _safe_avatar_filename(name: str) -> str:
+    return "".join(c for c in (name or "") if c.isalnum() or c in "-_").strip() or "avatar"
+
+
+def _static_avatar_url(rel: str) -> str:
+    """URL-safe path for static avatars (encodes Miloš.png -> Milo%C5%A1.png)."""
+    return f"/static/avatars/{quote(rel)}"
+
+
+def _find_avatar_rel(name: str) -> Optional[str]:
+    """Return on-disk filename (e.g. Miloš.png) if present."""
+    rel = f"{_safe_avatar_filename(name)}.png"
+    if os.path.isfile(os.path.join(_AVATARS_DIR, rel)):
+        return rel
+    try:
+        for entry in os.listdir(_AVATARS_DIR):
+            if entry == rel:
+                return entry
+            base, ext = os.path.splitext(entry)
+            if ext.lower() == ".png" and base == _safe_avatar_filename(name):
+                return entry
+    except OSError:
+        pass
+    return None
+
+
+def _local_avatar_path(name: str) -> Optional[str]:
+    """Return encoded /static/avatars/... URL if the file exists on disk."""
+    rel = _find_avatar_rel(name)
+    return _static_avatar_url(rel) if rel else None
+
+
+def _resolve_list_avatar(name: str, avatar: Optional[str]) -> str:
+    """
+    Return a canonical static avatar path for list/grid display (unencoded filename).
+    Encoding for HTTP is done in the browser; never double-encode here.
+    """
+    av = (avatar or "").strip()
+    if av.startswith("/static/"):
+        rel = unquote(av.removeprefix("/static/avatars/").split("?", 1)[0])
+        if rel and os.path.isfile(os.path.join(_AVATARS_DIR, rel)):
+            return f"/static/avatars/{rel}"
+    return av
+
+
+def _mod_can_edit(db, char_name: str, user: dict) -> bool:
+    """Mod can edit a character if it is whitelisted exclusively on their assigned servers (and nowhere else)."""
+    mod_server_ids = set(db.get_user_server_access(user["id"]) if user.get("id") else [])
+    if not mod_server_ids:
+        return False
+    all_servers = db.list_servers()
+    char_on_mod_servers = False
+    for server in all_servers:
+        sid = server["server_id"]
+        channels = db.list_channels_for_server(sid)
+        for ch in channels:
+            whitelist = (ch.get("data") or {}).get("whitelist") or []
+            if char_name in whitelist:
+                if sid in mod_server_ids:
+                    char_on_mod_servers = True
+                else:
+                    return False  # whitelisted on a server the mod doesn't own
+    return char_on_mod_servers
+
+
+def _rule_has_override(rule: dict) -> bool:
+    if str(rule.get("model") or "").strip():
+        return True
+    triggers = rule.get("triggers") or []
+    if triggers:
+        return True
+    for key in ("temperature", "max_tokens", "history_limit", "auto_cap"):
+        if rule.get(key) is not None:
+            return True
+    return False
+
+
+def _validate_model_rules(data: dict) -> None:
+    """Require per-server rules with at least one override field when enabled."""
+    if not data.get("model_rules_enabled"):
+        return
+    rules = data.get("model_rules") or []
+    if not rules:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Per-server override is on - add at least one rule or turn it off.",
+        )
+    for rule in rules:
+        servers = rule.get("servers") or []
+        if not servers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Select at least one server.",
+            )
+        if not _rule_has_override(rule):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Set at least one override (model, triggers, temperature, etc.) for each rule.",
+            )
+
+
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
 _MIRROR_MAX_SIZE_BYTES = 5 * 1024 * 1024
 _ALLOWED_AVATAR_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
@@ -37,7 +140,7 @@ async def _mirror_avatar(name: str, url: str) -> str:
     if not url or not _is_http_url(url):
         return url
     try:
-        safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
+        safe_name = _safe_avatar_filename(name)
         os.makedirs(_AVATARS_DIR, exist_ok=True)
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
         async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
@@ -69,6 +172,7 @@ from api.models.models import (
     CharacterListItem   # The lightweight structure for GET / responses
 )
 from api.db.database import Database
+from api.db import cache as db_cache
 
 # This is the global bot instance managed by your discord router
 from api.bot_state import bot_state
@@ -152,7 +256,7 @@ async def save_avatar(
     content_type = (image.content_type or "").lower()
     if content_type not in _ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type.")
-    safe_name = "".join(c for c in name if c.isalnum() or c in "-_").strip() or "avatar"
+    safe_name = _safe_avatar_filename(name)
     os.makedirs(_AVATARS_DIR, exist_ok=True)
     file_path = f"{_AVATARS_DIR}/{safe_name}.png"
     contents = await image.read()
@@ -215,11 +319,12 @@ async def list_characters():
         result = []
         for char in characters:
             char_data = char.get("data", {})
+            char_name = char.get("name", "")
             result.append(
                 CharacterListItem(
                     id=char.get("id"),
-                    name=char.get("name", ""),
-                    avatar=char_data.get("avatar") or "",
+                    name=char_name,
+                    avatar=_resolve_list_avatar(char_name, char_data.get("avatar")),
                     about=char_data.get("about") or ""
                 )
             )
@@ -244,6 +349,7 @@ async def create_character(
         )
     try:
         char_data = character.data.model_dump()
+        _validate_model_rules(char_data)
         db.create_character(
             name=character.name,
             data=char_data,
@@ -267,7 +373,7 @@ async def create_character(
 @router.get("/{character_id}", response_model=Character)
 async def get_character(character_id: int = Path(..., description="ID of the character")):
     """Get a character's full configuration from the database."""
-    character = db.get_character_by_id(character_id)
+    character = db.get_character_by_id(character_id, fresh=True)
     if not character:
         raise HTTPException(status_code=404, detail=f"Character with ID {character_id} not found")
     return character
@@ -286,11 +392,17 @@ async def update_character(
 
     user_role = current_user.get("role", "guest")
     if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
-        if existing_char.get("created_by") != current_user.get("username"):
-            raise HTTPException(status_code=403, detail="You can only edit characters you created.")
+        owns = existing_char.get("created_by") == current_user.get("username")
+        on_own_server = _mod_can_edit(db, existing_char["name"], current_user)
+        if not owns and not on_own_server:
+            raise HTTPException(status_code=403, detail="You can only edit characters you created or that are exclusively on your server.")
 
     try:
-        char_data = character_update.data.model_dump()
+        char_data = {
+            **(existing_char.get("data") or {}),
+            **character_update.data.model_dump(exclude_unset=True),
+        }
+        _validate_model_rules(char_data)
         new_name = character_update.name
 
         if new_name != existing_char['name']:
@@ -302,7 +414,12 @@ async def update_character(
             name=new_name if new_name != existing_char['name'] else None,
             data=char_data
         )
-        db.update_character_triggers(character_id=character_id, triggers=character_update.triggers)
+        db.update_character_triggers(
+            character_id=character_id,
+            triggers=character_update.triggers,
+            invalidate_cache=False,
+        )
+        db_cache.invalidate_characters()
 
         old_data = existing_char.get('data', {})
         changed = [k for k, v in char_data.items() if str(old_data.get(k)) != str(v)]
@@ -314,7 +431,7 @@ async def update_character(
             changed.append('triggers')
         db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None, actor=current_user)
 
-        return db.get_character_by_id(character_id)
+        return db.get_character_by_id(character_id, fresh=True)
     except HTTPException:
         raise
     except Exception as e:
@@ -330,8 +447,10 @@ async def delete_character(character_id: int = Path(...), current_user: dict = D
 
     user_role = current_user.get("role", "guest")
     if ROLE_LEVEL.get(user_role, 0) < ROLE_LEVEL["admin"]:
-        if char.get("created_by") != current_user.get("username"):
-            raise HTTPException(status_code=403, detail="You can only delete characters you created.")
+        owns = char.get("created_by") == current_user.get("username")
+        on_own_server = _mod_can_edit(db, char["name"], current_user)
+        if not owns and not on_own_server:
+            raise HTTPException(status_code=403, detail="You can only delete characters you created or that are exclusively on your server.")
     try:
         db.delete_character_by_id(char_id=character_id)
         db.log_admin('character.delete', target=char['name'], actor=current_user)

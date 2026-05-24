@@ -26,7 +26,7 @@ class AuthMethodsConfig(BaseModel):
 
 # --- Constants and DB Initialization ---
 # This business logic is preserved from your original file.
-PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key', 'multimodal_ai_api', 'discord_oauth_client_secret'}
+PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key', 'fallback_ai_key', 'multimodal_ai_api', 'discord_oauth_client_secret'}
 REQUIRED_FIELDS: Set[str] = {'default_character', 'ai_endpoint', 'base_llm'}
 MIN_PANEL_PASSWORD_LENGTH = 8
 
@@ -79,6 +79,39 @@ def _validate_panel_auth_prerequisites(
         raise HTTPException(status_code=400, detail="Create an admin account before enabling panel protection.")
 
 
+@router.get("/models")
+async def get_allowed_models(current_user=Depends(require_role("admin"))):
+    configs = db.list_configs()
+    seen = set()
+    result = []
+
+    def add(models, source, label):
+        for m in (models or []):
+            if m and (m, source) not in seen:
+                seen.add((m, source))
+                result.append({"display": f"{m} ({label})", "model": m, "source": source})
+
+    add(configs.get("primary_allowed_models"), "primary", "primary")
+    add(configs.get("fallback_allowed_models"), "fallback", "fallback")
+    for p in (configs.get("multimodal_providers") or []):
+        if isinstance(p, dict) and p.get("name"):
+            add(p.get("allowed_models"), p["name"], p["name"])
+    return result
+
+
+@router.get("/providers")
+async def get_providers(current_user=Depends(require_role("mod"))):
+    try:
+        providers = db.list_configs().get("multimodal_providers") or []
+        return [
+            {"name": p["name"], "allowed_models": p.get("allowed_models", [])}
+            for p in providers
+            if isinstance(p, dict) and p.get("name")
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching providers: {e}")
+
+
 @router.get("/", response_model=BotConfig)
 async def get_config(current_user=Depends(require_role("super_admin"))):
     try:
@@ -117,6 +150,19 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
                 not str(new_config.get(field, '')).strip()):
                 new_config[field] = existing_config[field]
 
+        # Preserve api_keys inside multimodal_providers: match by name, keep key if incoming is empty
+        new_providers = new_config.get('multimodal_providers')
+        if isinstance(new_providers, list):
+            existing_providers = existing_config.get('multimodal_providers') or []
+            existing_by_name = {
+                p['name']: p
+                for p in existing_providers
+                if isinstance(p, dict) and p.get('name')
+            }
+            for p in new_providers:
+                if isinstance(p, dict) and not p.get('api_key') and p.get('name') in existing_by_name:
+                    p['api_key'] = existing_by_name[p['name']].get('api_key', '')
+
         merged_config = {**existing_config, **new_config}
         _validate_panel_auth_prerequisites(
             bool(merged_config.get("panel_auth_enabled")),
@@ -125,11 +171,9 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
             discord_allowed_usernames=merged_config.get("discord_allowed_usernames"),
         )
 
-        # Write each key-value pair from the final, merged config to the database
+        # Write all config key-value pairs in a single transaction
         changed = [k for k, v in new_config.items() if str(existing_config.get(k)) != str(v) and k not in ('ai_key', 'discord_key', 'discord_oauth_client_secret')]
-        for key, value in new_config.items():
-            if value is not None:
-                db.set_config(key, value)
+        db.set_configs_bulk({k: v for k, v in new_config.items() if v is not None})
         if changed:
             db.log_admin('config.update', detail=', '.join(changed), actor=current_user)
 
@@ -196,17 +240,20 @@ async def update_security_methods(config: AuthMethodsConfig, current_user: dict 
             config.local_login_enabled,
             discord_allowed_usernames=config.discord_allowed_usernames,
         )
-        db.set_config("panel_auth_enabled", config.panel_auth_enabled)
-        db.set_config("discord_login_enabled", config.discord_login_enabled)
-        db.set_config("local_login_enabled", config.local_login_enabled)
+        bulk = {
+            "panel_auth_enabled": config.panel_auth_enabled,
+            "discord_login_enabled": config.discord_login_enabled,
+            "local_login_enabled": config.local_login_enabled,
+            "discord_allowed_usernames": config.discord_allowed_usernames,
+        }
         # Preserve existing OAuth values when incoming fields are empty.
         if config.discord_oauth_client_id:
-            db.set_config("discord_oauth_client_id", config.discord_oauth_client_id)
+            bulk["discord_oauth_client_id"] = config.discord_oauth_client_id
         if config.discord_oauth_client_secret:
-            db.set_config("discord_oauth_client_secret", config.discord_oauth_client_secret)
+            bulk["discord_oauth_client_secret"] = config.discord_oauth_client_secret
         if config.discord_oauth_redirect_uri:
-            db.set_config("discord_oauth_redirect_uri", config.discord_oauth_redirect_uri)
-        db.set_config("discord_allowed_usernames", config.discord_allowed_usernames)
+            bulk["discord_oauth_redirect_uri"] = config.discord_oauth_redirect_uri
+        db.set_configs_bulk(bulk)
         db.log_admin(
             "config.security.methods.update",
             detail=(

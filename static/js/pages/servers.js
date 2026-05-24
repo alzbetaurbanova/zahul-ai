@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentChannel = null;
     let availableCharacters = [];
     let globalDefaultCharacter = '';
+    let serverAllowedModels = [];
     // DOM Elements
     const serverList = document.getElementById('server-list');
     const channelPanel = document.getElementById('channel-panel');
@@ -30,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
             : currentUserRole === 'admin' || currentUserRole === 'super_admin';
     }
 
+    function isMod() { return currentUserRole === 'mod'; }
+
     // Form fields
     const nameInput = document.getElementById('name');
     const defaultCharacterInput = document.getElementById('default-character');
@@ -46,8 +49,14 @@ document.addEventListener('DOMContentLoaded', function() {
         scFields.classList.toggle('hidden', !enabled);
     }
 
+    async function loadServerAllowedModels() {
+        try {
+            const res = await fetch('/api/config/models');
+            if (res.ok) serverAllowedModels = await res.json();
+        } catch (_) {}
+    }
+
     function fillScFields(cfg) {
-        document.getElementById('sc-ai-endpoint').value = cfg.ai_endpoint ?? '';
         document.getElementById('sc-base-llm').value = cfg.base_llm ?? '';
         document.getElementById('sc-fallback-llm').value = cfg.fallback_llm ?? '';
         document.getElementById('sc-temperature').value = cfg.temperature ?? '';
@@ -56,20 +65,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sc-auto-cap').value = cfg.auto_cap ?? '';
         document.getElementById('sc-token-limit-tpm').value = cfg.token_limit_tpm ?? '';
         document.getElementById('sc-token-limit-tpd').value = cfg.token_limit_tpd ?? '';
-        document.getElementById('sc-use-prefill').value = cfg.use_prefill != null ? String(cfg.use_prefill) : '';
+        document.getElementById('sc-use-prefill').checked = cfg.use_prefill === true;
     }
 
     function clearScFields() {
-        ['sc-ai-endpoint','sc-base-llm','sc-fallback-llm','sc-temperature',
+        ['sc-base-llm','sc-fallback-llm','sc-temperature',
             'sc-max-tokens','sc-history-limit','sc-auto-cap',
             'sc-token-limit-tpm','sc-token-limit-tpd'].forEach(id => {
             document.getElementById(id).value = '';
         });
-        document.getElementById('sc-use-prefill').value = '';
+        document.getElementById('sc-use-prefill').checked = false;
     }
 
     function hasAnyOverride(cfg) {
-        const aiFields = ['ai_endpoint','base_llm','fallback_llm','temperature','max_tokens',
+        const aiFields = ['base_llm','fallback_llm','temperature','max_tokens',
                           'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd'];
         return aiFields.some(f => cfg[f] !== null && cfg[f] !== undefined);
     }
@@ -144,8 +153,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function applyModRestrictions() {
+        const mod = isMod();
+        scToggle.disabled = mod;
+        const toggleLabel = scToggle.closest('label');
+        if (toggleLabel) {
+            toggleLabel.title = mod ? 'Ask an admin to enable/edit overrides' : '';
+            toggleLabel.style.opacity = mod ? '0.5' : '';
+            toggleLabel.style.cursor = mod ? 'not-allowed' : '';
+        }
+    }
+
     async function openServerEditModal(server) {
-        if (!canEditServers()) {
+        if (!canEditServers() && !isMod()) {
             showToast('You do not have permission to edit server settings.', 'error');
             return;
         }
@@ -158,29 +178,65 @@ document.addEventListener('DOMContentLoaded', function() {
         populateSrvDefaultCharacterSelector(serverDefault);
         updateSrvDefaultCharacterStatus();
         await loadServerConfig(server.server_id);
+        applyModRestrictions();
     }
 
     document.getElementById('close-server-edit-modal-btn').addEventListener('click', () => serverEditModal.classList.add('hidden'));
     srvDefaultCharacterInput.addEventListener('change', updateSrvDefaultCharacterStatus);
-    document.getElementById('srv-save-character-btn').addEventListener('click', async () => {
+    async function saveServerSettings() {
         if (!currentServer) return;
         const raw = (srvDefaultCharacterInput.value || '').trim();
         if (raw && !availableCharacters.includes(raw)) {
             showToast('Choose a character from the list or clear the field to inherit global default.', 'error');
             return;
         }
-        const value = raw || null;
+        const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
+        const str = (id) => document.getElementById(id).value.trim() || null;
+        const aiOverrides = scToggle.checked ? Object.fromEntries(Object.entries({
+            base_llm: str('sc-base-llm'),
+            fallback_llm: str('sc-fallback-llm'),
+            temperature: num('sc-temperature'),
+            max_tokens: num('sc-max-tokens'),
+            history_limit: num('sc-history-limit'),
+            auto_cap: num('sc-auto-cap'),
+            token_limit_tpm: num('sc-token-limit-tpm'),
+            token_limit_tpd: num('sc-token-limit-tpd'),
+            use_prefill: document.getElementById('sc-use-prefill').checked,
+        }).filter(([, v]) => v !== null)) : {};
+        const rangeChecks = [
+            ['temperature', 0, 2], ['max_tokens', 64, 4096], ['history_limit', 1, 50],
+            ['auto_cap', 0, Infinity], ['token_limit_tpm', 0, Infinity], ['token_limit_tpd', 0, Infinity],
+        ];
+        for (const [key, min, max] of rangeChecks) {
+            const value = aiOverrides[key];
+            if (value == null) continue;
+            if (value < min || value > max) {
+                showToast(`${key} must be between ${min} and ${max === Infinity ? '∞' : max}.`, 'error');
+                return;
+            }
+        }
+        // Build unified payload: default_character + AI overrides
+        const payload = { ...aiOverrides };
+        if (raw) payload.default_character = raw;
         try {
-            const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ default_character: value })
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            currentServer.defaultCharacter = value || '';
-            showToast('Server default character saved.');
+            if (!isMod()) {
+                const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
+                if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
+            }
+            if (Object.keys(payload).length) {
+                const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!patchResp.ok) throw new Error(`PATCH HTTP ${patchResp.status}`);
+            }
+            currentServer.defaultCharacter = raw || '';
+            showToast('Server settings saved.');
         } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
-    });
+    }
+
+    document.getElementById('srv-save-btn').addEventListener('click', saveServerSettings);
 
     async function loadServerConfig(serverId) {
         try {
@@ -201,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const globalCfg = await fetch('/api/config/').then(r => r.json());
                 fillScFields({
-                    ai_endpoint: globalCfg.ai_endpoint,
                     base_llm: globalCfg.base_llm,
                     fallback_llm: globalCfg.fallback_llm,
                     temperature: globalCfg.temperature,
@@ -235,66 +290,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('server-config-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!currentServer || !scToggle.checked) return;
-        const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
-        const str = (id) => document.getElementById(id).value.trim() || null;
-        const payload = Object.fromEntries(Object.entries({
-            ai_endpoint: str('sc-ai-endpoint'),
-            base_llm: str('sc-base-llm'),
-            fallback_llm: str('sc-fallback-llm'),
-            temperature: num('sc-temperature'),
-            max_tokens: num('sc-max-tokens'),
-            history_limit: num('sc-history-limit'),
-            auto_cap: num('sc-auto-cap'),
-            token_limit_tpm: num('sc-token-limit-tpm'),
-            token_limit_tpd: num('sc-token-limit-tpd'),
-            use_prefill: (() => { const v = document.getElementById('sc-use-prefill').value; return v !== '' ? v === 'true' : null; })(),
-        }).filter(([, v]) => v !== null));
-        if (!isValidHttpUrl(payload.ai_endpoint || '')) {
-            showToast('API Endpoint must be a valid http/https URL.', 'error');
-            return;
-        }
-        const rangeChecks = [
-            ['temperature', 0, 2],
-            ['max_tokens', 64, 4096],
-            ['history_limit', 1, 50],
-            ['auto_cap', 0, Infinity],
-            ['token_limit_tpm', 0, Infinity],
-            ['token_limit_tpd', 0, Infinity],
-        ];
-        for (const [key, min, max] of rangeChecks) {
-            const value = payload[key];
-            if (value == null) continue;
-            if (value < min || value > max) {
-                showToast(`${key} must be between ${min} and ${max === Infinity ? 'infinity' : max}.`, 'error');
-                return;
-            }
-        }
+    document.getElementById('sc-reset-btn').addEventListener('click', async () => {
+        if (!currentServer) return;
         try {
-            const delResp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
-            if (!delResp.ok) throw new Error(`DELETE HTTP ${delResp.status}`);
-            if (Object.keys(payload).length) {
-                const patchResp = await fetch(`${API_BASE}/${currentServer.id}/config`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!patchResp.ok) throw new Error(`PATCH HTTP ${patchResp.status}`);
-            }
-            showToast('Server overrides saved.');
-        } catch (e) { showToast(`Failed to save: ${e.message}`, 'error'); }
+            const res = await fetch('/api/config');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const globalCfg = await res.json();
+            fillScFields(globalCfg);
+            setScEnabled(true);
+            await saveServerSettings();
+        } catch (e) { showToast(`Failed to load defaults: ${e.message}`, 'error'); }
     });
+
+    function showEmptyChannelState(serverName) {
+        channelEditModal.classList.add('hidden');
+        channelListTitle.textContent = serverName;
+        channelPanel.classList.remove('hidden');
+        channelList.innerHTML = `
+            <li class="flex flex-col items-center text-center gap-3 py-6">
+                <i class="fas fa-hashtag text-3xl text-gray-600"></i>
+                <p class="text-sm text-gray-500">No channels registered yet.<br>Use the slash command in Discord:</p>
+                <div class="code-block">/register_channel</div>
+            </li>`;
+    }
 
     async function fetchServers() {
         try {
-            const response = await fetch(API_BASE);
-            const servers = await response.json();
+            let servers;
+            const guildsResp = await fetch('/api/discord/guilds');
+            if (guildsResp.ok) {
+                servers = await guildsResp.json();
+            } else {
+                const dbResp = await fetch(API_BASE);
+                if (!dbResp.ok) throw new Error(`HTTP ${dbResp.status}`);
+                servers = (await dbResp.json()).map(s => ({ ...s, in_db: true }));
+            }
+
             serverList.innerHTML = '';
+            if (servers.length === 0) {
+                serverList.innerHTML = '<li class="text-dim">No servers found.</li>';
+                return;
+            }
+
             servers.forEach(server => {
                 const li = document.createElement('li');
-                li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
+                li.className = 'list-item relative flex items-center w-full group';
                 li.dataset.serverId = server.server_id;
 
                 const nameSpan = document.createElement('span');
@@ -305,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 editBtn.innerHTML = '<i class="fas fa-cog"></i>';
                 editBtn.className = 'absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity';
                 editBtn.title = 'Server settings';
-                if (!canEditServers()) {
+                if ((!canEditServers() && !isMod()) || !server.in_db) {
                     editBtn.classList.add('hidden');
                 }
                 editBtn.addEventListener('click', (e) => {
@@ -318,7 +358,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 li.addEventListener('click', () => {
                     document.querySelectorAll('#server-list .list-item').forEach(el => el.classList.remove('active'));
                     li.classList.add('active');
-                    fetchChannels(server.server_id, server.server_name);
+                    if (server.in_db) {
+                        fetchChannels(server.server_id, server.server_name);
+                    } else {
+                        showEmptyChannelState(server.server_name);
+                    }
                 });
                 serverList.appendChild(li);
             });
@@ -338,11 +382,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const channels = await response.json();
             channelList.innerHTML = '';
             if (channels.length === 0) {
-                channelList.innerHTML = `<li class="text-gray-500">No channels registered.</li>`;
+                showEmptyChannelState(serverName);
+                return;
             }
             channels.forEach(channel => {
                 const li = document.createElement('li');
-                li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
+                li.className = 'list-item relative flex items-center w-full group';
                 li.dataset.channelId = channel.channel_id;
 
                 const nameSpan = document.createElement('span');
@@ -454,6 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
         addChannelModal.classList.remove('hidden');
     });
     closeModalBtn.addEventListener('click', () => addChannelModal.classList.add('hidden'));
+    addChannelModal.addEventListener('click', (e) => { if (e.target === addChannelModal) addChannelModal.classList.add('hidden'); });
 
     // Invite modal
     const inviteModal = document.getElementById('invite-modal');
@@ -472,12 +518,25 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const data = await res.json();
             if (data.invite) {
+                const invite = data.invite;
                 inviteLinkContainer.innerHTML = `
-                    <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
-                        class="servers-invite-link">
-                        <i class="fas fa-external-link-alt"></i> Open Invite Link
-                    </a>
-                    <p class="text-gray-600 text-xs mt-3 break-all">${data.invite}</p>`;
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <a href="${escapeHtml(invite)}" target="_blank" rel="noopener noreferrer"
+                            class="servers-invite-link">
+                            <i class="fas fa-external-link-alt"></i> Open Invite Link
+                        </a>
+                        <button type="button" id="servers-copy-invite" class="btn-gray text-sm py-2 px-3">
+                            <i class="fas fa-copy mr-1"></i> Copy
+                        </button>
+                    </div>`;
+                document.getElementById('servers-copy-invite')?.addEventListener('click', () => {
+                    navigator.clipboard.writeText(invite)
+                        .then(() => {
+                            if (typeof logInviteCopied === 'function') logInviteCopied();
+                            showToast('Invite link copied.');
+                        })
+                        .catch(() => showToast('Failed to copy invite link.', 'error'));
+                });
             } else {
                 inviteLinkContainer.innerHTML = `<p class="text-red-400 text-sm">${data.message || 'Bot is not running yet.'}</p>`;
             }
@@ -486,6 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     document.getElementById('close-invite-modal-btn').addEventListener('click', () => inviteModal.classList.add('hidden'));
+    inviteModal.addEventListener('click', (e) => { if (e.target === inviteModal) inviteModal.classList.add('hidden'); });
 
     function wireDefaultCharacterCombos() {
         if (typeof setupFilterCombobox !== 'function') return;
@@ -505,6 +565,15 @@ document.addEventListener('DOMContentLoaded', function() {
             () => updateSrvDefaultCharacterStatus(),
             'hover:bg-gray-700'
         );
+        const allServerModels = () => [...new Set(serverAllowedModels.map(m => m.model))];
+        setupFilterCombobox(
+            'sc-base-llm', 'sc-base-llm-dd',
+            allServerModels, null, null, 'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'sc-fallback-llm', 'sc-fallback-llm-dd',
+            allServerModels, null, null, 'hover:bg-gray-700'
+        );
     }
 
     // Form listener
@@ -514,11 +583,13 @@ document.addEventListener('DOMContentLoaded', function() {
     closeChannelEditModalBtn.addEventListener('click', () => channelEditModal.classList.add('hidden'));
 
     // Initial Load
-    fetch('/api/auth-status')
-        .then(r => r.json())
+    (window.__authStatus || fetch('/api/me').then(r => r.json()))
         .then(d => {
             currentUserRole = d?.current_user?.role || (d?.panel_auth_enabled ? 'guest' : 'super_admin');
         })
         .catch(() => {})
-        .finally(() => fetchServers());
+        .finally(() => {
+            loadServerAllowedModels();
+            fetchServers();
+        });
 });

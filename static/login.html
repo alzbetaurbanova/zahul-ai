@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>zahul-ai - Login</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="min-h-screen flex items-center justify-center">
+<body class="min-h-screen flex items-center justify-center pb-14">
     <div class="w-full max-w-sm">
         <div class="brand-header">
             <img src="/zahul" alt="zahul-ai">
@@ -30,15 +32,20 @@
                 </div>
                 <div class="mb-4">
                     <label for="password" class="label-form">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        autocomplete="off"
-                        required
-                        class="input-field"
-                        placeholder="Enter panel password"
-                    >
+                    <div class="relative">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            autocomplete="off"
+                            required
+                            class="input-field"
+                            placeholder="Enter panel password"
+                        >
+                        <button type="button" id="toggle-password" class="btn-eye" tabindex="-1">
+                            <i class="fas fa-eye" id="toggle-password-icon"></i>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" class="btn-gray w-full text-sm font-semibold flex items-center justify-center gap-2">
                     <i class="fas fa-user"></i> Login with Username
@@ -63,6 +70,8 @@
             </div>
         </div>
     </div>
+    <site-footer class="footer-fixed"></site-footer>
+    <script src="/static/js/footer.js" defer></script>
     <script src="/static/js/pages/login.js" defer></script>
 </body>
 </html>

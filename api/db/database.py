@@ -1,8 +1,11 @@
 import sqlite3
 import json
+import copy
 from typing import Any, Optional, Dict, List, Tuple
 import os
 from datetime import datetime, timezone
+
+from api.db import cache as db_cache
 
 def _get_trash_db():
     from api.db.trash import TrashDB
@@ -135,10 +138,14 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_ts ON discord_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_character ON discord_logs(character)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_channel_id ON discord_logs(channel_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_status ON discord_logs(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discord_logs_user ON discord_logs(user)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_channels_server_id ON channels(server_id)")
             # Migrations for existing DBs
             try: conn.execute("ALTER TABLE characters ADD COLUMN created_by TEXT")
             except: pass
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -271,6 +278,51 @@ class Database:
             for key, val in security_defaults:
                 conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
+        self._cleanup_mislinked_scheduler_channels()
+
+    def _cleanup_mislinked_scheduler_channels(self):
+        """Remove auto-linked legacy scheduler channels (wrong server attribution)."""
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT channel_id, data FROM channels").fetchall()
+            for row in rows:
+                data = self._parse_json_value(row["data"])
+                if isinstance(data, dict) and data.get("legacy_scheduler"):
+                    conn.execute("DELETE FROM channels WHERE channel_id = ?", (row["channel_id"],))
+            conn.commit()
+
+    def log_matches_server_scope(self, channel_id: str, server_ids: List[str]) -> bool:
+        if not server_ids:
+            return False
+        raw = channel_id[8:] if channel_id.startswith("channel:") else channel_id
+        ph = ",".join("?" * len(server_ids))
+        with self._get_connection() as conn:
+            row = conn.execute(
+                f"""
+                SELECT 1 FROM channels c
+                WHERE c.server_id IN ({ph})
+                AND (c.channel_id = ? OR c.channel_id = ?)
+                LIMIT 1
+                """,
+                server_ids + [channel_id, raw],
+            ).fetchone()
+        return row is not None
+
+    @staticmethod
+    def _discord_log_on_servers_sql(server_ids: List[str], table_alias: str = "") -> Tuple[str, List[str]]:
+        prefix = f"{table_alias}." if table_alias else ""
+        ph = ",".join("?" * len(server_ids))
+        clause = f"""EXISTS (
+            SELECT 1 FROM channels c
+            WHERE c.server_id IN ({ph})
+            AND (
+                c.channel_id = {prefix}channel_id
+                OR c.channel_id = CASE
+                    WHEN {prefix}channel_id LIKE 'channel:%' THEN substr({prefix}channel_id, 9)
+                    ELSE {prefix}channel_id
+                END
+            )
+        )"""
+        return clause, list(server_ids)
 
     # ------------------------------------------------------
     # Helper for dynamic updates
@@ -298,9 +350,21 @@ class Database:
     def set_config(self, key: str, value: Any):
         """Create or update a configuration key-value pair."""
         with self._get_connection() as conn:
-            # No change here, this was always correct.
             conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, json.dumps(value)))
             conn.commit()
+        db_cache.invalidate_config()
+
+    def set_configs_bulk(self, items: Dict[str, Any]):
+        """Write multiple config key-value pairs in a single transaction."""
+        if not items:
+            return
+        with self._get_connection() as conn:
+            conn.executemany(
+                "REPLACE INTO config (key, value) VALUES (?, ?)",
+                [(k, json.dumps(v)) for k, v in items.items()]
+            )
+            conn.commit()
+        db_cache.invalidate_config()
 
     def get_config(self, key: str) -> Optional[Any]:
         """Read a configuration value by its key."""
@@ -310,17 +374,19 @@ class Database:
             return self._parse_json_value(row["value"]) if row else None
             
     def list_configs(self) -> Dict[str, Any]:
-        """List all configuration key-value pairs."""
+        """List all configuration key-value pairs (cached reads; invalidated on write)."""
+        return db_cache.get_cached_config(self._list_configs_uncached)
+
+    def _list_configs_uncached(self) -> Dict[str, Any]:
         with self._get_connection() as conn:
             rows = conn.execute("SELECT key, value FROM config").fetchall()
-            # --- MODIFIED LINE ---
             return {row["key"]: self._parse_json_value(row["value"]) for row in rows}
 
     def delete_config(self, key: str):
-        # ... (this is the same) ...
         with self._get_connection() as conn:
             conn.execute("DELETE FROM config WHERE key = ?", (key,))
             conn.commit()
+        db_cache.invalidate_config()
 
     # ------------------------------------------------------
     # Servers
@@ -380,12 +446,14 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("UPDATE servers SET config = ? WHERE server_id = ?", (json.dumps(config), server_id))
             conn.commit()
+        db_cache.invalidate_config()
 
     def clear_server_config(self, server_id: str):
         """Remove all per-server config overrides (reset to global defaults)."""
         with self._get_connection() as conn:
             conn.execute("UPDATE servers SET config = NULL WHERE server_id = ?", (server_id,))
             conn.commit()
+        db_cache.invalidate_config()
 
     # ------------------------------------------------------
     # Channels
@@ -396,9 +464,13 @@ class Database:
             conn.execute("INSERT INTO channels (channel_id, server_id, server_name, data) VALUES (?, ?, ?, ?)",
                          (channel_id, server_id, server_name, json.dumps(data)))
             conn.commit()
+        db_cache.invalidate_channels()
     
     def get_channel(self, channel_id: str) -> Optional[Dict[str, Any]]:
-        """Read a channel's data by its ID."""
+        """Read a channel's data by its ID (cached reads; invalidated on write)."""
+        return db_cache.get_cached_channel(channel_id, lambda: self._get_channel_uncached(channel_id))
+
+    def _get_channel_uncached(self, channel_id: str) -> Optional[Dict[str, Any]]:
         with self._get_connection() as conn:
             row = conn.execute("SELECT * FROM channels WHERE channel_id = ?", (channel_id,)).fetchone()
             if not row:
@@ -410,6 +482,7 @@ class Database:
     def update_channel(self, channel_id: str, **kwargs):
         """Update a channel's data (e.g., server_name, data)."""
         self._update_record("channels", "channel_id", channel_id, **kwargs)
+        db_cache.invalidate_channels(channel_id)
 
     def delete_channel(self, channel_id: str):
         """Delete a channel record."""
@@ -419,6 +492,7 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM channels WHERE channel_id = ?", (channel_id,))
             conn.commit()
+        db_cache.invalidate_channels(channel_id)
 
     def list_channels(self) -> List[Dict[str, Any]]:
         """List all channels across all servers."""
@@ -430,6 +504,35 @@ class Database:
                 channel['data'] = json.loads(channel['data'])
                 channels.append(channel)
             return channels
+
+    def list_channel_options(self, allowed_server_ids: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        """Lightweight channel list for scheduler target combobox (one query)."""
+        conditions = ["server_id != ?"]
+        params: List[Any] = ["DM_VIRTUAL_SERVER"]
+        if allowed_server_ids is not None:
+            if not allowed_server_ids:
+                return []
+            ph = ",".join("?" * len(allowed_server_ids))
+            conditions.append(f"server_id IN ({ph})")
+            params.extend(allowed_server_ids)
+        where = " AND ".join(conditions)
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT channel_id, server_id, server_name, data FROM channels WHERE {where} "
+                "ORDER BY server_name, channel_id",
+                params,
+            ).fetchall()
+        options = []
+        for row in rows:
+            data = self._parse_json_value(row["data"]) if isinstance(row["data"], str) else row["data"]
+            name = data.get("name", row["channel_id"]) if isinstance(data, dict) else row["channel_id"]
+            options.append({
+                "id": row["channel_id"],
+                "label": f"#{name}",
+                "sub": row["server_name"] or "",
+                "server_id": row["server_id"],
+            })
+        return options
         
     def list_channels_for_server(self, server_id: str) -> List[Dict[str, Any]]:
         """List all channels for a specific server by its ID."""
@@ -444,6 +547,34 @@ class Database:
                 channels.append(channel)
             return channels
 
+    def get_channel_ids_for_servers(self, server_ids: List[str]) -> List[str]:
+        if not server_ids:
+            return []
+        ph = ",".join("?" * len(server_ids))
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT channel_id FROM channels WHERE server_id IN ({ph})", server_ids
+            ).fetchall()
+        return [r["channel_id"] for r in rows]
+
+    def list_whitelist_names_by_server_ids(self, server_ids: List[str]) -> Dict[str, List[str]]:
+        """Aggregate unique whitelist character names per server (one query)."""
+        if not server_ids:
+            return {}
+        ph = ",".join("?" * len(server_ids))
+        names_by_server: Dict[str, set] = {sid: set() for sid in server_ids}
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT server_id, data FROM channels WHERE server_id IN ({ph})",
+                server_ids,
+            ).fetchall()
+        for row in rows:
+            data = self._parse_json_value(row["data"])
+            if isinstance(data, dict):
+                for name in data.get("whitelist") or []:
+                    names_by_server.setdefault(row["server_id"], set()).add(name)
+        return {sid: sorted(names_by_server.get(sid, set())) for sid in server_ids}
+
     # ------------------------------------------------------
     # Characters & Triggers
     # ------------------------------------------------------
@@ -457,21 +588,48 @@ class Database:
                 trigger_data = [(char_id, trigger) for trigger in triggers]
                 cur.executemany("INSERT INTO character_triggers (character_id, trigger) VALUES (?, ?)", trigger_data)
             conn.commit()
+            db_cache.invalidate_characters()
             return char_id
 
     def get_character(self, name: str) -> Optional[Dict[str, Any]]:
         """Read a character's data and triggers by name."""
-        with self._get_connection() as conn:
-            row = conn.execute("SELECT id, data, created_by FROM characters WHERE name = ?", (name,)).fetchone()
-            if not row: return None
+        char = self.get_character_map_by_name().get(name)
+        return copy.deepcopy(char) if char else None
 
-            char_id = row["id"]
-            triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
-            return {"id": char_id, "name": name, "data": json.loads(row["data"]), "triggers": triggers, "created_by": row["created_by"]}
+    def get_character_map_by_name(self) -> Dict[str, Dict[str, Any]]:
+        return db_cache.get_character_map(self._load_characters_uncached)
+
+    def _load_characters_uncached(self) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            chars = [dict(row) for row in conn.execute(
+                "SELECT id, name, data, created_by FROM characters"
+            ).fetchall()]
+            if not chars:
+                return []
+            char_ids = [c["id"] for c in chars]
+            ph = ",".join("?" * len(char_ids))
+            trigger_rows = conn.execute(
+                f"SELECT character_id, trigger FROM character_triggers WHERE character_id IN ({ph})",
+                char_ids,
+            ).fetchall()
+            triggers_by_id: Dict[int, List[str]] = {}
+            for tr in trigger_rows:
+                triggers_by_id.setdefault(tr["character_id"], []).append(tr["trigger"])
+            out: List[Dict[str, Any]] = []
+            for char in chars:
+                out.append({
+                    "id": char["id"],
+                    "name": char["name"],
+                    "data": json.loads(char["data"]),
+                    "triggers": triggers_by_id.get(char["id"], []),
+                    "created_by": char["created_by"],
+                })
+            return out
 
     def update_character(self, name: str, **kwargs):
         """Update a character's data (e.g., data)."""
         self._update_record("characters", "name", name, **kwargs)
+        db_cache.invalidate_characters()
 
     def delete_character(self, name: str):
         """Delete a character and its associated triggers."""
@@ -481,24 +639,42 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM characters WHERE name = ?", (name,))
             conn.commit()
+        db_cache.invalidate_characters()
 
     def list_characters(self) -> List[Dict[str, Any]]:
-        """List all characters with their data and triggers."""
-        with self._get_connection() as conn:
-            chars = [dict(row) for row in conn.execute("SELECT id, name, data, created_by FROM characters").fetchall()]
-            for char in chars:
-                char['data'] = json.loads(char['data'])
-                triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char["id"],)).fetchall()]
-                char['triggers'] = triggers
-        return chars
+        """List all characters with their data and triggers (2 queries; cached reads)."""
+        return db_cache.get_cached_characters(self._load_characters_uncached)
     
-    def get_character_by_id(self, char_id: int) -> Optional[Dict[str, Any]]:
-        """Read a character's data and triggers by ID."""
+    def get_character_by_id(self, char_id: int, *, fresh: bool = False) -> Optional[Dict[str, Any]]:
+        """Read a character's data and triggers by ID. Use fresh=True after writes."""
+        if not fresh:
+            for char in self.list_characters():
+                if char["id"] == char_id:
+                    return copy.deepcopy(char)
+        return self._get_character_by_id_uncached(char_id)
+
+    def _get_character_by_id_uncached(self, char_id: int) -> Optional[Dict[str, Any]]:
         with self._get_connection() as conn:
-            row = conn.execute("SELECT id, name, data, created_by FROM characters WHERE id = ?", (char_id,)).fetchone()
-            if not row: return None
-            triggers = [r["trigger"] for r in conn.execute("SELECT trigger FROM character_triggers WHERE character_id = ?", (char_id,)).fetchall()]
-            return {"id": char_id, "name": row["name"], "data": json.loads(row["data"]), "triggers": triggers, "created_by": row["created_by"]}
+            row = conn.execute(
+                "SELECT id, name, data, created_by FROM characters WHERE id = ?",
+                (char_id,),
+            ).fetchone()
+            if not row:
+                return None
+            triggers = [
+                r["trigger"]
+                for r in conn.execute(
+                    "SELECT trigger FROM character_triggers WHERE character_id = ?",
+                    (char_id,),
+                ).fetchall()
+            ]
+            return {
+                "id": row["id"],
+                "name": row["name"],
+                "data": json.loads(row["data"]),
+                "triggers": triggers,
+                "created_by": row["created_by"],
+            }
 
     def update_character_by_id(self, char_id: int, name: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
         """Update a character by ID. Optionally update name and/or data."""
@@ -518,8 +694,9 @@ class Database:
         with self._get_connection() as conn:
             conn.execute("DELETE FROM characters WHERE id = ?", (char_id,))
             conn.commit()
+        db_cache.invalidate_characters()
 
-    def update_character_triggers(self, character_id: int, triggers: List[str]):
+    def update_character_triggers(self, character_id: int, triggers: List[str], *, invalidate_cache: bool = True):
         """
         Replaces all triggers for a given character.
         Deletes existing triggers and inserts the new list.
@@ -533,6 +710,8 @@ class Database:
                 trigger_data = [(character_id, trigger) for trigger in triggers]
                 cur.executemany("INSERT INTO character_triggers (character_id, trigger) VALUES (?, ?)", trigger_data)
             conn.commit()
+        if invalidate_cache:
+            db_cache.invalidate_characters()
 
     # ------------------------------------------------------
     # Presets
@@ -661,21 +840,75 @@ class Database:
             return self._parse_task_row(row) if row else None
 
     def list_tasks(self, type: Optional[str] = None, status=None) -> List[Dict[str, Any]]:
+        items, _ = self.list_tasks_page(type=type, status=status, offset=0, limit=10_000_000)
+        return items
+
+    def list_tasks_page(
+        self,
+        *,
+        type: Optional[str] = None,
+        status=None,
+        character_contains: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        server_id: Optional[str] = None,
+        allowed_server_ids: Optional[List[str]] = None,
+        offset: int = 0,
+        limit: int = 25,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Paginated task list with optional filters (used by scheduler UI)."""
         self._ensure_scheduled_tasks_table()
-        query = "SELECT * FROM scheduled_tasks WHERE 1=1"
+        conditions = ["1=1"]
         params: List[Any] = []
+
         if type:
-            query += " AND type = ?"
+            conditions.append("type = ?")
             params.append(type)
         if status:
             vals = status if isinstance(status, list) else [status]
             if vals:
-                query += f" AND status IN ({','.join('?'*len(vals))})"
+                conditions.append(f"status IN ({','.join('?' * len(vals))})")
                 params.extend(vals)
-        query += " ORDER BY created_at DESC"
+        if character_contains:
+            conditions.append("LOWER(character) LIKE ?")
+            params.append(f"%{character_contains.strip().lower()}%")
+        if date_from:
+            conditions.append(
+                "date(COALESCE(NULLIF(substr(scheduled_time, 1, 10), ''), substr(created_at, 1, 10))) >= date(?)"
+            )
+            params.append(date_from)
+        if date_to:
+            conditions.append(
+                "date(COALESCE(NULLIF(substr(scheduled_time, 1, 10), ''), substr(created_at, 1, 10))) <= date(?)"
+            )
+            params.append(date_to)
+        if server_id:
+            conditions.append("target_type = 'channel'")
+            conditions.append("target_id IN (SELECT channel_id FROM channels WHERE server_id = ?)")
+            params.append(server_id)
+        if allowed_server_ids is not None:
+            if not allowed_server_ids:
+                conditions.append("1=0")
+            else:
+                ph = ",".join("?" * len(allowed_server_ids))
+                conditions.append(
+                    f"(target_type = 'channel' AND target_id IN "
+                    f"(SELECT channel_id FROM channels WHERE server_id IN ({ph})))"
+                )
+                params.extend(allowed_server_ids)
+
+        where_sql = " AND ".join(conditions)
         with self._get_connection() as conn:
-            rows = conn.execute(query, params).fetchall()
-            return [self._parse_task_row(r) for r in rows]
+            count_row = conn.execute(
+                f"SELECT COUNT(*) AS n FROM scheduled_tasks WHERE {where_sql}",
+                params,
+            ).fetchone()
+            total = int(count_row["n"]) if count_row else 0
+            rows = conn.execute(
+                f"SELECT * FROM scheduled_tasks WHERE {where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                params + [limit, offset],
+            ).fetchall()
+            return [self._parse_task_row(r) for r in rows], total
 
     def list_due_reminders(self, now_iso: str) -> List[Dict[str, Any]]:
         """Return upcoming reminders whose scheduled_time is at or before now_iso."""
@@ -719,7 +952,8 @@ class Database:
     def log_discord(self, character: str, channel_id: str, user: str, trigger: str, response: str,
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
-                    temperature: float = None, history_count: int = 0, task_id: int = None):
+                    temperature: float = None, history_count: int = 0, task_id: int = None,
+                    endpoint: str = None):
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
@@ -729,11 +963,11 @@ class Database:
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count, task_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id, endpoint)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count, task_id))
+                  temperature, history_count, task_id, endpoint))
             conn.commit()
 
     def log_admin(
@@ -785,12 +1019,36 @@ class Database:
             vals = filters['status'] if isinstance(filters['status'], list) else [filters['status']]
             conditions.append(f"status IN ({','.join('?'*len(vals))})"); params.extend(vals)
         if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
+        if filters.get('server_ids') is not None:
+            sids = filters['server_ids']
+            if not sids:
+                conditions.append("1=0")
+            else:
+                clause, clause_params = self._discord_log_on_servers_sql(sids, table_alias="dl")
+                conditions.append(clause)
+                params.extend(clause_params)
+        elif filters.get('channel_ids') is not None:
+            vals = filters['channel_ids']
+            if not vals:
+                conditions.append("1=0")
+            else:
+                match_vals = []
+                seen = set()
+                for cid in vals:
+                    raw = cid[8:] if isinstance(cid, str) and cid.startswith("channel:") else cid
+                    for v in (cid, raw, f"channel:{raw}"):
+                        if v and v not in seen:
+                            seen.add(v)
+                            match_vals.append(v)
+                conditions.append(f"channel_id IN ({','.join('?' * len(match_vals))})")
+                params.extend(match_vals)
+        from_table = "discord_logs dl"
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         offset = (page - 1) * limit
         with self._get_connection() as conn:
-            total = conn.execute(f"SELECT COUNT(*) FROM discord_logs {where}", params).fetchone()[0]
+            total = conn.execute(f"SELECT COUNT(*) FROM {from_table} {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT id,timestamp,character,channel_id,user,trigger,response,model,input_tokens,output_tokens,source,status,error_message,temperature,history_count,task_id FROM discord_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id,dl.endpoint FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
@@ -844,20 +1102,51 @@ class Database:
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}
 
-    def list_logs_meta(self) -> Dict:
+    def list_logs_meta(
+        self,
+        channel_ids: Optional[List[str]] = None,
+        server_ids: Optional[List[str]] = None,
+    ) -> Dict:
+        log_extra, log_params = "", []
+        if server_ids is not None:
+            if not server_ids:
+                return {"characters": [], "users": [], "admin_users": [], "channels": {}}
+            scope_clause, log_params = self._discord_log_on_servers_sql(server_ids, table_alias="dl")
+            log_extra = f" AND {scope_clause}"
+        elif channel_ids is not None:
+            if not channel_ids:
+                return {"characters": [], "users": [], "admin_users": [], "channels": {}}
+            ph = ",".join("?" * len(channel_ids))
+            log_extra = f" AND channel_id IN ({ph})"
+            log_params = list(channel_ids)
         with self._get_connection() as conn:
             characters = [r[0] for r in conn.execute(
-                "SELECT DISTINCT character FROM discord_logs WHERE character IS NOT NULL ORDER BY character"
+                f"SELECT DISTINCT dl.character FROM discord_logs dl WHERE dl.character IS NOT NULL{log_extra} ORDER BY dl.character",
+                log_params,
             ).fetchall()]
             users = [r[0] for r in conn.execute(
-                "SELECT DISTINCT user FROM discord_logs WHERE user IS NOT NULL AND user != 'system' ORDER BY user"
+                f"SELECT DISTINCT dl.user FROM discord_logs dl WHERE dl.user IS NOT NULL AND dl.user != 'system'{log_extra} ORDER BY dl.user",
+                log_params,
             ).fetchall()]
             admin_users = [r[0] for r in conn.execute(
                 "SELECT DISTINCT actor_username FROM admin_logs WHERE actor_username IS NOT NULL AND TRIM(actor_username) != '' ORDER BY actor_username"
             ).fetchall()]
-            channel_rows = conn.execute(
-                "SELECT channel_id, server_name, data FROM channels"
-            ).fetchall()
+            if server_ids is not None:
+                ch_ph = ",".join("?" * len(server_ids))
+                channel_rows = conn.execute(
+                    f"SELECT channel_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
+                    server_ids,
+                ).fetchall()
+            elif channel_ids is not None:
+                ch_ph = ",".join("?" * len(channel_ids))
+                channel_rows = conn.execute(
+                    f"SELECT channel_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
+                    channel_ids,
+                ).fetchall()
+            else:
+                channel_rows = conn.execute(
+                    "SELECT channel_id, server_name, data FROM channels"
+                ).fetchall()
         channels = {}
         for row in channel_rows:
             d = dict(row)

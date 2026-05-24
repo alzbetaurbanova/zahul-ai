@@ -26,6 +26,22 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+function panelLoaderHtml(label = 'Loading...', modifier = '') {
+    const modCls = modifier ? ` is-${modifier}` : '';
+    return [
+        '<div class="panel-loader', modCls, '" role="status" aria-live="polite">',
+        '<span class="loader-spinner" aria-hidden="true"></span>',
+        '<span class="panel-loader-label">', escapeHtml(label), '</span>',
+        '</div>',
+    ].join('');
+}
+
+function showPanelLoader(container, label = 'Loading...', modifier = '') {
+    if (!container) return;
+    if (container.querySelector('.panel-loader')) return;
+    container.innerHTML = panelLoaderHtml(label, modifier);
+}
+
 /** Combobox clear (X) only after user types or picks from list — not on programmatic value. */
 function resetFilterComboboxTouch(inputId) {
     const input = typeof inputId === 'string' ? document.getElementById(inputId) : inputId;
@@ -67,7 +83,7 @@ function setupFilterCombobox(inputId, dropdownId, options, onSelect, onInput, op
             return;
         }
         dropdown.innerHTML = filtered.map((o, i) =>
-            `<div class="combobox-item px-3 py-2 cursor-pointer ${optionHoverClass} text-sm text-white" data-index="${i}" data-val="${escapeHtml(o)}">${escapeHtml(o)}</div>`
+            `<div class="combobox-item px-3 py-2 cursor-pointer text-sm text-white" data-index="${i}" data-val="${escapeHtml(o)}">${escapeHtml(o)}</div>`
         ).join('');
         dropdown.querySelectorAll('.combobox-item').forEach(item => {
             item.addEventListener('mousedown', e => {
@@ -305,6 +321,53 @@ function initSearchableCheckboxDropdown(options) {
     }
 
     return { reset, filterRows };
+}
+
+function logInviteCopied() {
+    fetch("/api/discord/invite/copied", { method: "POST", credentials: "same-origin" }).catch(() => {});
+}
+
+/** Native date input: full picker (incl. year), closed field hides year via .date-filter-md CSS. */
+function initDateFilterMd(inputId, onChange) {
+    const input = document.getElementById(inputId);
+    const clearBtn = document.getElementById(`${inputId}-clear`);
+    const pickerBtn = document.getElementById(`${inputId}-picker`);
+    if (!input || input.dataset.dateFilterMd === '1') return;
+    input.dataset.dateFilterMd = '1';
+
+    const sync = () => {
+        input.title = input.value || '';
+    };
+
+    const openPicker = () => {
+        if (typeof input.showPicker === 'function') {
+            try {
+                input.showPicker();
+                return;
+            } catch (_) { /* fallback below */ }
+        }
+        input.focus();
+        input.click();
+    };
+
+    input.addEventListener('change', () => {
+        sync();
+        if (onChange) onChange();
+    });
+    input.addEventListener('input', sync);
+    input.addEventListener('blur', sync);
+    clearBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        input.value = '';
+        sync();
+        if (onChange) onChange();
+    });
+    pickerBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        openPicker();
+    });
+    sync();
 }
 
 const ROLE_LEVELS = { super_admin: 4, admin: 3, mod: 2, guest: 1, pending: 0, rejected: 0, user: 0 };

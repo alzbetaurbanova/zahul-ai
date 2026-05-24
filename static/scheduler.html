@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - Scheduler</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Scheduler</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="bg-darker text-light min-h-screen" data-page="scheduler">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="scheduler">
     <div id="toast-container" class="toast"></div>
 
     <div id="navbar-container"></div>
@@ -34,9 +36,17 @@
                 <div>
                     <label class="label-xs">Character</label>
                     <div class="relative">
-                        <input type="text" id="filter-character" autocomplete="off" placeholder="any" class="field w-36 pr-8">
+                        <input type="text" id="filter-character" autocomplete="off" placeholder="all" class="input-field w-36 pr-8">
                         <button type="button" class="icon-clear-btn hidden" data-clear="filter-character" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="filter-character-dd" class="autocomplete-dd hidden"></div>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-xs">Server</label>
+                    <div class="relative">
+                        <input type="text" id="filter-server" autocomplete="off" placeholder="all" class="input-field w-48 pr-8">
+                        <button type="button" class="icon-clear-btn hidden" data-clear="filter-server" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                        <div id="filter-server-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
                 <div>
@@ -90,7 +100,10 @@
 
             <!-- Task List -->
             <div id="task-list" class="space-y-3">
-                <div class="text-muted text-center py-12">Loading...</div>
+                <div class="panel-loader" role="status" aria-live="polite">
+                    <span class="loader-spinner" aria-hidden="true"></span>
+                    <span class="panel-loader-label">Loading tasks...</span>
+                </div>
             </div>
 
             <!-- Pagination -->
@@ -161,7 +174,7 @@
 
                 <!-- Type -->
                 <div>
-                    <label class="label-form">Type</label>
+                    <label class="label-form label-tt">Type <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Reminder sends once at a set date and time. Schedule repeats on a daily, weekly, monthly, or yearly pattern.</span></span></label>
                     <div class="flex gap-2">
                         <button type="button" data-type="reminder" id="type-reminder"
                             class="type-btn flex-1 tab-amber-on">
@@ -176,15 +189,15 @@
                 </div>
 
                 <!-- Name (schedules only) -->
-                <div id="name-field">
-                    <label class="label-form">Name</label>
+                <div id="name-field" class="hidden">
+                    <label for="f-name" class="label-form label-tt">Name <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Label shown in the task list. At least 3 characters. Required for schedules only.</span></span></label>
                     <input type="text" id="f-name" minlength="3" placeholder="Task label..." class="input-field">
                 </div>
 
                 <!-- Character + History toggle -->
                 <div class="flex items-start gap-3">
                     <div id="char-col" class="w-full transition-all">
-                        <label class="label-form">Character</label>
+                        <label for="f-character" class="label-form label-tt">Character <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Character that sends the message. Must match an existing character name.</span></span></label>
                         <div class="relative">
                             <input type="text" id="f-character" autocomplete="off" required placeholder="Select character..."
                                 class="input-field pr-8">
@@ -193,7 +206,7 @@
                         </div>
                     </div>
                     <div id="history-limit-row" class="hidden flex-col shrink-0 ml-auto">
-                        <label class="label-form">Message history</label>
+                        <label for="f-history-limit" class="label-form label-tt">Message history <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Optional. When enabled, includes recent channel messages as context for Generate mode on schedules.</span></span></label>
                         <div class="flex items-center gap-4">
                             <button type="button" id="history-toggle" aria-pressed="false">
                                 <span id="history-thumb"></span>
@@ -206,7 +219,7 @@
 
                 <!-- Target -->
                 <div>
-                    <label class="label-form">Target Type</label>
+                    <label class="label-form label-tt">Target Type <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Post to a Discord channel or send a direct message to an allowed user from AI Config.</span></span></label>
                     <div class="flex gap-2">
                         <button type="button" data-target="channel" id="ttype-channel"
                             class="ttype-btn flex-1 tab-indigo-on">
@@ -222,7 +235,7 @@
 
                 <!-- Channel combobox -->
                 <div id="target-channel-fields">
-                    <label class="label-form">Channel</label>
+                    <label for="f-channel-input" class="label-form label-tt">Channel <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Channel where the message is posted. Pick from the list or paste a channel ID.</span></span></label>
                     <div class="relative">
                         <input type="text" id="f-channel-input" autocomplete="off" required placeholder="Type to search or paste ID..."
                             class="input-field pr-8">
@@ -233,7 +246,7 @@
 
                 <!-- DM combobox -->
                 <div id="target-dm-fields" class="hidden">
-                    <label class="label-form">User</label>
+                    <label for="f-dm-input" class="label-form label-tt">User <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">DM recipient. Username must be on the Allowed Discord Usernames list in AI Config.</span></span></label>
                     <div class="relative">
                         <input type="text" id="f-dm-input" autocomplete="off" required placeholder="Type to search or paste ID..."
                             class="input-field pr-8">
@@ -245,8 +258,8 @@
                 <!-- Message mode + instructions -->
                 <div>
                     <div class="flex-between mb-2">
-                        <label id="instructions-label" class="label-inline">Message Text</label>
-                        <div id="mode-toggle" class="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-0.5">
+                        <label id="instructions-label" class="label-inline label-tt">Message Text <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-right">Exact mode sends your text unchanged. Generate lets the character write from your prefix or instructions. Optional but recommended.</span></span></label>
+                        <div id="mode-toggle" class="mode-tab-group mode-tab-group--segmented">
                             <button type="button" data-mode="exact" id="mode-exact"
                                 class="mode-btn mode-tab-on">
                                 Exact
@@ -264,14 +277,14 @@
 
                 <!-- Reminder fields -->
                 <div id="reminder-fields">
-                    <label class="label-form">Date & Time <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span></label>
+                    <label for="f-scheduled-time" class="label-form label-tt">Date &amp; Time <span aria-hidden="true">*</span> <span class="text-xs text-gray-400 font-normal">(Europe/Bratislava)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When the reminder fires. Must be in the future. Timezone: Europe/Bratislava.</span></span></label>
                     <input type="datetime-local" id="f-scheduled-time" class="input-field">
                 </div>
 
                 <!-- Schedule fields -->
                 <div id="schedule-fields" class="hidden space-y-4">
                     <div>
-                        <label class="label-form">Repeat Type</label>
+                        <label for="f-repeat-type" class="label-form label-tt">Repeat Type <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How often the schedule runs: every day, selected weekdays, a day each month, or once per year.</span></span></label>
                         <select id="f-repeat-type" class="input-field w-44">
                             <option value="daily">Daily</option>
                             <option value="weekly" selected>Weekly</option>
@@ -282,16 +295,16 @@
                     <div class="flex gap-4 items-start mb-4">
                         <div class="flex-1">
                             <div id="rp-weekly">
-                                <label class="label-form">Repeat Days</label>
+                                <label class="label-form label-tt">Repeat Days <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Weekdays when this schedule runs. Select at least one day for weekly repeat.</span></span></label>
                                 <div class="flex flex-wrap gap-2" id="day-checkboxes"></div>
                             </div>
                             <div id="rp-monthly" class="hidden">
-                                <label class="label-form">Day of Month</label>
+                                <label for="f-repeat-month-day" class="label-form label-tt">Day of Month <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Day number (1-31) for monthly schedules.</span></span></label>
                                 <input type="number" id="f-repeat-month-day" min="1" max="31" value="1" class="input-field w-24">
                             </div>
                             <div id="rp-yearly" class="hidden flex gap-3">
                                 <div>
-                                    <label class="label-form">Month</label>
+                                    <label for="f-repeat-year-month" class="label-form label-tt">Month <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Month for yearly schedules.</span></span></label>
                                     <select id="f-repeat-year-month" class="input-field">
                                         <option value="1">January</option><option value="2">February</option><option value="3">March</option>
                                         <option value="4">April</option><option value="5">May</option><option value="6">June</option>
@@ -300,7 +313,7 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="label-form">Day</label>
+                                    <label for="f-repeat-year-day" class="label-form label-tt">Day <span aria-hidden="true">*</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Day of month (1-31) for yearly schedules.</span></span></label>
                                     <input type="number" id="f-repeat-year-day" min="1" max="31" value="1" class="input-field w-20">
                                 </div>
                             </div>
@@ -309,7 +322,7 @@
                             </div>
                         </div>
                         <div class="flex-shrink-0">
-                            <label class="label-form">Time <span class="text-xs text-gray-400 font-normal">(SK)</span></label>
+                            <label for="f-repeat-time" class="label-form label-tt">Time <span aria-hidden="true">*</span> <span class="text-xs text-gray-400 font-normal">(SK)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Time of day in Europe/Bratislava (HH:MM) when the schedule runs.</span></span></label>
                             <input type="time" id="f-repeat-time" class="input-field w-36">
                         </div>
                     </div>
@@ -334,6 +347,7 @@
         </div>
     </div>
 
-
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

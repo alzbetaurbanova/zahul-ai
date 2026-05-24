@@ -141,9 +141,10 @@ def get_timeseries(
             if key is None:
                 continue
             if key not in week_map:
-                week_map[key] = {"total": 0, "errors": 0}
+                week_map[key] = {"total": 0, "errors": 0, "tokens": 0}
             week_map[key]["total"] += r["total"]
             week_map[key]["errors"] += r["errors"]
+            week_map[key]["tokens"] += r["tokens"]
         return [{"day": s, "total": week_map.get(s, {}).get("total", 0), "errors": week_map.get(s, {}).get("errors", 0), "tokens": week_map.get(s, {}).get("tokens", 0)} for s in slots]
 
     row_map = {r["day"]: r for r in raw}

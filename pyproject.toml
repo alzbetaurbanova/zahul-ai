@@ -1,7 +1,7 @@
 [project]
 name = "zahul-ai"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.17.1"
+description = "An AI discord chatbot"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -25,4 +25,5 @@ dependencies = [
     "python-multipart>=0.0.21",
     "uvicorn>=0.34.2",
     "youtube-transcript-api>=1.0.3",
+    "pynacl>=1.5.0",
 ]

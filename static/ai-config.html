@@ -4,18 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy">
-    <title>zahul-ai - AI Configuration</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - AI Configuration</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body class="bg-darker text-light" data-page="ai-config">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="ai-config">
     <div id="toast-container" class="toast z-50"></div>
     
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
-    <script src="/static/js/pages/ai-config.js?v=2" defer></script>
+    <script src="/static/js/pages/ai-config.js" defer></script>
 
     <!-- Main Content -->
     <main class="page">
@@ -38,9 +40,16 @@
                                 <input type="url" id="ai_endpoint" class="field" required>
                             </div>
                             <div>
-                                <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly.</span></span></label>
-                                <input type="text" id="base_llm" class="field" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
+                                <div class="relative">
+                                    <input type="text" id="base_llm" autocomplete="off" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                    <div id="base-llm-dd" class="autocomplete-dd hidden"></div>
+                                </div>
                             </div>
+                        </div>
+                        <div class="mt-4">
+                            <label for="primary_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the primary model, and in other sections like character overrides.</span></span></label>
+                            <textarea id="primary_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.3-70b-versatile&#10;llama-3.1-8b-instant"></textarea>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <div>
@@ -48,8 +57,8 @@
                                 <input type="number" id="history_limit" step="1" min="1" max="50" class="field" placeholder="e.g. 10">
                             </div>
                             <div>
-                                <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character.</span></span></label>
-                                <input type="number" id="max_tokens" step="1" min="64" max="4096" class="field" placeholder="e.g. 256">
+                                <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character. Actual maximum depends on the model - check your provider's model page for the exact limit.</span></span></label>
+                                <input type="number" id="max_tokens" step="1" min="64" max="131072" class="input-field" placeholder="e.g. 256">
                             </div>
                             <div>
                                 <label for="temperature" class="label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
@@ -67,8 +76,11 @@
                         <legend class="legend-section">Fallback & Rate Limiting</legend>
                         <div class="form-grid">
                             <div>
-                                <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit.</span></span></label>
-                                <input type="text" id="fallback_llm" class="field" placeholder="e.g., llama-3.1-8b-instant">
+                                <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
+                                <div class="relative">
+                                    <input type="text" id="fallback_llm" autocomplete="off" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
+                                    <div id="fallback-llm-dd" class="autocomplete-dd hidden"></div>
+                                </div>
                             </div>
                             <div>
                                 <label for="fallback_duration" class="label-tt">Fallback Duration <span class="text-unit">(seconds)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
@@ -76,11 +88,40 @@
                             </div>
                             <div>
                                 <label for="token_limit_tpm" class="label-tt">Rate Limit Trigger <span class="text-unit">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
-                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="field" placeholder="e.g., 12000">
+                                <input type="number" id="token_limit_tpm" step="1000" min="0" class="input-field" placeholder="e.g., 12000 – 0 to disable">
                             </div>
                             <div>
-                                <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total token budget across all models per day. Usage visible via /tokens in Discord.</span></span></label>
-                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="field" placeholder="e.g., 100000">
+                                <label for="token_limit_tpd" class="label-tt">Daily Token Budget <span class="text-unit">(tokens/day)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Total daily token budget (input + output combined) for the primary model. When reached, switches to the fallback model for the remainder of the fallback duration. Visible via /tokens in Discord.</span></span></label>
+                                <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000 – 0 to disable">
+                            </div>
+                        </div>
+                        <div class="flex-between divider pt-4 mt-4">
+                            <div>
+                                <label for="fallback_use_different_endpoint" class="label-inline">Use different endpoint for fallback</label>
+                                <p class="text-hint">When on, the fallback model uses its own endpoint and API key instead of the primary.</p>
+                            </div>
+                            <label class="toggle-wrap">
+                                <input id="fallback_use_different_endpoint" type="checkbox" class="sr-only peer">
+                                <div class="toggle-track"></div>
+                            </label>
+                        </div>
+                        <div id="fallback-endpoint-fields" class="hidden pl-6 space-y-4 border-l-2 border-gray-700 mt-2">
+                            <div>
+                                <label for="fallback_ai_endpoint" class="label-tt">Fallback Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of the fallback provider's API. Must be an OpenAI-compatible endpoint.</span></span></label>
+                                <input type="url" id="fallback_ai_endpoint" class="input-field" placeholder="e.g. https://api.groq.com/openai/v1">
+                            </div>
+                            <div>
+                                <label for="fallback_ai_key" class="label-tt">Fallback API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to reuse the primary AI API key. Only fill in on first setup or when rotating.</span></span></label>
+                                <div class="relative">
+                                    <input type="password" id="fallback_ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to use primary key">
+                                    <button type="button" onclick="toggleVisibility('fallback_ai_key', this)" class="btn-eye">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="fallback_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the fallback model, and in other sections like character overrides.</span></span></label>
+                                <textarea id="fallback_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.1-8b-instant&#10;gemma-7b-it"></textarea>
                             </div>
                         </div>
                     </fieldset>
@@ -160,8 +201,8 @@
                             <div class="divider"></div>
                             <div class="flex-between">
                                 <div>
-                                    <label for="multimodal_enable" class="label-inline">Enable Multimodal (Vision)</label>
-                                    <p class="text-hint">Allows the bot to see and describe images attached to Discord messages. Requires a separate vision-capable model and API key.</p>
+                                    <label for="multimodal_enable" class="label-inline">Enable Vision (Image Description)</label>
+                                    <p class="text-hint">Allows the bot to describe images attached to Discord messages. Requires a vision-capable model and endpoint.</p>
                                 </div>
                                 <label class="toggle-wrap">
                                     <input id="multimodal_enable" type="checkbox" class="sr-only peer">
@@ -170,22 +211,22 @@
                             </div>
                             <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="label-tt">Multimodal Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Vision model used for image description. Must support image inputs (e.g. google/gemini-pro-vision).</span></span></label>
-                                    <input type="text" id="multimodal_ai_model" class="field" placeholder="e.g., google/gemini-pro-vision">
-                                </div>
-                                <div>
-                                    <label for="multimodal_ai_endpoint" class="label-tt">Multimodal Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">API endpoint for the vision model. Can differ from the primary AI endpoint.</span></span></label>
-                                    <input type="url" id="multimodal_ai_endpoint" class="field">
-                                </div>
-                                <div>
-                                    <label for="multimodal_ai_api" class="label-tt">Multimodal API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value.</span></span></label>
+                                    <label for="multimodal_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured Multimodal Provider below.</span></span></label>
                                     <div class="relative">
-                                        <input type="password" id="multimodal_ai_api" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing key">
-                                        <button type="button" onclick="toggleVisibility('multimodal_ai_api', this)" class="btn-eye">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
+                                        <input type="text" id="multimodal_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
+                                        <div id="multimodal-ai-model-dd" class="autocomplete-dd hidden"></div>
                                     </div>
+                                    <input type="hidden" id="multimodal_ai_provider">
                                 </div>
+                            </div>
+                            <div class="divider"></div>
+                            <div>
+                                <p class="label-inline">Multimodal Providers</p>
+                                <p class="text-hint">Pool of AI providers available for character and channel overrides.</p>
+                                <div id="providers-list" class="mt-3 space-y-3"></div>
+                                <button type="button" id="add-provider-btn" class="btn-primary text-sm px-4 mt-3">
+                                    <i class="fas fa-plus mr-1"></i>Add Provider
+                                </button>
                             </div>
                         </div>
                     </fieldset>
@@ -219,7 +260,7 @@
                     <!-- Master toggle -->
                     <div id="panel-auth-master-wrap" class="flex-between mt-2">
                         <div>
-                            <p class="flex items-center gap-1.5 label-inline">Require login <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When enabled, the panel is protected — only logged-in users with an account can access it. Disable to allow open access without authentication.</span></span></p>
+                            <p class="flex items-center gap-1.5 label-inline">Require login <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">When enabled, the panel is protected - only logged-in users with an account can access it. Disable to allow open access without authentication.</span></span></p>
                             <p id="panel-auth-master-note" class="text-hint hidden mt-1">Enable at least one login method first.</p>
                             <p class="text-hint mt-1">Set up and verify a login method below before enabling, to avoid being locked out.</p>
                         </div>
@@ -241,7 +282,7 @@
                                 <div class="toggle-track"></div>
                             </label>
                         </div>
-                        <!-- Super admin account — shown only when unique login is ON -->
+                        <!-- Super admin account - shown only when unique login is ON -->
                         <div id="super-admin-account-section" class="pl-6 border-l-2 border-gray-700 space-y-4 hidden">
                             <p class="label-inline">Super admin account <span class="text-hint font-normal">(super admin cannot be deleted or demoted)</span></p>
                             <p class="text-hint">Current super admin: <span id="current-super-admin-username">Not set</span></p>
@@ -296,8 +337,8 @@
                                 </div>
                             </div>
                             <div>
-                                <label for="discord_oauth_redirect_uri" class="label-tt">Redirect URI <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Must be added under OAuth2 → Redirects on the Developer Portal. Must match exactly — including the path /auth/discord/callback.</span></span></label>
-                                <input type="url" id="discord_oauth_redirect_uri" class="field" placeholder="https://yourdomain.com/auth/discord/callback">
+                                <label for="discord_oauth_redirect_uri" class="label-tt">Redirect URI <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Must be added under OAuth2 → Redirects on the Developer Portal. Must match exactly - including the path /auth/discord/callback.</span></span></label>
+                                <input type="url" id="discord_oauth_redirect_uri" class="input-field" placeholder="https://yourdomain.com/auth/discord/callback">
                                 <p id="redirect-uri-https-warn" class="mt-1 hidden" style="color:#f87171;font-size:0.75rem"><i class="fas fa-triangle-exclamation mr-1"></i>Discord requires <strong>https://</strong> for redirect URIs (http:// is allowed only for localhost).</p>
                                 <p id="redirect-uri-hint" class="text-hint mt-1 hidden">Expected: <span id="redirect-uri-value" class="font-mono cursor-pointer hover:text-indigo-400" title="Click to copy"></span></p>
                             </div>
@@ -349,5 +390,7 @@
         </div>
     </div>
 
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

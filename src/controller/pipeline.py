@@ -10,12 +10,19 @@ from src.models.dimension import ActiveChannel
 from src.models.prompts import PromptEngineer
 from src.models.queue import QueueItem
 from src.utils.llm_new import generate_response
+from src.utils.discord_utils import format_trigger_for_log
 from api.models.models import BotConfig
 from api.db.database import Database
+from src.utils.character_triggers import (
+    apply_history_limit_from_rules,
+    extended_triggers,
+    get_whitelist_characters,
+)
+from src.utils.llm_new import get_bot_config
 
 # --- HELPER FUNCTIONS FOR MULTI-CHARACTER LOGIC ---
 
-def find_all_triggered_characters(message: discord.Message, channel: ActiveChannel, db: Database) -> list[ActiveCharacter]:
+def find_all_triggered_characters(message: discord.Message, channel: ActiveChannel, db: Database, server_id: str = None) -> list[ActiveCharacter]:
     """
     Scans a message to find ALL whitelisted characters triggered by keywords.
     Instead of returning names, it returns a list of instantiated ActiveCharacter objects.
@@ -25,28 +32,20 @@ def find_all_triggered_characters(message: discord.Message, channel: ActiveChann
 
     triggered_characters = []
     # Use a set to prevent adding the same character twice if multiple of their triggers match
-    triggered_names = set() 
+    triggered_names = set()
     message_lower = message.content.lower()
 
-    for name in channel.whitelist:
-        char_data = db.get_character(name)
-        if not char_data or char_data['name'] in triggered_names:
+    for char_data in get_whitelist_characters(db, channel.whitelist):
+        if char_data['name'] in triggered_names:
             continue
 
-        name_trigger = char_data.get("name", "").lower()
-        raw_triggers = char_data.get("triggers") or []
-        triggers = [t.lower() for t in raw_triggers]
-        extended_triggers = triggers + ([name_trigger] if name_trigger else [])
-
-        for trigger in extended_triggers:
+        for trigger in extended_triggers(char_data, server_id):
             if not trigger:
                 continue
-            # Use whole-word matching for better accuracy
             if re.search(r'\b' + re.escape(trigger) + r'\b', message_lower):
-                # We found a match, so create the character object and add it
                 triggered_characters.append(ActiveCharacter(char_data, db))
                 triggered_names.add(char_data['name'])
-                break # Move to the next character in the whitelist
+                break
 
     return triggered_characters
 
@@ -78,7 +77,9 @@ async def _generate_and_send_for_character(
         return
 
     print(f"Processing chat for {character.name} in {channel.name}...")
-    
+
+    apply_history_limit_from_rules(character, server_id)
+
     prompter = PromptEngineer(character, message, channel, messenger)
     prompt = await prompter.create_prompt()
 
@@ -101,7 +102,7 @@ async def _generate_and_send_for_character(
 
     is_error = queue_item.result.startswith('//[OOC:')
     channel_id = 'dm' if isinstance(message.channel, discord.DMChannel) else str(message.channel.id)
-    trigger_text = re.sub(r'^\[Replying To [^\]]+\]\n?', '', message.content).strip()
+    trigger_text = format_trigger_for_log(message)
     request_messages = [
         {"role": "system", "content": queue_item.prompt},
         {"role": "user", "content": message.content},
@@ -121,6 +122,7 @@ async def _generate_and_send_for_character(
         error_message=queue_item.result if is_error else None,
         temperature=queue_item.temperature,
         history_count=queue_item.history_count,
+        endpoint=queue_item.endpoint_label,
     )
 
     await messenger.send_message(character, message, queue_item)
@@ -187,6 +189,7 @@ async def generate_slash_tool_character_reply(
         error_message=queue_item.result if is_error else None,
         temperature=queue_item.temperature,
         history_count=queue_item.history_count,
+        endpoint=queue_item.endpoint_label,
     )
 
     try:
@@ -203,7 +206,7 @@ async def generate_slash_tool_character_reply(
 # --- CORRECT WORKER FUNCTION ---
 async def process_message(zahul, db: Database, message: discord.Message, messenger: DiscordMessenger, queue: asyncio.Queue):
     try:
-        bot_config = BotConfig(**db.list_configs())
+        bot_config = get_bot_config(db)
 
         # --- 1. Load Channel ---
         is_dm = isinstance(message.channel, discord.DMChannel)
@@ -222,7 +225,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         await message.add_reaction('✨')
 
         # --- 2. Determine ALL Characters to Respond ---
-        responding_characters = find_all_triggered_characters(message, channel, db)
+        responding_characters = find_all_triggered_characters(message, channel, db, server_id)
         
         # If no triggers were found, check for fallbacks (mentions, DMs, etc.)
         if not responding_characters:
@@ -258,7 +261,7 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
         await asyncio.gather(*generation_tasks)
 
         # --- 4. Final Cleanup ---
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.3)
         try:
             await message.remove_reaction('✨', zahul.user)
         except discord.NotFound:
@@ -289,7 +292,7 @@ async def think(zahul, db: Database, queue: asyncio.Queue) -> None:
 
         # 2. Get dynamic config
         try:
-            bot_config = BotConfig(**db.list_configs())
+            bot_config = get_bot_config(db)
             concurrency_limit = bot_config.concurrency
             if concurrency_limit < 1: 
                 concurrency_limit = 1

@@ -2,7 +2,7 @@ from fastapi import Request, HTTPException, Depends
 from api.db.database import Database
 
 ROLE_LEVEL = {"super_admin": 4, "admin": 3, "mod": 2, "guest": 1}
-SENSITIVE_CONFIG_FIELDS = {"ai_key", "discord_key", "multimodal_ai_api", "discord_oauth_client_secret", "panel_password"}
+SENSITIVE_CONFIG_FIELDS = {"ai_key", "discord_key", "fallback_ai_key", "multimodal_ai_api", "discord_oauth_client_secret", "panel_password"}
 
 
 async def get_current_user(request: Request):
@@ -34,4 +34,10 @@ def require_role(min_role: str):
 
 
 def strip_sensitive(config: dict) -> dict:
-    return {k: ("" if k in SENSITIVE_CONFIG_FIELDS else v) for k, v in config.items()}
+    result = {k: ("" if k in SENSITIVE_CONFIG_FIELDS else v) for k, v in config.items()}
+    if isinstance(result.get("multimodal_providers"), list):
+        result["multimodal_providers"] = [
+            {**p, "api_key": ""} if isinstance(p, dict) else p
+            for p in result["multimodal_providers"]
+        ]
+    return result

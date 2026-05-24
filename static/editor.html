@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zahul-ai - Avatar Editor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>zahul-ai - Avatar Editor</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
-<body data-page="characters">
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="characters">
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/editor.js" defer></script>
 
     <!-- Main -->
-    <main class="max-w-5xl mx-auto p-8 space-y-8">
+    <main class="page">
+        <div class="main-content space-y-8">
         <h1 class="page-title">Avatar Editor</h1>
 
         <div class="flex gap-10 flex-wrap">
@@ -92,8 +95,9 @@
             <p class="text-hint mb-2">Exported — right-click to save, or download started automatically.</p>
             <img id="result-img" src="" alt="exported" class="editor-result-img">
         </div>
+        </div>
     </main>
-
-    
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
 </body>
 </html>

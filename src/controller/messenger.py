@@ -10,6 +10,7 @@ from typing import List, Optional
 from src.models.queue import QueueItem
 from src.models.aicharacter import ActiveCharacter
 from api.models.models import BotConfig
+from src.utils.llm_new import get_bot_config
 from src.utils.image_embed import ImageGalleryView
 from src.utils.discord_utils import is_valid_url, is_local_file
 
@@ -20,7 +21,7 @@ class DiscordMessenger:
     def __init__(self, bot, message_chunk_size: int = 1999):
         self.bot = bot
         self.db = bot.db
-        self.bot_config = BotConfig(**self.db.list_configs())
+        self.bot_config = get_bot_config(self.db)
         self.message_chunk_size = message_chunk_size
 
     async def send_message(self, character: ActiveCharacter, message: discord.Message, queue_item: QueueItem):
@@ -119,7 +120,7 @@ class DiscordMessenger:
 
         # Build absolute URL for relative paths using public_url config (read fresh each time)
         if avatar_url and str(avatar_url).startswith('/'):
-            fresh_config = BotConfig(**self.db.list_configs())
+            fresh_config = get_bot_config(self.db)
             public_url = fresh_config.public_url or ''
             if public_url:
                 avatar_url = public_url.rstrip('/') + str(avatar_url)

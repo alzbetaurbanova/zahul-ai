@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    fetch('/api/auth-status').then(r => r.json()).then(d => {
+    (window.__authStatus || fetch('/api/auth-status').then(r => r.json())).then(d => {
         const role = d.current_user?.role;
         const allowed = role === 'super_admin';
         if (d.panel_auth_enabled && !allowed) {
@@ -51,14 +51,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Map keys to element IDs for easy access
     const fieldIds = [
-        'default_character', 'ai_endpoint', 'base_llm', 'temperature', 'auto_cap',
+        'default_character', 'ai_endpoint', 'base_llm', 'primary_allowed_models', 'temperature', 'auto_cap',
         'history_limit', 'max_tokens',
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
+        'fallback_use_different_endpoint', 'fallback_ai_endpoint', 'fallback_ai_key', 'fallback_allowed_models',
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
-        'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_endpoint', 'multimodal_ai_api',
+        'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
         'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
     ];
+    const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models', 'fallback_allowed_models']);
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
     const MIN_PANEL_PASSWORD_LENGTH = 8;
 
@@ -73,15 +75,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (elements[key]) {
                     if (elements[key].type === 'checkbox') {
                         elements[key].checked = config[key];
-                    } else if (key === 'dm_list' && Array.isArray(config[key])) {
-                        // Convert array (list) from DB to newline-separated string for Textarea
+                    } else if (ARRAY_TEXTAREA_FIELDS.has(key) && Array.isArray(config[key])) {
                         elements[key].value = config[key].join('\n');
                     } else if (elements[key].type !== 'password') {
                         elements[key].value = config[key];
                     }
                 }
             }
+            renderProviders(Array.isArray(config.multimodal_providers) ? config.multimodal_providers : []);
             toggleMultimodalOptions();
+            toggleFallbackEndpointFields();
             const dmVal = elements['dm_list'] ? elements['dm_list'].value.trim() : '';
             dmToggle.checked = dmVal.length > 0;
             toggleDmFields();
@@ -132,10 +135,17 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
-        for (const urlField of ['ai_endpoint', 'public_url', 'multimodal_ai_endpoint', 'discord_oauth_redirect_uri']) {
+        for (const urlField of ['ai_endpoint', 'public_url', 'fallback_ai_endpoint', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
+                return;
+            }
+        }
+        for (const card of document.querySelectorAll('.provider-card')) {
+            const ep = card.querySelector('.provider-endpoint')?.value?.trim() || '';
+            if (ep && !isValidHttpUrl(ep)) {
+                showToast('Each provider endpoint must be a valid http/https URL.', 'error');
                 return;
             }
         }
@@ -145,8 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements[key]) {
                 if (elements[key].type === 'checkbox') {
                     configData[key] = elements[key].checked;
-                } else if (key === 'dm_list') {
-                    // Convert newline-separated string to Array, trimming whitespace and removing empty lines
+                } else if (ARRAY_TEXTAREA_FIELDS.has(key)) {
                     configData[key] = elements[key].value
                         .split('\n')
                         .map(line => line.trim())
@@ -158,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        configData['multimodal_providers'] = getProvidersFromDOM();
 
         try {
             const response = await fetch(CONFIG_API_BASE, {
@@ -176,8 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear password fields after save for security
             elements['ai_key'].value = '';
             elements['discord_key'].value = '';
-            elements['multimodal_ai_api'].value = '';
+            elements['fallback_ai_key'].value = '';
             elements['discord_oauth_client_secret'].value = '';
+            document.querySelectorAll('.provider-apikey').forEach(el => { el.value = ''; });
             await loadSecurityStatus();
         } catch (error) {
             showToast(error.message, 'error');
@@ -326,11 +337,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleMultimodalOptions() {
-        if (multimodalToggle.checked) {
-            multimodalOptions.classList.remove('hidden');
-        } else {
-            multimodalOptions.classList.add('hidden');
-        }
+        multimodalOptions.classList.toggle('hidden', !multimodalToggle.checked);
+    }
+
+    function toggleFallbackEndpointFields() {
+        const on = elements['fallback_use_different_endpoint']?.checked;
+        document.getElementById('fallback-endpoint-fields').classList.toggle('hidden', !on);
     }
 
     // --- Prompt Preset Functions ---
@@ -444,6 +456,139 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     elements.public_url.addEventListener('input', updateRedirectUriHint);
     dmToggle.addEventListener('change', toggleDmFields);
+    elements['fallback_use_different_endpoint']?.addEventListener('change', toggleFallbackEndpointFields);
+    document.getElementById('add-provider-btn').addEventListener('click', () => addProviderCard());
+
+    // --- Multimodal Providers ---
+    function renderProviders(providers) {
+        document.getElementById('providers-list').innerHTML = '';
+        (providers || []).forEach(p => addProviderCard(p));
+    }
+
+    function addProviderCard(provider = {}) {
+        const list = document.getElementById('providers-list');
+        const models = Array.isArray(provider.allowed_models) ? provider.allowed_models.join('\n') : '';
+        const card = document.createElement('div');
+        card.className = 'provider-card space-y-3';
+        const headerName = provider.name ? escapeHtml(provider.name) : 'New Provider';
+        card.innerHTML = `
+            <div class="flex justify-between items-center">
+                <span class="provider-header text-sm font-semibold text-gray-300">${headerName}</span>
+                <button type="button" class="provider-remove text-xs text-red-400 hover:text-red-300 transition-colors">
+                    <i class="fas fa-trash mr-1"></i>Remove
+                </button>
+            </div>
+            <div class="form-grid">
+                <div>
+                    <label class="label-tt">Name</label>
+                    <input type="text" class="provider-name input-field" placeholder="e.g. openrouter-vision" value="${escapeHtml(provider.name || '')}">
+                </div>
+                <div>
+                    <label class="label-tt">Endpoint URL</label>
+                    <input type="url" class="provider-endpoint input-field" placeholder="e.g. https://openrouter.ai/api/v1" value="${escapeHtml(provider.endpoint || '')}">
+                </div>
+            </div>
+            <div>
+                <label class="label-tt">API Key <span class="text-hint font-normal">(leave blank to keep existing)</span></label>
+                <div class="relative">
+                    <input type="password" class="provider-apikey input-field pr-10" autocomplete="off" placeholder="Leave blank to keep existing key">
+                    <button type="button" class="btn-eye provider-key-toggle"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div>
+                <label class="label-tt">Allowed Models <span class="text-hint font-normal">(one per line - first is default)</span></label>
+                <textarea class="provider-models input-field font-mono" rows="3" placeholder="e.g. google/gemini-2.0-flash">${escapeHtml(models)}</textarea>
+            </div>
+        `;
+        card.querySelector('.provider-remove').addEventListener('click', () => card.remove());
+        card.querySelector('.provider-name').addEventListener('input', function () {
+            card.querySelector('.provider-header').textContent = this.value.trim() || 'New Provider';
+        });
+        card.querySelector('.provider-key-toggle').addEventListener('click', function () {
+            const input = this.closest('.relative').querySelector('.provider-apikey');
+            const icon = this.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        });
+        list.appendChild(card);
+    }
+
+    function getProvidersFromDOM() {
+        return [...document.querySelectorAll('.provider-card')].map(card => ({
+            name: card.querySelector('.provider-name').value.trim(),
+            endpoint: card.querySelector('.provider-endpoint').value.trim(),
+            api_key: card.querySelector('.provider-apikey').value,
+            allowed_models: card.querySelector('.provider-models').value
+                .split('\n').map(s => s.trim()).filter(Boolean),
+        })).filter(p => p.name || p.endpoint);
+    }
+
+    function getModelsFromTextarea(id) {
+        const el = document.getElementById(id);
+        if (!el) return [];
+        return el.value.split('\n').map(s => s.trim()).filter(Boolean);
+    }
+
+    function getFallbackModels() {
+        const diffEndpoint = elements['fallback_use_different_endpoint']?.checked;
+        return diffEndpoint
+            ? getModelsFromTextarea('fallback_allowed_models')
+            : getModelsFromTextarea('primary_allowed_models');
+    }
+
+    function getProviderModelDisplays() {
+        const out = [];
+        const seen = new Set();
+        document.querySelectorAll('.provider-card').forEach(card => {
+            const name = card.querySelector('.provider-name').value.trim();
+            if (!name) return;
+            card.querySelector('.provider-models').value
+                .split('\n').map(s => s.trim()).filter(Boolean)
+                .forEach(m => {
+                    const key = `${m}|${name}`;
+                    if (!seen.has(key)) { seen.add(key); out.push({ display: `${m} (${name})`, model: m, source: name }); }
+                });
+        });
+        return out;
+    }
+
+    function setupModelComboboxes() {
+        setupFilterCombobox(
+            'base_llm',
+            'base-llm-dd',
+            () => getModelsFromTextarea('primary_allowed_models'),
+            null,
+            null,
+            'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'fallback_llm',
+            'fallback-llm-dd',
+            () => getFallbackModels(),
+            null,
+            null,
+            'hover:bg-gray-700'
+        );
+        setupFilterCombobox(
+            'multimodal_ai_model',
+            'multimodal-ai-model-dd',
+            () => getProviderModelDisplays().map(e => e.display),
+            (selected) => {
+                const entry = getProviderModelDisplays().find(e => e.display === selected);
+                if (entry) {
+                    elements['multimodal_ai_model'].value = entry.model;
+                    elements['multimodal_ai_provider'].value = entry.source;
+                }
+            },
+            () => { elements['multimodal_ai_provider'].value = ''; },
+            'hover:bg-gray-700'
+        );
+    }
 
     async function loadDefaultCharacterCombobox() {
         try {
@@ -463,7 +608,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initial Load ---
-    loadConfig().then(() => loadDefaultCharacterCombobox());
+    loadConfig().then(() => {
+        loadDefaultCharacterCombobox();
+        setupModelComboboxes();
+    });
     loadPrompt();
     loadSecurityStatus();
 });

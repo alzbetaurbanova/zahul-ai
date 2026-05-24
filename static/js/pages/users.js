@@ -37,9 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const _initialPage = Number.isInteger(_urlPageNum) && _urlPageNum > 0 ? _urlPageNum : 1;
 
     let _currentUserRole = '';
+    let _currentUserId = null;
     let _allUsers = [];
     let _requests = [];
+    let _requestsLoaded = false;
     let _sessions = [];
+    let _sessionsLoaded = false;
     let _activeTab = 'users';
     let _usersPage = _initialTabFromUrl === 'users' ? _initialPage : 1;
     let _usersTotalPages = 1;
@@ -173,13 +176,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Guard: only super admin/admin
-    fetch('/api/auth-status').then(r => r.json()).then(d => {
+    (window.__authStatus || fetch('/api/me').then(r => r.json())).then(d => {
         if (!d.panel_auth_enabled) {
             setSecurityOffWarning(true);
             _currentUserRole = d.current_user?.role || 'super_admin';
+            _currentUserId = d.current_user?.id ?? null;
             syncSuperAdminRoleOptions();
             loadUsers();
-            refreshRequestsBadge();
+            loadRequests();
             return;
         }
         setSecurityOffWarning(false);
@@ -188,15 +192,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         _currentUserRole = d.current_user.role || '';
+        _currentUserId = d.current_user.id ?? null;
         syncSuperAdminRoleOptions();
         loadUsers();
-        refreshRequestsBadge();
+        loadRequests();
     }).catch(() => {
         setSecurityOffWarning(true);
         _currentUserRole = 'super_admin';
         syncSuperAdminRoleOptions();
         loadUsers();
-        refreshRequestsBadge();
+        loadRequests();
     });
 
     // Close buttons wired by data-modal attribute
@@ -245,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadUsers() {
         const list = document.getElementById('user-list');
+        showPanelLoader(list, 'Loading users...');
         try {
             _allUsers = await fetch('/api/users/').then(r => r.json());
             renderUsers();
@@ -265,27 +271,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function refreshRequestsBadge() {
-        try {
-            const res = await fetch('/api/users/requests');
-            const data = await res.json();
-            if (!res.ok) return;
-            const n = Array.isArray(data) ? data.length : 0;
-            updateRequestsBadge(n);
-        } catch (_) {}
-    }
-
-    async function loadRequests() {
+    async function loadRequests(options = {}) {
+        const { silent = false } = options;
         const list = document.getElementById('request-list');
         try {
             const res = await fetch('/api/users/requests');
             const data = await res.json();
             if (!res.ok) throw new Error(parseApiError(data, 'Failed to load requests.'));
             _requests = Array.isArray(data) ? data : [];
+            _requestsLoaded = true;
             updateRequestsBadge(_requests.length);
             renderRequests();
         } catch (e) {
-            list.innerHTML = `<div class="text-red-400 text-center py-12">Failed to load requests: ${esc(String(e))}</div>`;
+            if (!_requestsLoaded) {
+                list.innerHTML = `<div class="list-empty-state list-load-error">Failed to load requests: ${esc(String(e))}</div>`;
+                updateRequestsFooter(0);
+            } else if (!silent) {
+                showToast(String(e), 'error');
+            }
         }
     }
 
@@ -298,7 +301,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('tab-active', active);
             btn.classList.toggle('text-white', active);
         });
-        document.getElementById('users-filters').classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('users-filters').classList.toggle('hidden', resolvedTab === 'sessions');
+        document.getElementById('users-filters').classList.toggle('filter-panel--requests', resolvedTab === 'requests');
+        document.getElementById('users-filter-role')?.classList.toggle('hidden', resolvedTab !== 'users' && resolvedTab !== 'requests');
+        document.getElementById('users-filter-type')?.classList.toggle('hidden', resolvedTab !== 'users' && resolvedTab !== 'requests');
         document.getElementById('sessions-filters').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('user-list').classList.toggle('hidden', resolvedTab !== 'users');
         document.getElementById('users-pagination').classList.toggle('hidden', resolvedTab !== 'users');
@@ -306,8 +312,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('requests-pagination').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('session-list').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('session-list-footer').classList.toggle('hidden', resolvedTab !== 'sessions');
-        if (resolvedTab === 'requests') loadRequests();
-        if (resolvedTab === 'sessions') loadSessions();
+        if (resolvedTab === 'requests') {
+            if (_requestsLoaded) {
+                renderRequests();
+                loadRequests({ silent: true });
+            } else {
+                loadRequests();
+            }
+        }
+        if (resolvedTab === 'sessions') {
+            if (_sessionsLoaded) {
+                renderFilteredSessions();
+                loadSessions({ silent: true });
+            } else {
+                loadSessions();
+            }
+        }
         if (syncUrl) syncUsersUrl();
     }
 
@@ -377,18 +397,26 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    async function loadSessions() {
+    async function loadSessions(options = {}) {
+        const { silent = false } = options;
         const list = document.getElementById('session-list');
-        list.innerHTML = '<div class="text-gray-500 text-center py-8">Loading...</div>';
+        if (!silent) showPanelLoader(list, 'Loading sessions...');
         try {
             const res = await fetch('/api/users/sessions');
             const data = await res.json();
             if (!res.ok) throw new Error(parseApiError(data, 'Failed to load sessions.'));
             _sessions = Array.isArray(data) ? data : [];
-            renderFilteredSessions();
+            _sessionsLoaded = true;
+            if (_activeTab === 'sessions') renderFilteredSessions();
         } catch (e) {
-            list.innerHTML = `<div class="text-red-400 text-center py-8">Failed to load: ${esc(String(e))}</div>`;
-            updateSessionFooter(0);
+            if (!_sessionsLoaded) {
+                if (_activeTab === 'sessions') {
+                    list.innerHTML = `<div class="list-empty-state list-load-error">Failed to load: ${esc(String(e))}</div>`;
+                    updateSessionFooter(0);
+                }
+            } else if (!silent) {
+                showToast(String(e), 'error');
+            }
         }
     }
 
@@ -449,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('/api/users/sessions', { method: 'DELETE' });
                 if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
                 showToast('All sessions revoked.', 'success');
-                await loadSessions();
+                await loadSessions({ silent: true });
             } catch (err) {
                 showToast(String(err), 'error');
             } finally {
@@ -561,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSessions(sessions) {
         const list = document.getElementById('session-list');
         if (!sessions.length) {
-            list.innerHTML = '<div class="text-gray-500 text-center py-12">No active sessions.</div>';
+            list.innerHTML = '<div class="list-empty-state">No active sessions.</div>';
             return;
         }
         const DEFAULT_AVATAR = '/static/avatars/default_user_avatar.png';
@@ -606,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const res = await fetch(`/api/users/sessions/${encodedToken}`, { method: 'DELETE' });
                     if (!res.ok) throw new Error(parseApiError(await res.json(), 'Failed'));
                     showToast('Session revoked.', 'success');
-                    loadSessions();
+                    loadSessions({ silent: true });
                 } catch (e) {
                     showToast(String(e), 'error');
                     btn.disabled = false;
@@ -703,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRequests() {
         const list = document.getElementById('request-list');
         if (!_requests.length) {
-            list.innerHTML = '<div class="text-gray-500 text-center py-12">No pending access requests.</div>';
+            list.innerHTML = '<div class="list-empty-state">No pending access requests.</div>';
             updateRequestsFooter(0);
             return;
         }
@@ -765,6 +793,83 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRequestsFooter(_requests.length);
     }
 
+    // --- Server dropdown helpers ---
+
+    let _availableServers = [];
+
+    async function ensureServersLoaded() {
+        if (_availableServers.length) return;
+        try {
+            const res = await fetch('/api/servers');
+            if (res.ok) _availableServers = await res.json();
+        } catch { /* keep empty */ }
+    }
+
+    function updateServerDdLabel(ddId) {
+        const dd = document.getElementById(ddId);
+        if (!dd) return;
+        const all = [...dd.querySelectorAll('input[type="checkbox"]')];
+        const checked = all.filter(cb => cb.checked);
+        const btn = dd.previousElementSibling;
+        if (!btn?.classList.contains('cb-dd-btn')) return;
+        const label = btn.querySelector('.cb-dd-label');
+        const clearIc = btn.querySelector('.cb-dd-clear');
+        if (checked.length === 0) {
+            if (label) label.textContent = 'None';
+            if (clearIc) clearIc.classList.add('hidden');
+        } else if (checked.length === all.length) {
+            if (label) label.textContent = 'All';
+            if (clearIc) clearIc.classList.remove('hidden');
+        } else {
+            const names = checked.map(cb => cb.closest('label')?.textContent.trim() || cb.value);
+            if (label) label.textContent = names.join(', ');
+            if (clearIc) clearIc.classList.remove('hidden');
+        }
+    }
+
+    function populateServerDd(ddId, selectedIds = []) {
+        const dd = document.getElementById(ddId);
+        if (!dd) return;
+        const selected = new Set(selectedIds.map(String));
+        dd.innerHTML = _availableServers.length
+            ? _availableServers.map(s => `
+                <label class="cb-dd-item">
+                    <input type="checkbox" value="${esc(s.server_id)}" class="accent-indigo-500"${selected.has(String(s.server_id)) ? ' checked' : ''}>
+                    ${esc(s.server_name)}
+                </label>`).join('')
+            : '<span class="cb-dd-item text-dim">No servers found</span>';
+        updateServerDdLabel(ddId);
+    }
+
+    function getServerDdValues(ddId) {
+        return [...document.querySelectorAll(`#${ddId} input[type="checkbox"]:checked`)].map(cb => cb.value);
+    }
+
+    function resetServerDd(ddId) {
+        const dd = document.getElementById(ddId);
+        dd?.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+        updateServerDdLabel(ddId);
+        dd?.classList.add('hidden');
+    }
+
+    // Wire cb-dd interactions for both modals once DOM is ready
+    initCbDdInteractions({ containers: [
+        document.getElementById('new-modal'),
+        document.getElementById('edit-modal'),
+    ]});
+
+    // Override label update for server dropdowns after initCbDdInteractions wires its own listener
+    ['new-modal', 'edit-modal'].forEach(modalId => {
+        document.getElementById(modalId)?.addEventListener('change', (e) => {
+            const dd = e.target.closest('#dd-new-servers, #dd-edit-servers');
+            if (dd) updateServerDdLabel(dd.id);
+        });
+    });
+
+    // Wire clear buttons for server dropdowns
+    wireCbDdClear('dd-new-servers-clear', 'dd-new-servers', () => updateServerDdLabel('dd-new-servers'));
+    wireCbDdClear('dd-edit-servers-clear', 'dd-edit-servers', () => updateServerDdLabel('dd-edit-servers'));
+
     // --- New User Modal ---
 
     let _authTab = 'local';
@@ -777,8 +882,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('auth-tab-local').addEventListener('click', () => setAuthTab('local'));
     document.getElementById('auth-tab-discord').addEventListener('click', () => setAuthTab('discord'));
 
-    document.getElementById('new-role').addEventListener('change', function () {
-        document.getElementById('new-servers-field').classList.toggle('hidden', this.value !== 'mod');
+    document.getElementById('new-role').addEventListener('change', async function () {
+        const isMod = this.value === 'mod';
+        document.getElementById('new-servers-field').classList.toggle('hidden', !isMod);
+        if (isMod) { await ensureServersLoaded(); populateServerDd('dd-new-servers', []); }
     });
 
     document.getElementById('new-modal-save').addEventListener('click', async () => {
@@ -802,8 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (role === 'mod') {
-            const ids = document.getElementById('new-server-ids').value.trim();
-            body.server_ids = ids ? ids.split(',').map(s => s.trim()).filter(Boolean) : [];
+            body.server_ids = getServerDdValues('dd-new-servers');
         }
 
         try {
@@ -835,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('new-discord-username').value = '';
         document.getElementById('new-role').value = 'mod';
         syncSuperAdminRoleOptions();
-        document.getElementById('new-server-ids').value = '';
+        resetServerDd('dd-new-servers');
         document.getElementById('new-servers-field').classList.add('hidden');
         document.getElementById('new-modal-error').classList.add('hidden');
         setAuthTab('local');
@@ -864,7 +970,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Servers field
         const serversField = document.getElementById('edit-servers-field');
         serversField.classList.toggle('hidden', u.role !== 'mod');
-        document.getElementById('edit-server-ids').value = (u.server_ids || []).join(', ');
+        if (u.role === 'mod') {
+            ensureServersLoaded().then(() => populateServerDd('dd-edit-servers', u.server_ids || []));
+        }
 
         // Avatar field — local accounts can upload profile picture
         const avatarField = document.getElementById('edit-avatar-field');
@@ -884,8 +992,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-modal-error').classList.add('hidden');
 
         // Show/hide servers when role changes
-        document.getElementById('edit-role').onchange = function () {
-            serversField.classList.toggle('hidden', this.value !== 'mod');
+        document.getElementById('edit-role').onchange = async function () {
+            const isMod = this.value === 'mod';
+            serversField.classList.toggle('hidden', !isMod);
+            if (isMod) { await ensureServersLoaded(); populateServerDd('dd-edit-servers', []); }
         };
 
         openModal('edit-modal');
@@ -913,8 +1023,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update server access for mod
             if (newRole === 'mod') {
-                const ids = document.getElementById('edit-server-ids').value.trim();
-                const server_ids = ids ? ids.split(',').map(s => s.trim()).filter(Boolean) : [];
+                const server_ids = getServerDdValues('dd-edit-servers');
                 const res = await fetch(`/api/users/${u.id}/servers`, {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ server_ids })
@@ -946,6 +1055,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(parseApiError(data, 'Avatar upload failed'));
+                    if (_currentUserId != null && u.id === _currentUserId && data.avatar_url) {
+                        window.dispatchEvent(new CustomEvent('user-avatar-updated', {
+                            detail: { avatar_url: data.avatar_url },
+                        }));
+                    }
                 }
             }
 

@@ -26,6 +26,7 @@ from api.routers import users as users_router
 from api.routers import stats as stats_router
 from api.db.database import Database
 from api.auth import require_role
+from api.version_info import get_version_info
 
 # --- Default Data for First-Time Setup ---
 
@@ -87,6 +88,7 @@ async def initialize_database():
         "default_character": "Echo",
         "ai_endpoint": "https://api.groq.com/openai/v1",
         "base_llm": "llama-3.3-70b-versatile",
+        "primary_allowed_models": [],
         "temperature": 0.7,
         "auto_cap": 1,
         "ai_key": "", # User must provide this
@@ -97,8 +99,13 @@ async def initialize_database():
         "fallback_llm": "llama-3.1-8b-instant",
         "multimodal_enable": False,
         "multimodal_ai_endpoint": "https://openrouter.ai/api/v1",
-        "multimodal_ai_api": "", 
+        "multimodal_ai_api": "",
         "multimodal_ai_model": "google/gemini-pro-vision",
+        "multimodal_providers": [],
+        "fallback_use_different_endpoint": False,
+        "fallback_ai_endpoint": "",
+        "fallback_ai_key": "",
+        "fallback_allowed_models": [],
         "panel_password_hint": "",
         "discord_oauth_client_id": "",
         "discord_oauth_client_secret": "",
@@ -189,6 +196,7 @@ def _discord_pending_api_allowed(request: Request) -> bool:
     path = _normalize_request_path(request.url.path)
     if method == "GET" and path in (
         "/api/auth-status",
+        "/api/me",
         "/api/users/me",
         "/api/users/requests/me",
     ):
@@ -216,6 +224,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/panel-hint",
             "/api/auth-enabled",
             "/api/auth-status",
+            "/api/me",
+            "/api/version",
             "/api/auth/setup-super-admin",
             "/auth/discord/start",
             "/auth/discord/callback",
@@ -378,6 +388,12 @@ async def custom_redoc_html(_: dict = Depends(require_role("admin"))):
         redoc_favicon_url="/favicon.ico",
     )
 
+@app.get("/api/version", include_in_schema=False)
+async def api_version():
+    """Public app version for the admin panel footer."""
+    return get_version_info()
+
+
 @app.get("/", response_class=FileResponse)
 async def get_root():
     """Serve the main index.html page."""
@@ -509,10 +525,33 @@ async def auth_status(request: Request):
             "id": user["id"],
             "username": user["username"],
             "role": user["role"],
+            "server_ids": db.get_user_server_access(user["id"]),
         } if user else None,
     }
     response = JSONResponse(payload)
     # Allowlisted route: scrub stale cookies here so the UI cannot look "logged in" with a dead session.
+    if token and not user:
+        _clear_session_cookie(response, request)
+    return response
+
+
+@app.get("/api/me", include_in_schema=False)
+async def get_me(request: Request):
+    db = Database()
+    raw_token = request.cookies.get("zahul_session")
+    token = (raw_token or "").strip() or None
+    user = db.get_user_from_session_token(token) if token else None
+    panel_auth = bool(db.get_config("panel_auth_enabled"))
+    payload = {
+        "panel_auth_enabled": panel_auth,
+        "current_user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+            "server_ids": db.get_user_server_access(user["id"]),
+        } if user else None,
+    }
+    response = JSONResponse(payload)
     if token and not user:
         _clear_session_cookie(response, request)
     return response

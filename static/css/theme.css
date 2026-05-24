@@ -1,0 +1,226 @@
+/**
+ * Light theme overrides (Steel palette).
+ * Dark theme = :root tokens in styles.css.
+ * Active theme: html[data-theme="dark|light"].
+ */
+
+/* Dark theme uses :root tokens in styles.css (do not swap --darker / --surface-deep globally). */
+
+/* ── CSS variables ────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    --darker: #0f172a;
+    --dark: #1e293b;
+    --surface-deep: #111827;
+    --surface: #1f2937;
+    --surface-raised: #374151;
+    --surface-mid: #4b5563;
+
+    --light: #f8fafc;
+    --text-soft: #d1d5db;
+    --text-dim: #9ca3af;
+    --text-muted: #6b7280;
+}
+
+[data-theme="light"] {
+    color-scheme: light;
+
+    --primary:       #2e58c4;
+    --primary-dark:  #2447a4;
+    --primary-light: #5078d4;
+
+    --darker:        #dbe2eb;   /* page background */
+    --dark:          #dce8f3;   /* secondary background */
+    --surface-deep:  #ecf2f9;   /* card / elevated surface */
+    --surface:       #e1ebf4;   /* inset / input areas */
+    --surface-raised: #b4c4d6;  /* borders */
+    --surface-mid:   #9aacc1;   /* stronger borders */
+
+    --light:         #1b2734;   /* primary text */
+    --text-soft:     #4f5d6e;   /* secondary text */
+    --text-dim:      #697889;   /* tertiary text */
+    --text-muted:    #8492a3;   /* faint text */
+}
+
+/* ── Tailwind custom-colour overrides ────────────────────────────────────── */
+/* bg-darker and text-light are compiled to literal hex values by Tailwind,   */
+/* so we must override them explicitly.                                        */
+[data-theme="light"] .bg-darker { background-color: var(--darker) !important; }
+[data-theme="light"] .text-light { color: var(--light) !important; }
+
+/* Tailwind gray shades → dark equivalents */
+[data-theme="light"] .text-white   { color: #1b2734 !important; }
+[data-theme="light"] .text-gray-100 { color: #2d3e4f !important; }
+[data-theme="light"] .text-gray-200 { color: #374a5c !important; }
+[data-theme="light"] .text-gray-300 { color: #4f5d6e !important; }
+[data-theme="light"] .text-gray-400 { color: #697889 !important; }
+[data-theme="light"] .text-gray-500 { color: #7a8c9d !important; }
+
+/* ── Hardcoded `color: white` component overrides ────────────────────────── */
+[data-theme="light"] .heading-card,
+[data-theme="light"] .heading-section,
+[data-theme="light"] .heading-page,
+[data-theme="light"] .page-title,
+[data-theme="light"] #control-status-text,
+[data-theme="light"] .cb-dd-item,
+[data-theme="light"] .tooltip-title,
+[data-theme="light"] .modal-heading,
+[data-theme="light"] .brand-header span,
+[data-theme="light"] .login-brand-name { color: var(--light); }
+
+[data-theme="light"] :is(.input-field, .input-joined, .select-sm, .cb-dd-btn),
+[data-theme="light"] .field,
+[data-theme="light"] .select-inline,
+[data-theme="light"] .btn-joined { color: var(--light); }
+
+/* ── Hardcoded background overrides ─────────────────────────────────────── */
+[data-theme="light"] .list-card {
+    background-color: var(--surface-deep);
+    border-color: var(--surface-raised);
+}
+[data-theme="light"] .list-card:hover { border-color: var(--surface-mid); }
+
+/* ── Hover / active states: white → accent ───────────────────────────────── */
+[data-theme="light"] .hamburger-btn:hover,
+[data-theme="light"] .nav-mobile-link:hover,
+[data-theme="light"] .nav-mobile-link.active,
+[data-theme="light"] .nav-user-logout:hover,
+[data-theme="light"] .btn-icon:hover,
+[data-theme="light"] .btn-ghost:hover,
+[data-theme="light"] .btn-clear-filter:hover,
+[data-theme="light"] .btn-copy:hover,
+[data-theme="light"] .btn-eye:hover,
+[data-theme="light"] .file-label:hover,
+[data-theme="light"] .mode-tab-off:hover,
+[data-theme="light"] .tab-off:hover { color: var(--primary); }
+
+/* ── Keep white text on coloured/dark backgrounds ────────────────────────── */
+[data-theme="light"] :is(.btn-primary, .btn-primary-sm, .btn-gray, .btn-gray-sm, .btn-green, .btn-red),
+[data-theme="light"] :is(.btn-primary, .btn-primary-sm, .btn-gray, .btn-gray-sm, .btn-green, .btn-red) *,
+[data-theme="light"] .btn-discord,
+[data-theme="light"] .btn-discord *,
+[data-theme="light"] .btn-danger:hover,
+[data-theme="light"] .servers-invite-link,
+[data-theme="light"] .tab-indigo-on,
+[data-theme="light"] .tab-amber-on,
+[data-theme="light"] .mode-tab-on,
+[data-theme="light"] .range-btn-active { color: #ffffff !important; }
+
+/* ── Scheduler task card ────────────────────────────────────────────────── */
+[data-theme="light"] .scheduler-task-card {
+    background-color: var(--surface-deep);
+    border-color: var(--surface-raised);
+}
+[data-theme="light"] .scheduler-task-card:hover { border-color: var(--surface-mid); }
+
+/* Scheduler badges — swap bg/text (900 ↔ 300) in light mode */
+[data-theme="light"] .scheduler-badge.bg-indigo-900 { background-color: #a5b4fc !important; color: #312e81 !important; }
+[data-theme="light"] .scheduler-badge.bg-amber-900 { background-color: #fcd34d !important; color: #78350f !important; }
+[data-theme="light"] .scheduler-badge.bg-green-900 { background-color: #91d4a5 !important; color: #1a5235 !important; }
+[data-theme="light"] .scheduler-badge.bg-blue-900 { background-color: #93c5fd !important; color: #1e3a8a !important; }
+[data-theme="light"] .scheduler-badge.bg-red-900 { background-color: #fca5a5 !important; color: #7f1d1d !important; }
+[data-theme="light"] .scheduler-badge.bg-purple-900 { background-color: #d8b4fe !important; color: #581c87 !important; }
+
+[data-theme="light"] .scheduler-badge--status-done,
+[data-theme="light"] .scheduler-badge--mode-neutral {
+    background-color: var(--surface);
+    color: var(--text-soft);
+    border: 1px solid var(--surface-raised);
+}
+
+[data-theme="light"] .scheduler-badge--status-failed {
+    background-color: #fca5a5;
+    color: #7f1d1d;
+}
+
+/* ── Power button inactive state ─────────────────────────────────────────── */
+[data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
+[data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
+
+/* Character cards: light gray overlay (more transparent than dark scrim) */
+[data-theme="light"] .character-card-overlay {
+    background-image: linear-gradient(
+        to top,
+        rgb(226 232 240 / 0.72),
+        rgb(226 232 240 / 0.2) 40%,
+        transparent 55%
+    );
+}
+
+[data-theme="light"] .character-card-title {
+    color: #1e293b;
+}
+
+/* ── Misc ────────────────────────────────────────────────────────────────── */
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="datetime-local"] { color-scheme: light; }
+
+[data-theme="light"] .power-btn { color: var(--light); }
+
+/* Role badges (Users list) — solid tint, dark text in light mode */
+[data-theme="light"] .role-badge.role-super_admin { background-color: #eab308; color: #1e293b; }
+[data-theme="light"] .role-badge.role-admin       { background-color: #a7f3d0; color: #1e293b; }
+[data-theme="light"] .role-badge.role-mod         { background-color: #bfdbfe; color: #1e293b; }
+[data-theme="light"] .role-badge.role-guest       { background-color: #e2e8f0; color: #334155; }
+[data-theme="light"] .role-badge.role-pending,
+[data-theme="light"] .role-badge.role-user        { background-color: #fde68a; color: #334155; }
+[data-theme="light"] .role-badge.role-rejected    { background-color: #fecaca; color: #334155; }
+
+/* Segmented mode toggle (scheduler Exact / Generate) */
+[data-theme="light"] .mode-tab-group--segmented {
+    background-color: var(--surface);
+    border-color: var(--surface-raised);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-off {
+    background-color: transparent;
+    color: var(--text-soft);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-off:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-on {
+    background-color: var(--primary);
+    color: #ffffff;
+}
+
+/* Avatar file picker button */
+[data-theme="light"] #avatar-upload::file-selector-button:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    border-color: var(--surface-mid);
+}
+
+/* Combobox / picker dropdown hover — same tint as .nav-link:hover */
+[data-theme="light"] .combobox-item:hover,
+[data-theme="light"] .scheduler-combobox-item:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
+[data-theme="light"] .scheduler-combobox-label {
+    color: var(--light);
+}
+
+[data-theme="light"] .scheduler-combobox-sub {
+    color: var(--text-dim);
+}
+
+/* ── Toggle switches (all .toggle-track + scheduler history) ─────────────── */
+[data-theme="light"] .toggle-track,
+[data-theme="light"] #history-toggle {
+    background-color: #9aacc1;
+}
+
+[data-theme="light"] .peer:checked ~ .toggle-track,
+[data-theme="light"] #history-toggle.is-on {
+    background-color: #818cf8;
+}
+
+[data-theme="light"] .toggle-track::after {
+    background-color: #ffffff;
+    border-color: var(--surface-raised);
+}
