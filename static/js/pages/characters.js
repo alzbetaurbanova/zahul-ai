@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!servers.length) return '<p class="text-dim text-xs px-3 py-2">No servers loaded</p>';
         return servers.map(s => `
             <label class="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer text-sm">
-                <input type="checkbox" class="accent-indigo-500" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
+                <input type="checkbox" class="custom-cb" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
                 <span class="text-gray-200 truncate">${escapeHtml(s.server_name)}</span>
             </label>`).join('');
     }

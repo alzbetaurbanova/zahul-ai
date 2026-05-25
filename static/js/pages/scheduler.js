@@ -988,8 +988,13 @@
             updateStatusOptions();
             resetPageAndFetch();
         });
-        ['filter-from','filter-to'].forEach(id => {
-            document.getElementById(id).addEventListener('change', resetPageAndFetch);
+        ['filter-from', 'filter-to'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', resetPageAndFetch);
+            if (typeof setupDatePickerPopupOnly === 'function') {
+                setupDatePickerPopupOnly(el, { onChange: resetPageAndFetch });
+            }
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
             document.getElementById('filter-type').value = '';

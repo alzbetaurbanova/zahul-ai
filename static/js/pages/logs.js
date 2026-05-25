@@ -248,9 +248,27 @@
         });
     });
 
-    // --- Filter auto-fire ---
-    ['df-from', 'df-to', 'af-from', 'af-to'].forEach(id => {
-        initDateFilterMd(id, resetPageAndFetch);
+    // --- Filter auto-fire (date fields: same native input + custom popup as scheduler) ---
+    [
+        { input: 'df-from', clear: 'clear-df-from-btn' },
+        { input: 'df-to', clear: 'clear-df-to-btn' },
+        { input: 'af-from', clear: 'clear-af-from-btn' },
+        { input: 'af-to', clear: 'clear-af-to-btn' },
+    ].forEach(({ input, clear }) => {
+        const el = document.getElementById(input);
+        if (!el) return;
+        el.addEventListener('change', resetPageAndFetch);
+        if (typeof setupDatePickerPopupOnly === 'function') {
+            setupDatePickerPopupOnly(el, { onChange: resetPageAndFetch });
+        }
+        const clearBtn = document.getElementById(clear);
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                el.value = '';
+                currentPage = 1;
+                fetchLogs();
+            });
+        }
     });
 
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
@@ -567,7 +585,7 @@
                         <div class="log-json-controls">
                             <button id="copy-response-btn" class="btn-copy"><i class="fas fa-copy"></i> Copy</button>
                             <label class="log-prettier-label">
-                                <input type="checkbox" id="req-prettier" class="accent-indigo-500">
+                                <input type="checkbox" id="req-prettier" class="custom-cb">
                                 <span>Prettier</span>
                             </label>
                         </div>

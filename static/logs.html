@@ -35,72 +35,70 @@
             <!-- Discord Filters -->
             <div id="discord-filters" class="filter-panel mb-5">
                 <div><label class="label-xs">Server</label>
-                    <div class="relative">
-                        <input type="text" id="df-server" autocomplete="off" placeholder="all" class="input-field w-auto pr-8">
+                    <div class="filter-panel-wrap">
+                        <input type="text" id="df-server" autocomplete="off" placeholder="all" class="input-field filter-panel-input--auto pr-8">
                         <button class="icon-clear-btn hidden" data-clear="df-server" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="df-server-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
                 <div>
-                    <label class="label-xs" for="df-from">From</label>
-                    <div class="date-filter-wrap">
-                        <div class="date-filter-clip">
-                            <input type="date" id="df-from" class="input-field date-filter-md">
-                        </div>
-                        <button type="button" id="df-from-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
-                        <button type="button" id="df-from-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    <label class="label-xs">From</label>
+                    <div class="relative">
+                        <input type="date" id="df-from" class="field">
+                        <button id="clear-df-from-btn" class="icon-clear-btn" title="Clear From date">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 <div>
-                    <label class="label-xs" for="df-to">To</label>
-                    <div class="date-filter-wrap">
-                        <div class="date-filter-clip">
-                            <input type="date" id="df-to" class="input-field date-filter-md">
-                        </div>
-                        <button type="button" id="df-to-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
-                        <button type="button" id="df-to-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    <label class="label-xs">To</label>
+                    <div class="relative">
+                        <input type="date" id="df-to" class="field">
+                        <button id="clear-df-to-btn" class="icon-clear-btn" title="Clear To date">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 <div><label class="label-xs">Character</label>
-                    <div class="relative">
-                        <input type="text" id="df-character" autocomplete="off" placeholder="all" class="input-field w-36 pr-8">
+                    <div class="filter-panel-wrap">
+                        <input type="text" id="df-character" autocomplete="off" placeholder="all" class="input-field filter-panel-input--sm pr-8">
                         <button class="icon-clear-btn hidden" data-clear="df-character" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="df-character-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
                 <div><label class="label-xs">User</label>
-                    <div class="relative">
-                        <input type="text" id="df-user" autocomplete="off" placeholder="all" class="input-field w-36 pr-8">
+                    <div class="filter-panel-wrap">
+                        <input type="text" id="df-user" autocomplete="off" placeholder="all" class="input-field filter-panel-input--sm pr-8">
                         <button class="icon-clear-btn hidden" data-clear="df-user" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="df-user-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
-                <div class="relative w-36">
+                <div class="filter-panel-col filter-panel-col--sm">
                     <label class="label-xs">Source</label>
-                    <button type="button" class="cb-dd-btn w-full" data-dd="dd-source">
+                    <button type="button" class="cb-dd-btn" data-dd="dd-source">
                         <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
                         <span class="flex items-center gap-1.5 shrink-0 ml-auto">
                             <i class="fas fa-times cb-dd-clear hidden" id="dd-source-clear" title="Clear"></i>
                             <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
                         </span>
                     </button>
-                    <div id="dd-source" class="cb-dd hidden w-full">
-                        <label class="cb-dd-item"><input type="checkbox" value="chat" class="df-source-cb accent-indigo-500"> Chat</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="scheduler" class="df-source-cb accent-indigo-500"> Scheduler</label>
+                    <div id="dd-source" class="cb-dd hidden">
+                        <label class="cb-dd-item"><input type="checkbox" value="chat" class="df-source-cb custom-cb"> Chat</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="scheduler" class="df-source-cb custom-cb"> Scheduler</label>
                     </div>
                 </div>
-                <div class="relative w-36">
+                <div class="filter-panel-col filter-panel-col--sm">
                     <label class="label-xs">Status</label>
-                    <button type="button" class="cb-dd-btn w-full" data-dd="dd-status">
+                    <button type="button" class="cb-dd-btn" data-dd="dd-status">
                         <span class="cb-dd-label flex-1 min-w-0 text-left truncate">All</span>
                         <span class="flex items-center gap-1.5 shrink-0 ml-auto">
                             <i class="fas fa-times cb-dd-clear hidden" id="dd-status-clear" title="Clear"></i>
                             <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
                         </span>
                     </button>
-                    <div id="dd-status" class="cb-dd hidden w-full">
-                        <label class="cb-dd-item"><input type="checkbox" value="ok" class="df-status-cb accent-indigo-500"> OK</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="error" class="df-status-cb accent-indigo-500"> Error</label>
+                    <div id="dd-status" class="cb-dd hidden">
+                        <label class="cb-dd-item"><input type="checkbox" value="ok" class="df-status-cb custom-cb"> OK</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="error" class="df-status-cb custom-cb"> Error</label>
                     </div>
                 </div>
                 <button id="discord-clear-btn" class="btn-clear-filter">Clear filters</button>
@@ -108,85 +106,84 @@
 
             <!-- Admin Filters -->
             <div id="admin-filters" class="filter-panel mb-5 hidden">
-                <div><label class="label-xs">User</label>
-                    <div class="relative">
-                        <input type="text" id="af-user" autocomplete="off" placeholder="all" class="input-field w-40 pr-8">
+                <div class="filter-panel-col filter-panel-col--md">
+                    <label class="label-xs">User</label>
+                    <div class="filter-panel-wrap">
+                        <input type="text" id="af-user" autocomplete="off" placeholder="all" class="input-field pr-8">
                         <button class="icon-clear-btn hidden" data-clear="af-user" title="Clear"><i class="fas fa-times"></i></button>
                         <div id="af-user-dd" class="autocomplete-dd hidden"></div>
                     </div>
                 </div>
-                <div class="relative w-80 min-w-[12rem]">
+                <div class="filter-panel-col filter-panel-col--action">
                     <label class="label-xs">Action</label>
-                    <div id="af-action-anchor" class="relative">
-                        <input type="text" id="af-action-search" class="input-field w-full text-sm pr-[3.25rem]" placeholder="Search actions…" autocomplete="off">
+                    <div id="af-action-anchor" class="filter-panel-wrap">
+                        <input type="text" id="af-action-search" class="input-field" placeholder="Search actions…" autocomplete="off">
                         <button type="button" class="cb-dd-btn af-action-dd-trigger" data-dd="dd-action" title="Open action list">
                             <span class="cb-dd-label sr-only">All</span>
                             <i class="fas fa-times cb-dd-clear hidden" id="dd-action-clear" title="Clear selected"></i>
                             <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
                         </button>
-                        <div id="dd-action" class="cb-dd cb-dd-searchable cb-dd-scrollable hidden w-full" data-cb-dd-anchor="af-action-anchor">
+                        <div id="dd-action" class="cb-dd cb-dd-searchable cb-dd-scrollable hidden" data-cb-dd-anchor="af-action-anchor">
                         <div class="cb-dd-search-list">
-                        <label class="cb-dd-item"><input type="checkbox" value="access.request.approve" class="af-action-cb accent-indigo-500"> access.request.approve</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="access.request.create" class="af-action-cb accent-indigo-500"> access.request.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="access.request.deny" class="af-action-cb accent-indigo-500"> access.request.deny</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="auth.super_admin.created" class="af-action-cb accent-indigo-500"> auth.super_admin.created</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="channel.create" class="af-action-cb accent-indigo-500"> channel.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="channel.delete" class="af-action-cb accent-indigo-500"> channel.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="channel.update" class="af-action-cb accent-indigo-500"> channel.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.mirror" class="af-action-cb accent-indigo-500"> character.avatar.mirror</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.upload" class="af-action-cb accent-indigo-500"> character.avatar.upload</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.create" class="af-action-cb accent-indigo-500"> character.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.delete" class="af-action-cb accent-indigo-500"> character.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.image.upload" class="af-action-cb accent-indigo-500"> character.image.upload</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.import" class="af-action-cb accent-indigo-500"> character.import</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="character.update" class="af-action-cb accent-indigo-500"> character.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="config.security.methods.update" class="af-action-cb accent-indigo-500"> config.security.methods.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="config.security.update" class="af-action-cb accent-indigo-500"> config.security.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="config.update" class="af-action-cb accent-indigo-500"> config.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.delivered" class="af-action-cb accent-indigo-500"> discord.dm.delivered</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queued" class="af-action-cb accent-indigo-500"> discord.dm.queued</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queue_drop" class="af-action-cb accent-indigo-500"> discord.dm.queue_drop</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.retry" class="af-action-cb accent-indigo-500"> discord.dm.retry</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="log.delete" class="af-action-cb accent-indigo-500"> log.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="preset.create" class="af-action-cb accent-indigo-500"> preset.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="preset.delete" class="af-action-cb accent-indigo-500"> preset.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="preset.update" class="af-action-cb accent-indigo-500"> preset.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="server.activate" class="af-action-cb accent-indigo-500"> server.activate</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="server.create" class="af-action-cb accent-indigo-500"> server.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="server.deactivate" class="af-action-cb accent-indigo-500"> server.deactivate</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="server.delete" class="af-action-cb accent-indigo-500"> server.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.off" class="af-action-cb accent-indigo-500"> servers.override.off</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.on" class="af-action-cb accent-indigo-500"> servers.override.on</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.create" class="af-action-cb accent-indigo-500"> task.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.delete" class="af-action-cb accent-indigo-500"> task.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="task.update" class="af-action-cb accent-indigo-500"> task.update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="trash.restore" class="af-action-cb accent-indigo-500"> trash.restore</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="user.create" class="af-action-cb accent-indigo-500"> user.create</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="user.delete" class="af-action-cb accent-indigo-500"> user.delete</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="user.password_update" class="af-action-cb accent-indigo-500"> user.password_update</label>
-                        <label class="cb-dd-item"><input type="checkbox" value="user.role_update" class="af-action-cb accent-indigo-500"> user.role_update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.approve" class="af-action-cb custom-cb"> access.request.approve</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.create" class="af-action-cb custom-cb"> access.request.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="access.request.deny" class="af-action-cb custom-cb"> access.request.deny</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="auth.super_admin.created" class="af-action-cb custom-cb"> auth.super_admin.created</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.create" class="af-action-cb custom-cb"> channel.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.delete" class="af-action-cb custom-cb"> channel.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="channel.update" class="af-action-cb custom-cb"> channel.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.mirror" class="af-action-cb custom-cb"> character.avatar.mirror</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.avatar.upload" class="af-action-cb custom-cb"> character.avatar.upload</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.create" class="af-action-cb custom-cb"> character.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.delete" class="af-action-cb custom-cb"> character.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.image.upload" class="af-action-cb custom-cb"> character.image.upload</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.import" class="af-action-cb custom-cb"> character.import</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="character.update" class="af-action-cb custom-cb"> character.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="config.security.methods.update" class="af-action-cb custom-cb"> config.security.methods.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="config.security.update" class="af-action-cb custom-cb"> config.security.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="config.update" class="af-action-cb custom-cb"> config.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.delivered" class="af-action-cb custom-cb"> discord.dm.delivered</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queued" class="af-action-cb custom-cb"> discord.dm.queued</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.queue_drop" class="af-action-cb custom-cb"> discord.dm.queue_drop</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="discord.dm.retry" class="af-action-cb custom-cb"> discord.dm.retry</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="log.delete" class="af-action-cb custom-cb"> log.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.create" class="af-action-cb custom-cb"> preset.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.delete" class="af-action-cb custom-cb"> preset.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="preset.update" class="af-action-cb custom-cb"> preset.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.activate" class="af-action-cb custom-cb"> server.activate</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.create" class="af-action-cb custom-cb"> server.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.deactivate" class="af-action-cb custom-cb"> server.deactivate</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="server.delete" class="af-action-cb custom-cb"> server.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.off" class="af-action-cb custom-cb"> servers.override.off</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="servers.override.on" class="af-action-cb custom-cb"> servers.override.on</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.create" class="af-action-cb custom-cb"> task.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.delete" class="af-action-cb custom-cb"> task.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="task.update" class="af-action-cb custom-cb"> task.update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="trash.restore" class="af-action-cb custom-cb"> trash.restore</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.create" class="af-action-cb custom-cb"> user.create</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.delete" class="af-action-cb custom-cb"> user.delete</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.password_update" class="af-action-cb custom-cb"> user.password_update</label>
+                        <label class="cb-dd-item"><input type="checkbox" value="user.role_update" class="af-action-cb custom-cb"> user.role_update</label>
                         </div>
                         </div>
                     </div>
                 </div>
                 <div>
-                    <label class="label-xs" for="af-from">From</label>
-                    <div class="date-filter-wrap">
-                        <div class="date-filter-clip">
-                            <input type="date" id="af-from" class="input-field date-filter-md">
-                        </div>
-                        <button type="button" id="af-from-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
-                        <button type="button" id="af-from-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    <label class="label-xs">From</label>
+                    <div class="relative">
+                        <input type="date" id="af-from" class="field">
+                        <button id="clear-af-from-btn" class="icon-clear-btn" title="Clear From date">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 <div>
-                    <label class="label-xs" for="af-to">To</label>
-                    <div class="date-filter-wrap">
-                        <div class="date-filter-clip">
-                            <input type="date" id="af-to" class="input-field date-filter-md">
-                        </div>
-                        <button type="button" id="af-to-picker" class="date-filter-picker" title="Pick date"><i class="fas fa-calendar-alt"></i></button>
-                        <button type="button" id="af-to-clear" class="date-filter-clear" title="Clear date"><i class="fas fa-times"></i></button>
+                    <label class="label-xs">To</label>
+                    <div class="relative">
+                        <input type="date" id="af-to" class="field">
+                        <button id="clear-af-to-btn" class="icon-clear-btn" title="Clear To date">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
                 <button id="admin-clear-btn" class="btn-clear-filter">Clear filters</button>

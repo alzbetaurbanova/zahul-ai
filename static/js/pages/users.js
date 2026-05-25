@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dd.innerHTML = _availableServers.length
             ? _availableServers.map(s => `
                 <label class="cb-dd-item">
-                    <input type="checkbox" value="${esc(s.server_id)}" class="accent-indigo-500"${selected.has(String(s.server_id)) ? ' checked' : ''}>
+                    <input type="checkbox" value="${esc(s.server_id)}" class="custom-cb"${selected.has(String(s.server_id)) ? ' checked' : ''}>
                     ${esc(s.server_name)}
                 </label>`).join('')
             : '<span class="cb-dd-item text-dim">No servers found</span>';
