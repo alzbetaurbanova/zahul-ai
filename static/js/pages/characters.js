@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let serverNameMap = {};    // display name -> server_id
     let availableServers = []; // {server_id, server_name}[] for model rules
     let modelRuleCounter = 0;
+    let _mrSrvMeasureRoot = null;
     let serversReadyPromise = Promise.resolve();
     let allowedModels = [];
 
@@ -119,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (_) {}
             availableServers = filtered.map(s => ({ server_id: s.server_id, server_name: s.server_name }));
             wireServerFilterCombobox();
+            syncModelRuleWidths();
         } catch (e) {
             showToast('Failed to load server filter.', 'error');
         }
@@ -157,14 +159,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function allServersLabel() { return isAdmin() ? 'All servers' : 'All my servers'; }
 
     function buildServerCheckboxes(selectedIds = []) {
-        const servers = isMod()
-            ? availableServers.filter(s => currentUserServerIds.includes(s.server_id))
-            : availableServers;
+        const servers = modelRulePickerServers();
         if (!servers.length) return '<p class="text-dim text-xs px-3 py-2">No servers loaded</p>';
         return servers.map(s => `
             <label class="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer text-sm">
                 <input type="checkbox" class="custom-cb" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
-                <span class="text-gray-200 truncate">${escapeHtml(s.server_name)}</span>
+                <span class="text-gray-200 whitespace-nowrap">${escapeHtml(s.server_name)}</span>
             </label>`).join('');
     }
 
@@ -192,36 +192,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function measureDropdownWidth(dd) {
-        const wasHidden = dd.classList.contains('hidden');
-        dd.classList.remove('hidden');
-        dd.style.visibility = 'hidden';
-        dd.style.width = 'max-content';
-        const w = dd.scrollWidth;
-        dd.style.visibility = '';
-        dd.style.width = '';
-        if (wasHidden) dd.classList.add('hidden');
-        return w;
+    function modelRulePickerServers() {
+        return isMod()
+            ? availableServers.filter(s => currentUserServerIds.includes(s.server_id))
+            : availableServers;
+    }
+
+    function modelRuleServerLabelTexts() {
+        const servers = modelRulePickerServers();
+        const texts = new Set([allServersLabel(), 'None', ...servers.map(s => s.server_name)]);
+        for (let n = 2; n <= servers.length; n++) texts.add(`${n} servers`);
+        return [...texts];
+    }
+
+    function measureModelRuleServerColumnWidth() {
+        const texts = modelRuleServerLabelTexts();
+        if (!texts.length) return 0;
+
+        if (!_mrSrvMeasureRoot) {
+            _mrSrvMeasureRoot = document.createElement('div');
+            _mrSrvMeasureRoot.setAttribute('aria-hidden', 'true');
+            _mrSrvMeasureRoot.style.cssText = 'position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none;z-index:-1';
+            document.body.appendChild(_mrSrvMeasureRoot);
+        }
+
+        let maxRow = 0;
+        for (const text of texts) {
+            _mrSrvMeasureRoot.innerHTML = `
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded text-sm">
+                    <input type="checkbox" class="custom-cb" disabled tabindex="-1">
+                    <span class="text-gray-200 whitespace-nowrap">${escapeHtml(text)}</span>
+                </label>`;
+            maxRow = Math.max(maxRow, _mrSrvMeasureRoot.firstElementChild.offsetWidth);
+        }
+
+        let maxBtn = 0;
+        for (const text of texts) {
+            _mrSrvMeasureRoot.innerHTML = `
+                <button type="button" class="mr-srv-btn" style="width:max-content">
+                    <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(text)}</span>
+                    <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0" aria-hidden="true"></i>
+                </button>`;
+            maxBtn = Math.max(maxBtn, _mrSrvMeasureRoot.firstElementChild.offsetWidth);
+        }
+
+        return Math.max(maxRow, maxBtn);
     }
 
     function syncModelRuleWidths() {
         requestAnimationFrame(() => {
             if (document.getElementById('model-rules-body')?.classList.contains('hidden')) return;
-            document.querySelectorAll('#model-rules-list .model-rule').forEach(rule => {
-                const wrap = rule.querySelector('.mr-srv-wrap');
-                const btn = rule.querySelector('.mr-srv-btn');
-                const dd = rule.querySelector('[id^="mr-dd-"]');
-                if (!wrap || !btn || !dd) return;
-
-                wrap.style.width = '';
-                btn.style.width = 'max-content';
-                const btnW = btn.offsetWidth;
-                const ddW = measureDropdownWidth(dd);
-                const w = Math.max(btnW, ddW);
-                if (w > 0) {
-                    wrap.style.width = `${w}px`;
-                    btn.style.width = '100%';
-                }
+            const w = measureModelRuleServerColumnWidth();
+            if (w <= 0) return;
+            document.querySelectorAll('#model-rules-list .mr-srv-wrap').forEach(wrap => {
+                wrap.style.width = `${w}px`;
             });
         });
     }
@@ -243,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
                         <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
                     </button>
-                    <div id="${ddId}" class="mr-srv-dd hidden absolute z-50 left-0 top-full mt-1 w-full max-h-48 overflow-y-auto">
+                    <div id="${ddId}" class="mr-srv-dd hidden absolute z-50 left-0 top-full mt-1 min-w-full w-max max-h-48 overflow-y-auto">
                         <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
                     </div>
                 </div>
