@@ -158,7 +158,6 @@ def bulk_delete_discord_logs(body: BulkDeleteRequest, current_user: dict = Depen
     if not body.ids:
         raise HTTPException(status_code=422, detail="No IDs provided")
     deleted = db.delete_discord_logs_bulk(body.ids)
-    db.log_admin('log.bulk_delete', target=f"discord_logs ({deleted} entries)", actor=current_user)
     return {"deleted": deleted}
 
 
@@ -168,7 +167,6 @@ def delete_discord_log(log_id: int, current_user: dict = Depends(require_role("s
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
     db.delete_discord_log(log_id)
-    db.log_admin('log.delete', target=f"{log.get('character', '?')} @ {log.get('timestamp', '?')}", actor=current_user)
 
 
 @router.get("/admin/{log_id}")
@@ -184,7 +182,6 @@ def bulk_delete_admin_logs(body: BulkDeleteRequest, current_user: dict = Depends
     if not body.ids:
         raise HTTPException(status_code=422, detail="No IDs provided")
     deleted = db.delete_admin_logs_bulk(body.ids)
-    db.log_admin('log.bulk_delete', target=f"admin_logs ({deleted} entries)", actor=current_user)
     return {"deleted": deleted}
 
 
@@ -194,7 +191,6 @@ def delete_admin_log(log_id: int, current_user: dict = Depends(require_role("sup
     if not log:
         raise HTTPException(status_code=404, detail="Log not found")
     db.delete_admin_log(log_id)
-    db.log_admin('log.delete', target=f"admin/{log_id} ({log.get('action', '?')} @ {log.get('timestamp', '?')})", actor=current_user)
 
 
 @router.get("/admin")
