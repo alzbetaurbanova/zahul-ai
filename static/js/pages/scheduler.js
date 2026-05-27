@@ -552,7 +552,7 @@
         function typeBadge(type) {
             return type === 'schedule'
                 ? `<span class="${SCHEDULER_BADGE_BASE} bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>`
-                : `<span class="${SCHEDULER_BADGE_BASE} bg-amber-900 text-amber-300"><i class="fas fa-bell mr-1"></i>Reminder</span>`;
+                : `<span class="${SCHEDULER_BADGE_BASE} sched-badge-reminder"><i class="fas fa-bell mr-1"></i>Reminder</span>`;
         }
 
         function statusBadge(status) {

@@ -456,10 +456,10 @@
     function discordRow(item) {
         const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
         const sourceColor = item.source === 'scheduler'
-            ? 'bg-indigo-900 text-indigo-300'
+            ? 'log-source-scheduler'
             : item.source === 'test'
-                ? 'bg-amber-900 text-amber-300'
-                : 'bg-gray-800 text-gray-300';
+                ? 'log-source-test'
+                : 'log-source-chat';
         return `<div data-log-id="${item.id}" class="card-dark card-dark--row card-dark--clickable">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -541,7 +541,7 @@
         return `<div class="card-dark card-dark--row card-dark--row-admin">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="text-muted flex-shrink-0" title="Log ID">#${item.id}</span>
-                <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${color}">${esc(label)}</span>
+                <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 admin-action-badge ${color}">${esc(label)}</span>
                 ${overrideLabel ? `<span class="text-xs text-gray-400 flex-shrink-0">${overrideLabel}</span>` : ''}
                 ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
                 ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}

@@ -1273,7 +1273,7 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
 }
 
 .peer:checked ~ .toggle-track {
-    background-color: var(--primary-dark);
+    background-color: var(--toggle-track-on);
 }
 
 .peer:checked ~ .toggle-track::after {
@@ -1710,6 +1710,10 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
     position: relative;
 }
 
+.filter-panel-col--xs {
+    width: 7rem;
+}
+
 .filter-panel-col--sm {
     width: 9rem;
 }
@@ -1723,6 +1727,7 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
     min-width: 12rem;
 }
 
+.filter-panel-col--xs :is(.cb-dd-btn, .cb-dd),
 .filter-panel-col--sm :is(.cb-dd-btn, .cb-dd),
 .filter-panel-col--md :is(.input-field, .cb-dd),
 .filter-panel-col--action :is(.input-field, .cb-dd) {
@@ -1735,6 +1740,10 @@ body[data-page="ai-config"] :is(.btn-primary, .btn-primary-sm):hover {
 
 .filter-panel-input--md {
     width: 10rem;
+}
+
+.filter-panel-input--lg {
+    width: 12rem;
 }
 
 .filter-panel-input--auto {
@@ -3772,6 +3781,11 @@ body[data-page="logs"] #detail-modal .modal-box {
     font-weight: 500;
 }
 
+.log-source-chat      { background: #14532d; color: #86efac; }
+.log-source-test      { background: #1f2937; color: #d1d5db; }
+.log-source-scheduler { background: #312e81; color: #a5b4fc; }
+
+.sched-badge-reminder  { background: #78350f; color: #fcd34d; }
 
 
 .main-content {

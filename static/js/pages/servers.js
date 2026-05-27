@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function fillScFields(cfg) {
         setScModelField('sc-base-llm', cfg.base_llm, 'primary');
-        setScModelField('sc-fallback-llm', cfg.fallback_llm, 'fallback');
+        setScModelField('sc-fallback-llm', cfg.fallback_llm, cfg.fallback_llm_source || 'primary');
         document.getElementById('sc-temperature').value = cfg.temperature ?? '';
         document.getElementById('sc-max-tokens').value = cfg.max_tokens ?? '';
         document.getElementById('sc-history-limit').value = cfg.history_limit ?? '';
@@ -282,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 fillScFields({
                     base_llm: globalCfg.base_llm,
                     fallback_llm: globalCfg.fallback_llm,
+                    fallback_llm_source: globalCfg.fallback_llm_source,
                     temperature: globalCfg.temperature,
                     max_tokens: globalCfg.max_tokens,
                     history_limit: globalCfg.history_limit,

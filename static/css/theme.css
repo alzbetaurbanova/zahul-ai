@@ -10,8 +10,8 @@
 
     /* Brand */
     --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-hover: #4338ca;
+    --primary-dark: #666fc4;
+    --primary-hover: #5a62b0;
     --primary-light: #818cf8;
     --primary-lighter: #a5b4fc;
     --primary-tint-04: rgba(99, 102, 241, 0.04);
@@ -109,14 +109,14 @@
     --shadow-ring-dark: 0 0 0 1px rgba(0, 0, 0, 0.35);
 
     /* Gradients */
-    --gradient-card-footer: linear-gradient(to top, rgb(15 23 42 / 0.82), transparent 55%);
+    --gradient-card-footer: linear-gradient(to top, rgb(7 11 21 / 0.82), transparent 55%);
     --gradient-editor-mask: radial-gradient(circle 178px at center, transparent 176px, var(--overlay-scrim) 178px);
 
     /* Toggle */
     --toggle-knob: #ffffff;
     --toggle-knob-border: #d1d5db;
     --toggle-track: var(--surface-mid);
-    --toggle-track-on: var(--primary-dark);
+    --toggle-track-on: #666fc4;
 
     /* Tooltips */
     --tooltip-bg: var(--dark);
@@ -154,8 +154,8 @@
 
     /* Brand */
     --primary: #2e58c4;
-    --primary-dark: #2447a4;
-    --primary-hover: #2447a4;
+    --primary-dark: #666fc4;
+    --primary-hover: #5a62b0;
     --primary-light: #5078d4;
     --primary-lighter: #6b8fd4;
     --primary-tint-04: color-mix(in srgb, var(--primary) 4%, transparent);
@@ -174,7 +174,7 @@
     --dark: #dce8f3;
     --surface-deep: #ecf2f9;
     --surface: #e1ebf4;
-    --surface-raised: #b4c4d6;
+    --surface-raised: #c8cfea;
     --surface-mid: #9aacc1;
     --surface-readonly: #c5d3e0;
 
@@ -195,23 +195,59 @@
     --shadow-panel: 0 10px 15px -3px rgba(27, 39, 52, 0.08), 0 4px 6px -2px rgba(27, 39, 52, 0.04);
     --shadow-card: 0 10px 15px -3px rgba(27, 39, 52, 0.08), 0 4px 6px -2px rgba(27, 39, 52, 0.04);
     --shadow-sm: 0 4px 6px -1px rgba(27, 39, 52, 0.06), 0 2px 4px -1px rgba(27, 39, 52, 0.04);
-    --gradient-card-footer: linear-gradient(to top, rgb(219 226 235 / 0.9), transparent 55%);
+    --gradient-card-footer: linear-gradient(to top, rgb(7 11 21 / 0.82), transparent 55%);
 
     /* Toggle */
     --toggle-track: #9aacc1;
-    --toggle-track-on: var(--primary-light);
+    --toggle-track-on: #666fc4;
     --toggle-knob: #ffffff;
     --toggle-knob-border: var(--surface-raised);
 
     /* Tooltips */
     --tooltip-bg: color-mix(in srgb, var(--darker) 50%, var(--surface-deep) 50%);
     --tooltip-border: var(--surface-raised);
+
+    /* Danger / validation */
+    --danger-text: #b05a6a;
+    --danger-text-light: #c47a87;
 }
 
 [data-theme="light"] input[type="date"],
 [data-theme="light"] input[type="datetime-local"] {
     color-scheme: light;
 }
+
+/* Tailwind border-gray overrides */
+[data-theme="light"] .border-gray-700 { border-color: #c8cfea !important; }
+
+/* Log source badges */
+[data-theme="light"] .log-source-chat      { background: #86efac; color: #14532d; opacity: 0.6; }
+[data-theme="light"] .log-source-test      { background: #d1d5db; color: #1f2937; }
+[data-theme="light"] .log-source-scheduler { background: #a5b4fc; color: #312e81; }
+
+/* Admin log action badges — swap bg/text in light mode */
+[data-theme="light"] .admin-action-badge.bg-emerald-900,
+[data-theme="light"] .admin-action-badge.bg-emerald-950 { background: #6ee7b7 !important; color: #064e3b !important; }
+[data-theme="light"] .admin-action-badge.bg-purple-900  { background: #d8b4fe !important; color: #4c1d95 !important; }
+[data-theme="light"] .admin-action-badge.bg-red-900     { background: #fca5a5 !important; color: #7f1d1d !important; }
+[data-theme="light"] .admin-action-badge.bg-slate-800   { background: #cbd5e1 !important; color: #1e293b !important; }
+[data-theme="light"] .admin-action-badge.bg-amber-900,
+[data-theme="light"] .admin-action-badge.bg-amber-950   { background: #fcd34d !important; color: #78350f !important; }
+[data-theme="light"] .admin-action-badge.bg-gray-800    { background: #d1d5db !important; color: #1f2937 !important; }
+[data-theme="light"] .admin-action-badge.bg-gray-700    { background: #e5e7eb !important; color: #374151 !important; }
+[data-theme="light"] .admin-action-badge.bg-blue-900    { background: #93c5fd !important; color: #1e3a5f !important; }
+[data-theme="light"] .admin-action-badge.bg-teal-900    { background: #5eead4 !important; color: #134e4a !important; }
+[data-theme="light"] .admin-action-badge.bg-green-900,
+[data-theme="light"] .admin-action-badge.bg-green-800   { background: #86efac !important; color: #14532d !important; }
+[data-theme="light"] .admin-action-badge.bg-yellow-900  { background: #fde047 !important; color: #713f12 !important; }
+[data-theme="light"] .admin-action-badge.bg-violet-900,
+[data-theme="light"] .admin-action-badge.bg-violet-800  { background: #c4b5fd !important; color: #4c1d95 !important; }
+[data-theme="light"] .admin-action-badge.bg-orange-900  { background: #fdba74 !important; color: #7c2d12 !important; }
+[data-theme="light"] .admin-action-badge.bg-indigo-900,
+[data-theme="light"] .admin-action-badge.bg-indigo-950  { background: #a5b4fc !important; color: #312e81 !important; }
+
+/* Scheduler badges */
+[data-theme="light"] .sched-badge-reminder  { background: #fef3c7; color: #92400e; }
 
 /* Tailwind utilities compiled to literals */
 [data-theme="light"] .bg-darker { background-color: var(--darker) !important; }
@@ -306,6 +342,18 @@
 [data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
 [data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
 [data-theme="light"] .power-btn { color: var(--light); }
+
+/* Console log stream */
+[data-theme="light"] .log-stream             { background-color: #2d3748; border-color: rgba(99, 102, 241, 0.2); }
+[data-theme="light"] .console-log-time       { color: #9ca3af; }
+[data-theme="light"] .console-log-message    { color: #f1f5f9; }
+
+/* Nav user badge — identical to dark mode */
+[data-theme="light"] .nav-user-badge                  { border-color: #0f172a; background: #4b5563; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-super_admin { background: #eab308; color: #1f2937; }
+[data-theme="light"] .nav-user-badge.role-admin       { background: #047857; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-mod         { background: #2563eb; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-guest       { background: #4b5563; color: #ffffff; }
 
 /* Role badges — solid in light mode */
 [data-theme="light"] .role-badge.role-super_admin { background-color: var(--role-super-admin); color: var(--light); }
