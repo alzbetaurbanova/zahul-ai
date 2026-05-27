@@ -12,6 +12,8 @@ def _get_trash_db():
     return TrashDB()
 
 DB_PATH = os.getenv("DATABASE_URL", "data/bot.db")
+MULTI_MODEL_PROVIDERS_KEY = "multi_model_providers"
+LEGACY_MULTI_MODEL_PROVIDERS_KEY = "multimodal_providers"
 
 
 def _ensure_db_directory(path: str) -> None:
@@ -358,7 +360,7 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, encrypt, encrypt_providers
         if key in SENSITIVE_KEYS and isinstance(value, str):
             return encrypt(value)
-        if key == "multimodal_providers" and isinstance(value, list):
+        if key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(value, list):
             return encrypt_providers(value)
         return value
 
@@ -366,7 +368,7 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, decrypt, decrypt_providers
         if key in SENSITIVE_KEYS and isinstance(value, str):
             return decrypt(value)
-        if key == "multimodal_providers" and isinstance(value, list):
+        if key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(value, list):
             return decrypt_providers(value)
         return value
 
@@ -417,19 +419,27 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, is_encrypted, encrypt, encrypt_providers
         with self._get_connection() as conn:
             rows = conn.execute("SELECT key, value FROM config").fetchall()
+            parsed = {row["key"]: self._parse_json_value(row["value"]) for row in rows}
+            new_raw = parsed.get(MULTI_MODEL_PROVIDERS_KEY)
             for row in rows:
                 key = row["key"]
-                if key not in SENSITIVE_KEYS and key != "multimodal_providers":
+                if key not in SENSITIVE_KEYS and key not in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY):
                     continue
-                raw = self._parse_json_value(row["value"])
+                raw = parsed.get(key)
                 if key in SENSITIVE_KEYS and isinstance(raw, str) and raw and not is_encrypted(raw):
                     conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
                                  (key, json.dumps(encrypt(raw))))
-                elif key == "multimodal_providers" and isinstance(raw, list):
+                elif key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(raw, list):
                     needs_enc = any(p.get("api_key") and not is_encrypted(p["api_key"]) for p in raw)
+                    payload = encrypt_providers(raw) if needs_enc else raw
                     if needs_enc:
                         conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
-                                     (key, json.dumps(encrypt_providers(raw))))
+                                     (key, json.dumps(payload)))
+                    if key == LEGACY_MULTI_MODEL_PROVIDERS_KEY:
+                        if not isinstance(new_raw, list) or (len(new_raw) == 0 and len(raw) > 0):
+                            conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
+                                         (MULTI_MODEL_PROVIDERS_KEY, json.dumps(payload)))
+                        conn.execute("DELETE FROM config WHERE key = ?", (LEGACY_MULTI_MODEL_PROVIDERS_KEY,))
             conn.commit()
         db_cache.invalidate_config()
 
