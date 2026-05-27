@@ -281,7 +281,11 @@ class Database:
                 conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
         self._cleanup_mislinked_scheduler_channels()
-        self.migrate_sensitive_config()
+        try:
+            self.migrate_sensitive_config()
+        except Exception as e:
+            import logging
+            logging.warning(f"Config encryption migration skipped: {e}")
 
     def _cleanup_mislinked_scheduler_channels(self):
         """Remove auto-linked legacy scheduler channels (wrong server attribution)."""
