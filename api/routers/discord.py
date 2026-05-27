@@ -61,7 +61,8 @@ def _run_bot_in_thread():
         logging.critical(f'!!! Bot thread crashed: {e} !!!', exc_info=True)
     finally:
         # Clean up state when the bot stops for any reason
-        _bot_instance = None
+        bot_state.bot_instance = None
+        bot_state.bot_loop = None
 
 
 def _do_activate(actor=None) -> bool:
@@ -88,9 +89,13 @@ async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
+    loop = bot_state.bot_loop or bot_state.bot_instance.loop
+    if not loop or not loop.is_running():
+        raise HTTPException(status_code=500, detail="Bot event loop is not available.")
+
     try:
         logging.info("--- Sending shutdown signal to bot via API... ---")
-        future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), bot_state.bot_instance.loop)
+        future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), loop)
         future.result(timeout=10)
         db = Database()
         db.log_admin(action="server.deactivate", target="discord", detail="Bot deactivation requested via Admin UI or API.", actor=current_user)

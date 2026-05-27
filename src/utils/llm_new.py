@@ -179,10 +179,18 @@ async def generate_response(task: QueueItem, db: Database):
             base_url=bot_config.ai_endpoint,
             api_key=bot_config.ai_key,
         )
-        _diff_ep = bot_config.fallback_use_different_endpoint and bool(bot_config.fallback_ai_endpoint)
+        _fallback_endpoint = bot_config.fallback_ai_endpoint
+        _fallback_key = bot_config.fallback_ai_key or bot_config.ai_key
+        if bot_config.fallback_provider:
+            for p in (bot_config.multimodal_providers or []):
+                if p.name == bot_config.fallback_provider:
+                    _fallback_endpoint = p.endpoint or _fallback_endpoint
+                    _fallback_key = p.api_key or _fallback_key
+                    break
+        _diff_ep = bot_config.fallback_use_different_endpoint and bool(_fallback_endpoint)
         fallback_client = AsyncOpenAI(
-            base_url=bot_config.fallback_ai_endpoint,
-            api_key=bot_config.fallback_ai_key or bot_config.ai_key,
+            base_url=_fallback_endpoint,
+            api_key=_fallback_key,
         ) if _diff_ep else primary_client
 
         _effective_endpoint = bot_config.ai_endpoint

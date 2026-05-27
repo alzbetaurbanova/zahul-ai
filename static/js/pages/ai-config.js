@@ -541,19 +541,36 @@ document.addEventListener('DOMContentLoaded', () => {
             : getModelsFromTextarea('primary_allowed_models');
     }
 
-    function getProviderModelDisplays() {
+    function getVisionAllowedModelDisplays() {
+        // Vision Model combobox should offer allowed models from all config sources:
+        // - primary_allowed_models
+        // - fallback_allowed_models
+        // - multimodal provider cards (their allowed_models)
         const out = [];
         const seen = new Set();
+
+        const add = (models, source) => {
+            (models || []).forEach(m => {
+                if (!m) return;
+                const key = `${m}|${source}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push({ display: `${m} (${source})`, model: m, source });
+            });
+        };
+
+        add(getModelsFromTextarea('primary_allowed_models'), 'primary');
+        add(getModelsFromTextarea('fallback_allowed_models'), 'fallback');
+
+        // Provider-card models
         document.querySelectorAll('.provider-card').forEach(card => {
             const name = card.querySelector('.provider-name').value.trim();
             if (!name) return;
-            card.querySelector('.provider-models').value
-                .split('\n').map(s => s.trim()).filter(Boolean)
-                .forEach(m => {
-                    const key = `${m}|${name}`;
-                    if (!seen.has(key)) { seen.add(key); out.push({ display: `${m} (${name})`, model: m, source: name }); }
-                });
+            const models = card.querySelector('.provider-models').value
+                .split('\n').map(s => s.trim()).filter(Boolean);
+            add(models, name);
         });
+
         return out;
     }
 
@@ -577,12 +594,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setupFilterCombobox(
             'multimodal_ai_model',
             'multimodal-ai-model-dd',
-            () => getProviderModelDisplays().map(e => e.display),
+            () => getVisionAllowedModelDisplays().map(e => e.display),
             (selected) => {
-                const entry = getProviderModelDisplays().find(e => e.display === selected);
+                const entry = getVisionAllowedModelDisplays().find(e => e.display === selected);
                 if (entry) {
                     elements['multimodal_ai_model'].value = entry.model;
-                    elements['multimodal_ai_provider'].value = entry.source;
+                    // Only provider-card models have a provider name we can resolve.
+                    // For primary/fallback models we clear provider so legacy multimodal endpoint/api is used.
+                    elements['multimodal_ai_provider'].value = (entry.source === 'primary' || entry.source === 'fallback')
+                        ? ''
+                        : entry.source;
                 }
             },
             () => { elements['multimodal_ai_provider'].value = ''; },

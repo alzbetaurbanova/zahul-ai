@@ -44,6 +44,7 @@ class BotConfig(BaseModel):
     fallback_llm: str = "llama-3.1-8b-instant"
     fallback_duration: int = Field(7200, ge=0)
     fallback_use_different_endpoint: bool = False
+    fallback_provider: str = ""
     fallback_ai_endpoint: str = ""
     fallback_ai_key: str = ""
     fallback_allowed_models: List[str] = Field(default_factory=list)

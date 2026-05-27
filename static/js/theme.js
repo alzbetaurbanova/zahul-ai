@@ -1,5 +1,5 @@
 /**
- * Theme scaffold — default dark. Light tokens in /static/css/theme.css.
+ * Theme scaffold — default dark. All theme tokens in /static/css/theme.css.
  *
  * Persistence (today): localStorage key `zahul_theme`.
  * Future: user.theme from GET /api/me or PATCH user prefs → call syncFromSession().
