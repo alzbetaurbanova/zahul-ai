@@ -15,7 +15,7 @@ def _cutoff(days: int) -> str | None:
 
 
 def _mod_channels(user: dict) -> list[str] | None:
-    """None = no restriction (admin+). Empty list = mod with no assigned servers."""
+    """None = no restriction (admin+). Includes simulator channels from DB + legacy ids."""
     if user["role"] in ("super_admin", "admin"):
         return None
     server_ids = db.get_user_server_access(user["id"])
@@ -26,7 +26,9 @@ def _mod_channels(user: dict) -> list[str] | None:
         rows = conn.execute(
             f"SELECT channel_id FROM channels WHERE server_id IN ({ph})", server_ids
         ).fetchall()
-    return [r["channel_id"] for r in rows]
+    channel_ids = [r["channel_id"] for r in rows]
+    channel_ids.extend(f"simulation:{sid}" for sid in server_ids)  # legacy simulator logs
+    return channel_ids
 
 
 def _where(days: int, user: dict, prefix: str = "") -> tuple[str, list]:
@@ -188,6 +190,13 @@ def get_by_server(
             f"""
             SELECT
                 COALESCE(
+                    CASE
+                        WHEN dl.channel_id LIKE 'simulation:%' OR dl.channel_id LIKE 'simulator:%' THEN (
+                            SELECT s.server_name FROM servers s
+                            WHERE s.server_id = substr(dl.channel_id, instr(dl.channel_id, ':') + 1)
+                        )
+                    END,
+                    CASE WHEN dl.channel_id = 'simulation' THEN 'Simulator' END,
                     CASE WHEN dl.channel_id LIKE 'DM_%' THEN 'Direct Messages' END,
                     c.server_name,
                     'Unknown'

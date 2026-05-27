@@ -12,6 +12,6 @@
 | [Discord OAuth](08-discord-oauth.md) | “Login with Discord” app setup |
 | [Users](09-users.md) | Panel accounts, access requests, permissions |
 | [Dashboard, logs & tools](10-panel-tools.md) | Home console, `/logs`, avatar editor, prompt presets |
-| [Multimodal](11-multimodal.md) | Image description via a vision model |
+| [Multi-Model](11-multi-model.md) | Image description via a vision model + multi-model providers |
 
 Start with [Getting Started](01-getting-started.md), then [AI Config](02-ai-config.md).

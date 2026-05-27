@@ -970,6 +970,56 @@ class Database:
                   temperature, history_count, task_id, endpoint))
             conn.commit()
 
+    def get_test_tokens_used_today(self, panel_username: str) -> int:
+        from datetime import date
+        day_start = f"{date.today().isoformat()}T00:00:00"
+        with self._get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)), 0)
+                FROM discord_logs
+                WHERE source = 'test' AND user = ? AND timestamp >= ?
+                """,
+                (panel_username, day_start),
+            ).fetchone()
+        return int(row[0] if row else 0)
+
+    def get_server_tokens_used_today(self, server_id: str) -> int:
+        """All discord log tokens billed to a server today (live chat + simulator)."""
+        from datetime import date
+        day_start = f"{date.today().isoformat()}T00:00:00"
+        legacy_sim_channel = f"simulation:{server_id}"
+        with self._get_connection() as conn:
+            test_row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(dl.input_tokens, 0) + COALESCE(dl.output_tokens, 0)), 0)
+                FROM discord_logs dl
+                LEFT JOIN channels c ON (
+                    dl.channel_id = c.channel_id
+                    OR dl.channel_id = 'channel:' || c.channel_id
+                )
+                WHERE dl.source = 'test'
+                  AND dl.timestamp >= ?
+                  AND (c.server_id = ? OR dl.channel_id = ?)
+                """,
+                (day_start, server_id, legacy_sim_channel),
+            ).fetchone()
+            chat_row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(dl.input_tokens, 0) + COALESCE(dl.output_tokens, 0)), 0)
+                FROM discord_logs dl
+                INNER JOIN channels c ON (
+                    dl.channel_id = c.channel_id
+                    OR dl.channel_id = 'channel:' || c.channel_id
+                )
+                WHERE c.server_id = ?
+                  AND (dl.source IS NULL OR dl.source != 'test')
+                  AND dl.timestamp >= ?
+                """,
+                (server_id, day_start),
+            ).fetchone()
+        return int(test_row[0] if test_row else 0) + int(chat_row[0] if chat_row else 0)
+
     def log_admin(
         self,
         action: str,
@@ -1021,12 +1071,24 @@ class Database:
         if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
         if filters.get('server_ids') is not None:
             sids = filters['server_ids']
+            panel_user = filters.get('panel_username')
             if not sids:
-                conditions.append("1=0")
+                if panel_user:
+                    conditions.append("(dl.source = 'test' AND dl.user = ?)")
+                    params.append(panel_user)
+                else:
+                    conditions.append("1=0")
             else:
                 clause, clause_params = self._discord_log_on_servers_sql(sids, table_alias="dl")
-                conditions.append(clause)
-                params.extend(clause_params)
+                legacy_sim = [f"simulation:{sid}" for sid in sids]
+                if legacy_sim:
+                    sim_ph = ",".join("?" * len(legacy_sim))
+                    conditions.append(f"({clause} OR dl.channel_id IN ({sim_ph}))")
+                    params.extend(clause_params)
+                    params.extend(legacy_sim)
+                else:
+                    conditions.append(clause)
+                    params.extend(clause_params)
         elif filters.get('channel_ids') is not None:
             vals = filters['channel_ids']
             if not vals:
@@ -1134,18 +1196,18 @@ class Database:
             if server_ids is not None:
                 ch_ph = ",".join("?" * len(server_ids))
                 channel_rows = conn.execute(
-                    f"SELECT channel_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
+                    f"SELECT channel_id, server_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
                     server_ids,
                 ).fetchall()
             elif channel_ids is not None:
                 ch_ph = ",".join("?" * len(channel_ids))
                 channel_rows = conn.execute(
-                    f"SELECT channel_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
+                    f"SELECT channel_id, server_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
                     channel_ids,
                 ).fetchall()
             else:
                 channel_rows = conn.execute(
-                    "SELECT channel_id, server_name, data FROM channels"
+                    "SELECT channel_id, server_id, server_name, data FROM channels"
                 ).fetchall()
         channels = {}
         for row in channel_rows:
@@ -1153,6 +1215,7 @@ class Database:
             data = self._parse_json_value(d['data']) if isinstance(d['data'], str) else d['data']
             if isinstance(data, dict):
                 channels[d['channel_id']] = {
+                    'server_id': d.get('server_id'),
                     'server_name': d['server_name'],
                     'channel_name': data.get('name', d['channel_id'])
                 }

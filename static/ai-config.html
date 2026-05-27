@@ -36,20 +36,22 @@
                         <legend class="legend-section">Core AI Settings</legend>
                         <div class="form-grid">
                             <div>
-                                <label for="ai_endpoint" class="label-tt">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
+                                <label for="ai_endpoint" class="label-tt">Default AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your primary AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
                                 <input type="url" id="ai_endpoint" class="field" required>
                             </div>
                             <div>
                                 <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
                                 <div class="relative">
-                                    <input type="text" id="base_llm" autocomplete="off" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                    <input type="text" id="base_llm" autocomplete="off" class="input-field w-full text-sm pr-8" required placeholder="e.g. llama-3.3-70b (default)">
+                                    <input type="hidden" id="base_llm-model" value="">
+                                    <input type="hidden" id="base_llm-source" value="primary">
                                     <div id="base-llm-dd" class="autocomplete-dd hidden"></div>
                                 </div>
                             </div>
                         </div>
                         <div class="mt-4">
-                            <label for="primary_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the primary model, and in other sections like character overrides.</span></span></label>
-                            <textarea id="primary_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.3-70b-versatile&#10;llama-3.1-8b-instant"></textarea>
+                            <label for="primary_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Populates dropdowns for the primary model, fallback picker, and character overrides.</span></span></label>
+                            <textarea id="primary_allowed_models" class="input-field allowed-models-textarea" rows="3" placeholder="e.g., llama-3.3-70b-versatile&#10;llama-3.1-8b-instant"></textarea>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <div>
@@ -78,7 +80,9 @@
                             <div>
                                 <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
                                 <div class="relative">
-                                    <input type="text" id="fallback_llm" autocomplete="off" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
+                                    <input type="text" id="fallback_llm" autocomplete="off" class="input-field w-full text-sm pr-8" placeholder="e.g. llama-3.1-8b (default)">
+                                    <input type="hidden" id="fallback_llm-model" value="">
+                                    <input type="hidden" id="fallback_llm-source" value="primary">
                                     <div id="fallback-llm-dd" class="autocomplete-dd hidden"></div>
                                 </div>
                             </div>
@@ -95,35 +99,7 @@
                                 <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000 – 0 to disable">
                             </div>
                         </div>
-                        <div class="flex-between divider pt-4 mt-4">
-                            <div>
-                                <label for="fallback_use_different_endpoint" class="label-inline">Use different endpoint for fallback</label>
-                                <p class="text-hint">When on, the fallback model uses its own endpoint and API key instead of the primary.</p>
-                            </div>
-                            <label class="toggle-wrap">
-                                <input id="fallback_use_different_endpoint" type="checkbox" class="sr-only peer">
-                                <div class="toggle-track"></div>
-                            </label>
-                        </div>
-                        <div id="fallback-endpoint-fields" class="hidden pl-6 space-y-4 border-l-2 border-gray-700 mt-2">
-                            <div>
-                                <label for="fallback_ai_endpoint" class="label-tt">Fallback Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of the fallback provider's API. Must be an OpenAI-compatible endpoint.</span></span></label>
-                                <input type="url" id="fallback_ai_endpoint" class="input-field" placeholder="e.g. https://api.groq.com/openai/v1">
-                            </div>
-                            <div>
-                                <label for="fallback_ai_key" class="label-tt">Fallback API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to reuse the primary AI API key. Only fill in on first setup or when rotating.</span></span></label>
-                                <div class="relative">
-                                    <input type="password" id="fallback_ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to use primary key">
-                                    <button type="button" onclick="toggleVisibility('fallback_ai_key', this)" class="btn-eye">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label for="fallback_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the fallback model, and in other sections like character overrides.</span></span></label>
-                                <textarea id="fallback_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.1-8b-instant&#10;gemma-7b-it"></textarea>
-                            </div>
-                        </div>
+                        <p class="text-hint divider pt-4 mt-4 w-full">Note: The label in parentheses on the fallback model shows which endpoint is used. To run fallback on a different API, add that provider under Multi Providers below and pick its model in the fallback dropdown.</p>
                     </fieldset>
 
                     <!-- Keys & Integration -->
@@ -201,28 +177,28 @@
                             <div class="divider"></div>
                             <div class="flex-between">
                                 <div>
-                                    <label for="multimodal_enable" class="label-inline">Enable Vision (Image Description)</label>
+                                    <label for="multi_model_enable" class="label-inline">Enable Vision (Image Description)</label>
                                     <p class="text-hint">Allows the bot to describe images attached to Discord messages. Requires a vision-capable model and endpoint.</p>
                                 </div>
                                 <label class="toggle-wrap">
-                                    <input id="multimodal_enable" type="checkbox" class="sr-only peer">
+                                    <input id="multi_model_enable" type="checkbox" class="sr-only peer">
                                     <div class="toggle-track"></div>
                                 </label>
                             </div>
-                            <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
+                            <div id="multi-model-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured Multimodal Provider below.</span></span></label>
+                                    <label for="multi_model_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured multi provider below.</span></span></label>
                                     <div class="relative">
-                                        <input type="text" id="multimodal_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
-                                        <div id="multimodal-ai-model-dd" class="autocomplete-dd hidden"></div>
+                                        <input type="text" id="multi_model_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
+                                        <div id="multi-model-ai-model-dd" class="autocomplete-dd hidden"></div>
                                     </div>
-                                    <input type="hidden" id="multimodal_ai_provider">
+                                    <input type="hidden" id="multi_model_ai_provider">
                                 </div>
                             </div>
                             <div class="divider"></div>
                             <div>
-                                <p class="label-inline">Multimodal Providers</p>
-                                <p class="text-hint">Pool of AI providers available for character and channel overrides.</p>
+                                <p class="label-inline">Multi Providers</p>
+                                <p class="text-hint">Additional API endpoints and models (e.g. another host for fallback, vision, or character overrides). Each provider has its own URL, key, and allowed models.</p>
                                 <div id="providers-list" class="mt-3 space-y-3"></div>
                                 <button type="button" id="add-provider-btn" class="btn-primary text-sm px-4 mt-3">
                                     <i class="fas fa-plus mr-1"></i>Add Provider

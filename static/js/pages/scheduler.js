@@ -16,11 +16,23 @@
         const toastContainer = document.getElementById('toast-container');
         const dayCheckboxes = document.getElementById('day-checkboxes');
         const createBtn = document.getElementById('create-btn');
+        let modAssignedServerCount = 0;
+
+        function isMod() { return currentUserRole === 'mod'; }
 
         function canEditTasks() {
-            return typeof window.canMutate === 'function'
-                ? window.canMutate(currentUserRole)
-                : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+            return typeof window.roleAtLeast === 'function'
+                ? window.roleAtLeast(currentUserRole, 'mod')
+                : currentUserRole === 'mod' || currentUserRole === 'admin' || currentUserRole === 'super_admin';
+        }
+
+        function applyModSchedulerUI() {
+            const dmBtn = document.getElementById('ttype-dm');
+            if (dmBtn) dmBtn.classList.toggle('hidden', isMod());
+            if (isMod()) setTargetType('channel');
+            if (createBtn) {
+                createBtn.classList.toggle('hidden', isMod() && modAssignedServerCount === 0);
+            }
         }
 
         // Build day pill buttons
@@ -257,6 +269,8 @@
                     !s.server_name.toLowerCase().includes('direct message')
                 );
                 filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
+                modAssignedServerCount = filtered.length;
+                applyModSchedulerUI();
                 if (typeof setupFilterCombobox === 'function') {
                     setupFilterCombobox(
                         'filter-server', 'filter-server-dd',
@@ -266,7 +280,11 @@
                         'hover:bg-gray-700'
                     );
                 }
-            } catch { serverNameMap = {}; }
+            } catch {
+                serverNameMap = {};
+                modAssignedServerCount = 0;
+                applyModSchedulerUI();
+            }
         }
 
         // --- Target comboboxes ---
@@ -278,15 +296,17 @@
             if (_targetOptionsPromise) return _targetOptionsPromise;
             _targetOptionsPromise = (async () => {
                 try {
-                    const [channels, cfg] = await Promise.all([
-                        fetch('/api/servers/bulk/channel-options').then(r => r.json()),
-                        fetch('/api/config/').then(r => r.json()),
-                    ]);
+                    const channels = await fetch('/api/servers/bulk/channel-options').then(r => r.json());
                     _channelOptions = Array.isArray(channels) ? channels : [];
                     channelServerMap = {};
                     for (const ch of _channelOptions) {
                         channelServerMap[ch.id] = ch.server_id;
                     }
+                    if (isMod()) {
+                        _dmOptions = [];
+                        return;
+                    }
+                    const cfg = await fetch('/api/config/').then(r => r.json());
                     _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
                 } catch {
                     _channelOptions = [];
@@ -523,6 +543,7 @@
             history.replaceState(null, '', '?' + p.toString());
             const start = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
             const end = Math.min(currentPage * PAGE_SIZE, total);
+            document.getElementById('pagination').classList.toggle('hidden', total <= 10);
             document.getElementById('pagination-info').textContent = total ? `${start}–${end} of ${total}` : '';
             document.getElementById('prev-btn').disabled = currentPage <= 1;
             document.getElementById('next-btn').disabled = currentPage * PAGE_SIZE >= total;
@@ -766,6 +787,10 @@
         async function openModal(task = null) {
             if (task !== null && !canEditTasks()) {
                 showToast('You do not have permission to edit scheduler tasks.', 'error');
+                return;
+            }
+            if (task === null && isMod() && modAssignedServerCount === 0) {
+                showToast('No servers assigned — ask an admin to grant server access.', 'error');
                 return;
             }
             await loadTargetOptions();
@@ -1054,6 +1079,7 @@
             })
             .catch(() => {})
             .finally(() => {
+                applyModSchedulerUI();
                 loadCharacters();
                 loadServerFilter();
                 loadTargetOptions();

@@ -168,15 +168,23 @@
                 <div id="sc-fields" class="server-config-fields hidden">
                     <!-- Row 1: Primary + Fallback model -->
                     <div class="server-config-grid">
-                        <div class="relative">
+                        <div>
                             <label for="sc-base-llm" class="label-xs label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Model for responses on this server. Leave empty to inherit from global AI Config.</span></span></label>
-                            <input type="text" id="sc-base-llm" autocomplete="off" class="input-field">
-                            <div id="sc-base-llm-dd" class="autocomplete-dd hidden"></div>
+                            <div class="relative">
+                                <input type="text" id="sc-base-llm" autocomplete="off" class="input-field w-full text-sm pr-8" placeholder="e.g. gpt-4o (default)">
+                                <input type="hidden" id="sc-base-llm-model" value="">
+                                <input type="hidden" id="sc-base-llm-source" value="primary">
+                                <div id="sc-base-llm-dd" class="autocomplete-dd hidden"></div>
+                            </div>
                         </div>
-                        <div class="relative">
+                        <div>
                             <label for="sc-fallback-llm" class="label-xs label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Model used when the primary hits a rate limit. Leave empty to inherit from global.</span></span></label>
-                            <input type="text" id="sc-fallback-llm" autocomplete="off" class="input-field">
-                            <div id="sc-fallback-llm-dd" class="autocomplete-dd hidden"></div>
+                            <div class="relative">
+                                <input type="text" id="sc-fallback-llm" autocomplete="off" class="input-field w-full text-sm pr-8" placeholder="e.g. llama-3.1-8b (fallback)">
+                                <input type="hidden" id="sc-fallback-llm-model" value="">
+                                <input type="hidden" id="sc-fallback-llm-source" value="fallback">
+                                <div id="sc-fallback-llm-dd" class="autocomplete-dd hidden"></div>
+                            </div>
                         </div>
                     </div>
                     <!-- Row 2: Temperature, Max Tokens, Message History, Auto Cap -->

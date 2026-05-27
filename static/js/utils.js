@@ -26,6 +26,49 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+/** UI label in model dropdowns: core primary → "default", multimodel → provider name. */
+function modelSourceLabel(source) {
+    if (!source || source === 'primary') return 'default';
+    if (source === 'fallback') return 'fallback';
+    return source;
+}
+
+function formatModelDisplay(model, source) {
+    if (!model) return '';
+    return `${model} (${modelSourceLabel(source)})`;
+}
+
+function normalizeAllowedModels(entries) {
+    return (entries || []).map(m => ({
+        ...m,
+        display: formatModelDisplay(m.model, m.source),
+    }));
+}
+
+function displayForModel(model, source, models) {
+    if (!model) return '';
+    const list = models || [];
+    const src = source || 'primary';
+    const entry = list.find(m => m.model === model && m.source === src);
+    return entry ? entry.display : formatModelDisplay(model, src);
+}
+
+function resolveModelFromDisplay(value, models, preferredSource) {
+    const v = (value || '').trim();
+    if (!v) return '';
+    const list = models || [];
+    const byDisplay = list.find(m => m.display === v);
+    if (byDisplay) return byDisplay.model;
+    if (preferredSource) {
+        const bySource = list.find(m => m.model === v && m.source === preferredSource);
+        if (bySource) return bySource.model;
+    }
+    const byModel = list.find(m => m.model === v);
+    if (byModel) return byModel.model;
+    const stripped = v.match(/^(.+?)\s+\([^)]+\)$/);
+    return stripped ? stripped[1].trim() : v;
+}
+
 function panelLoaderHtml(label = 'Loading...', modifier = '') {
     const modCls = modifier ? ` is-${modifier}` : '';
     return [

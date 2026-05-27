@@ -70,7 +70,23 @@ def _stream_json_export(list_fn: Callable[..., dict], filename: str, **list_kwar
     )
 
 
+def _panel_username(user: dict) -> str | None:
+    if user["role"] in ("super_admin", "admin"):
+        return None
+    name = (user.get("username") or "").strip()
+    return name or None
+
+
 def _log_in_scope(user: dict, log: dict) -> bool:
+    if log.get("source") == "test":
+        scope = _discord_server_scope(user)
+        if scope is None:
+            return True
+        if db.log_matches_server_scope(log.get("channel_id") or "", scope):
+            return True
+        from api.simulate_access import parse_simulation_server_id
+        sim_server = parse_simulation_server_id(log.get("channel_id"))
+        return bool(sim_server and sim_server in scope)
     scope = _discord_server_scope(user)
     if scope is None:
         return True
@@ -106,6 +122,7 @@ def list_discord_logs(
         character=character, channel_id=channel_id,
         user=user, model=model, source=source, status=status,
         task_id=task_id, server_ids=server_scope,
+        panel_username=_panel_username(current_user),
     )
 
 
@@ -135,6 +152,7 @@ def export_discord_logs(
         source=source,
         status=status,
         server_ids=server_scope,
+        panel_username=_panel_username(current_user),
     )
 
 

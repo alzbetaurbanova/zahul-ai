@@ -69,11 +69,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let modelRuleCounter = 0;
     let serversReadyPromise = Promise.resolve();
     let allowedModels = [];
+    let allowedModelsPromise = Promise.resolve();
 
     async function loadAllowedModels() {
         try {
             const res = await fetch('/api/config/models');
-            if (res.ok) allowedModels = await res.json();
+            if (res.ok) allowedModels = normalizeAllowedModels(await res.json());
         } catch (_) {}
     }
 
@@ -231,7 +232,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const ddId = `mr-dd-${id}`;
         const allRuleServers = rule.servers || [];
         const existingEntry = allowedModels.find(m => m.model === rule.model && m.source === (rule.source || 'primary'));
-        const displayValue = existingEntry ? existingEntry.display : (rule.model || '');
+        const displayValue = existingEntry
+            ? existingEntry.display
+            : formatModelDisplay(rule.model, rule.source);
         const triggersValue = Array.isArray(rule.triggers) ? rule.triggers.join(', ') : (rule.triggers || '');
         const div = document.createElement('div');
         div.className = 'model-rule';
@@ -250,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="relative flex-1 min-w-0">
                     <label for="mr-model-input-${id}" class="label-xs block mb-1">Model name (source) <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Leave empty to inherit the server or global default model.</span></span></label>
                     <div class="relative">
-                        <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (primary)" value="${escapeHtml(displayValue)}">
+                        <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (default)" value="${escapeHtml(displayValue)}">
                         <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
                         <input type="hidden" class="mr-source" value="${escapeHtml(rule.source || 'primary')}">
                         <div id="mr-model-dd-${id}" class="autocomplete-dd hidden"></div>
@@ -329,6 +332,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setupFilterCombobox(`mr-model-input-${id}`, `mr-model-dd-${id}`, allowedModelDisplays, (selected) => {
             const entry = allowedModels.find(m => m.display === selected);
             if (entry) {
+                const displayInput = div.querySelector('.mr-model-display');
+                if (displayInput) displayInput.value = entry.display;
                 div.querySelector('.mr-model').value = entry.model;
                 div.querySelector('.mr-source').value = entry.source;
             }
@@ -712,7 +717,7 @@ document.addEventListener('DOMContentLoaded', function() {
             charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
             charMaxTokensInput.value = char.data.max_tokens != null ? char.data.max_tokens : '';
             triggersInput.value = char.triggers.join(', ');
-            await serversReadyPromise;
+            await Promise.all([serversReadyPromise, allowedModelsPromise]);
             loadModelRules(char.data.model_rules_enabled || false, char.data.model_rules || []);
 
             updateAvatarPreview(avatarUrlInput.value);
@@ -1237,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(() => {})
         .finally(() => {
             serversReadyPromise = loadServerFilter();
-            loadAllowedModels();
+            allowedModelsPromise = loadAllowedModels();
             fetchAndDisplayCharacters();
         });
     });

@@ -24,6 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.routers import characters, servers, config, discord as discord_router, preset, tasks as tasks_router, logs as logs_router, trash as trash_router
 from api.routers import users as users_router
 from api.routers import stats as stats_router
+from api.routers import simulate as simulate_router
 from api.db.database import Database
 from api.auth import require_role
 from api.version_info import get_version_info
@@ -97,11 +98,12 @@ async def initialize_database():
         "max_tokens": 256,
         "use_prefill": False,
         "fallback_llm": "llama-3.1-8b-instant",
-        "multimodal_enable": False,
-        "multimodal_ai_endpoint": "https://openrouter.ai/api/v1",
-        "multimodal_ai_api": "",
-        "multimodal_ai_model": "google/gemini-pro-vision",
-        "multimodal_providers": [],
+        "fallback_llm_source": "",
+        "multi_model_enable": False,
+        "multi_model_ai_endpoint": "https://openrouter.ai/api/v1",
+        "multi_model_ai_api": "",
+        "multi_model_ai_model": "google/gemini-pro-vision",
+        "multi_model_providers": [],
         "fallback_use_different_endpoint": False,
         "fallback_ai_endpoint": "",
         "fallback_ai_key": "",
@@ -345,6 +347,7 @@ app.include_router(logs_router.router)
 app.include_router(trash_router.router)
 app.include_router(users_router.router)
 app.include_router(stats_router.router)
+app.include_router(simulate_router.router)
 
 # Set up CORS
 app.add_middleware(
@@ -430,6 +433,11 @@ async def get_stats_html():
 async def get_editor_html():
     """Serve the avatar editor page."""
     return "static/editor.html"
+
+@app.get("/test", response_class=FileResponse)
+async def get_test_html():
+    """Discord chat simulator for testing characters."""
+    return "static/test.html"
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():

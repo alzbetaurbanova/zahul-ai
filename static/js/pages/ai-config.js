@@ -13,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const form = document.getElementById('config-form');
     const toastContainer = document.getElementById('toast-container');
-    const multimodalToggle = document.getElementById('multimodal_enable');
-    const multimodalOptions = document.getElementById('multimodal-options');
+    const multiModelToggle = document.getElementById('multi_model_enable');
+    const multiModelOptions = document.getElementById('multi-model-options');
 
     // Prompt Editor Elements
     const promptTemplateInput = document.getElementById('prompt_template');
@@ -54,13 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
         'default_character', 'ai_endpoint', 'base_llm', 'primary_allowed_models', 'temperature', 'auto_cap',
         'history_limit', 'max_tokens',
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
-        'fallback_use_different_endpoint', 'fallback_ai_endpoint', 'fallback_ai_key', 'fallback_allowed_models',
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
-        'multimodal_enable', 'multimodal_ai_model', 'multimodal_ai_provider',
+        'multi_model_enable', 'multi_model_ai_model', 'multi_model_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
         'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
     ];
-    const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models', 'fallback_allowed_models']);
+    const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models']);
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
     const MIN_PANEL_PASSWORD_LENGTH = 8;
 
@@ -72,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const config = await response.json();
 
             for (const key in config) {
+                if (key === 'base_llm' || key === 'fallback_llm' || key === 'fallback_llm_source') continue;
                 if (elements[key]) {
                     if (elements[key].type === 'checkbox') {
                         elements[key].checked = config[key];
@@ -82,9 +82,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            renderProviders(Array.isArray(config.multimodal_providers) ? config.multimodal_providers : []);
-            toggleMultimodalOptions();
-            toggleFallbackEndpointFields();
+            renderProviders(Array.isArray(config.multi_model_providers) ? config.multi_model_providers : []);
+            const fbSource = config.fallback_llm_source || inferFallbackSource(config.fallback_llm);
+            setAiModelField('base_llm', config.base_llm, 'primary');
+            setAiModelField('fallback_llm', config.fallback_llm, fbSource);
+            toggleMultiModelOptions();
             const dmVal = elements['dm_list'] ? elements['dm_list'].value.trim() : '';
             dmToggle.checked = dmVal.length > 0;
             toggleDmFields();
@@ -135,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
-        for (const urlField of ['ai_endpoint', 'public_url', 'fallback_ai_endpoint', 'discord_oauth_redirect_uri']) {
+        for (const urlField of ['ai_endpoint', 'public_url', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
@@ -167,7 +169,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        configData['multimodal_providers'] = getProvidersFromDOM();
+        configData['multi_model_providers'] = getProvidersFromDOM();
+        configData['base_llm'] = getAiConfigModelValue('base_llm', 'primary');
+        configData['fallback_llm'] = getAiConfigModelValue('fallback_llm', 'primary');
+        configData['fallback_llm_source'] = (
+            document.getElementById('fallback_llm-source')?.value || ''
+        ).trim() || 'primary';
+        configData['fallback_use_different_endpoint'] = false;
+        configData['fallback_ai_endpoint'] = '';
+        configData['fallback_ai_key'] = '';
+        configData['fallback_allowed_models'] = [];
 
         try {
             const response = await fetch(CONFIG_API_BASE, {
@@ -186,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear password fields after save for security
             elements['ai_key'].value = '';
             elements['discord_key'].value = '';
-            elements['fallback_ai_key'].value = '';
             elements['discord_oauth_client_secret'].value = '';
             document.querySelectorAll('.provider-apikey').forEach(el => { el.value = ''; });
             await loadSecurityStatus();
@@ -336,13 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function toggleMultimodalOptions() {
-        multimodalOptions.classList.toggle('hidden', !multimodalToggle.checked);
-    }
-
-    function toggleFallbackEndpointFields() {
-        const on = elements['fallback_use_different_endpoint']?.checked;
-        document.getElementById('fallback-endpoint-fields').classList.toggle('hidden', !on);
+    function toggleMultiModelOptions() {
+        multiModelOptions.classList.toggle('hidden', !multiModelToggle.checked);
     }
 
     // --- Prompt Preset Functions ---
@@ -387,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     form.addEventListener('submit', handleConfigSubmit);
-    multimodalToggle.addEventListener('change', toggleMultimodalOptions);
+    multiModelToggle.addEventListener('change', toggleMultiModelOptions);
     savePromptBtn.addEventListener('click', savePrompt);
     saveSecurityBtn.addEventListener('click', handleSecuritySave);
     saveAdminBtn.addEventListener('click', handleAdminSave);
@@ -456,10 +461,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     elements.public_url.addEventListener('input', updateRedirectUriHint);
     dmToggle.addEventListener('change', toggleDmFields);
-    elements['fallback_use_different_endpoint']?.addEventListener('change', toggleFallbackEndpointFields);
     document.getElementById('add-provider-btn').addEventListener('click', () => addProviderCard());
 
-    // --- Multimodal Providers ---
+    // --- Multi Providers ---
     function renderProviders(providers) {
         document.getElementById('providers-list').innerHTML = '';
         (providers || []).forEach(p => addProviderCard(p));
@@ -497,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div>
                 <label class="label-tt">Allowed Models <span class="text-hint font-normal">(one per line - first is default)</span></label>
-                <textarea class="provider-models input-field font-mono" rows="3" placeholder="e.g. google/gemini-2.0-flash">${escapeHtml(models)}</textarea>
+                <textarea class="provider-models input-field allowed-models-textarea" rows="3" placeholder="e.g. google/gemini-2.0-flash">${escapeHtml(models)}</textarea>
             </div>
         `;
         card.querySelector('.provider-remove').addEventListener('click', () => card.remove());
@@ -534,58 +538,126 @@ document.addEventListener('DOMContentLoaded', () => {
         return el.value.split('\n').map(s => s.trim()).filter(Boolean);
     }
 
-    function getFallbackModels() {
-        const diffEndpoint = elements['fallback_use_different_endpoint']?.checked;
-        return diffEndpoint
-            ? getModelsFromTextarea('fallback_allowed_models')
-            : getModelsFromTextarea('primary_allowed_models');
+    function getPrimaryModelOptions() {
+        const seen = new Set();
+        const out = [];
+        getModelsFromTextarea('primary_allowed_models').forEach(m => {
+            const key = `${m}|primary`;
+            if (!m || seen.has(key)) return;
+            seen.add(key);
+            out.push({ display: formatModelDisplay(m, 'primary'), model: m, source: 'primary' });
+        });
+        return out;
+    }
+
+    function getFallbackModelOptions() {
+        const seen = new Set();
+        const out = [];
+        const add = (models, source) => {
+            (models || []).forEach(m => {
+                const key = `${m}|${source}`;
+                if (!m || seen.has(key)) return;
+                seen.add(key);
+                out.push({ display: formatModelDisplay(m, source), model: m, source });
+            });
+        };
+        add(getModelsFromTextarea('primary_allowed_models'), 'primary');
+        getProvidersFromDOM().forEach(p => {
+            if (p.name) add(p.allowed_models, p.name);
+        });
+        return out;
+    }
+
+    function inferFallbackSource(model) {
+        const m = (model || '').trim();
+        if (!m) return 'primary';
+        for (const p of getProvidersFromDOM()) {
+            if (p.name && (p.allowed_models || []).includes(m)) return p.name;
+        }
+        return 'primary';
+    }
+
+    function setAiModelField(displayId, model, source) {
+        const displayEl = elements[displayId] || document.getElementById(displayId);
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const sourceEl = document.getElementById(`${displayId}-source`);
+        const m = (model || '').trim();
+        const src = source || 'primary';
+        if (modelEl) modelEl.value = m;
+        if (sourceEl) sourceEl.value = m ? src : 'primary';
+        if (!displayEl) return;
+        const opts = displayId === 'fallback_llm' ? getFallbackModelOptions() : getPrimaryModelOptions();
+        const entry = opts.find(e => e.model === m && e.source === src);
+        displayEl.value = entry ? entry.display : (m ? formatModelDisplay(m, src) : '');
+        if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(displayEl);
+    }
+
+    function getAiConfigModelValue(displayId, preferredSource) {
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const fromHidden = (modelEl?.value || '').trim();
+        if (fromHidden) return fromHidden;
+        const display = (elements[displayId]?.value || '').trim();
+        const opts = displayId === 'fallback_llm' ? getFallbackModelOptions() : getPrimaryModelOptions();
+        return resolveModelFromDisplay(display, opts, preferredSource) || display;
     }
 
     function getProviderModelDisplays() {
         const out = [];
         const seen = new Set();
-        document.querySelectorAll('.provider-card').forEach(card => {
-            const name = card.querySelector('.provider-name').value.trim();
-            if (!name) return;
-            card.querySelector('.provider-models').value
-                .split('\n').map(s => s.trim()).filter(Boolean)
-                .forEach(m => {
-                    const key = `${m}|${name}`;
-                    if (!seen.has(key)) { seen.add(key); out.push({ display: `${m} (${name})`, model: m, source: name }); }
-                });
+        getProvidersFromDOM().forEach(p => {
+            if (!p.name) return;
+            (p.allowed_models || []).forEach(m => {
+                const key = `${m}|${p.name}`;
+                if (!m || seen.has(key)) return;
+                seen.add(key);
+                out.push({ display: formatModelDisplay(m, p.name), model: m, source: p.name });
+            });
         });
         return out;
     }
 
+    function wireAiModelCombobox(displayId, ddId, optionsFn, defaultSource) {
+        setupFilterCombobox(
+            displayId,
+            ddId,
+            () => optionsFn().map(e => e.display),
+            (selected) => {
+                const entry = optionsFn().find(e => e.display === selected);
+                if (!entry) return;
+                const displayEl = elements[displayId] || document.getElementById(displayId);
+                const modelEl = document.getElementById(`${displayId}-model`);
+                const sourceEl = document.getElementById(`${displayId}-source`);
+                if (displayEl) displayEl.value = entry.display;
+                if (modelEl) modelEl.value = entry.model;
+                if (sourceEl) sourceEl.value = entry.source;
+            },
+            (value) => {
+                if (!value.trim()) {
+                    const modelEl = document.getElementById(`${displayId}-model`);
+                    const sourceEl = document.getElementById(`${displayId}-source`);
+                    if (modelEl) modelEl.value = '';
+                    if (sourceEl) sourceEl.value = defaultSource;
+                }
+            },
+            'hover:bg-gray-700'
+        );
+    }
+
     function setupModelComboboxes() {
+        wireAiModelCombobox('base_llm', 'base-llm-dd', getPrimaryModelOptions, 'primary');
+        wireAiModelCombobox('fallback_llm', 'fallback-llm-dd', getFallbackModelOptions, 'primary');
         setupFilterCombobox(
-            'base_llm',
-            'base-llm-dd',
-            () => getModelsFromTextarea('primary_allowed_models'),
-            null,
-            null,
-            'hover:bg-gray-700'
-        );
-        setupFilterCombobox(
-            'fallback_llm',
-            'fallback-llm-dd',
-            () => getFallbackModels(),
-            null,
-            null,
-            'hover:bg-gray-700'
-        );
-        setupFilterCombobox(
-            'multimodal_ai_model',
-            'multimodal-ai-model-dd',
+            'multi_model_ai_model',
+            'multi-model-ai-model-dd',
             () => getProviderModelDisplays().map(e => e.display),
             (selected) => {
                 const entry = getProviderModelDisplays().find(e => e.display === selected);
                 if (entry) {
-                    elements['multimodal_ai_model'].value = entry.model;
-                    elements['multimodal_ai_provider'].value = entry.source;
+                    elements['multi_model_ai_model'].value = entry.model;
+                    elements['multi_model_ai_provider'].value = entry.source;
                 }
             },
-            () => { elements['multimodal_ai_provider'].value = ''; },
+            () => { elements['multi_model_ai_provider'].value = ''; },
             'hover:bg-gray-700'
         );
     }

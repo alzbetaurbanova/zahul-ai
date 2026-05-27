@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let availableCharacters = [];
     let globalDefaultCharacter = '';
     let serverAllowedModels = [];
+    let serverAllowedModelsPromise = Promise.resolve();
     // DOM Elements
     const serverList = document.getElementById('server-list');
     const channelPanel = document.getElementById('channel-panel');
@@ -52,13 +53,33 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadServerAllowedModels() {
         try {
             const res = await fetch('/api/config/models');
-            if (res.ok) serverAllowedModels = await res.json();
+            if (res.ok) serverAllowedModels = normalizeAllowedModels(await res.json());
         } catch (_) {}
     }
 
+    function setScModelField(displayId, model, source) {
+        const displayEl = document.getElementById(displayId);
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const sourceEl = document.getElementById(`${displayId}-source`);
+        const m = (model || '').trim();
+        const src = source || (displayId === 'sc-fallback-llm' ? 'fallback' : 'primary');
+        if (modelEl) modelEl.value = m;
+        if (sourceEl) sourceEl.value = m ? src : src;
+        if (displayEl) displayEl.value = m ? displayForModel(m, src, serverAllowedModels) : '';
+        if (displayEl && typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(displayEl);
+    }
+
+    function getScModelValue(displayId, preferredSource) {
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const fromHidden = (modelEl?.value || '').trim();
+        if (fromHidden) return fromHidden;
+        const display = (document.getElementById(displayId)?.value || '').trim();
+        return resolveModelFromDisplay(display, serverAllowedModels, preferredSource) || null;
+    }
+
     function fillScFields(cfg) {
-        document.getElementById('sc-base-llm').value = cfg.base_llm ?? '';
-        document.getElementById('sc-fallback-llm').value = cfg.fallback_llm ?? '';
+        setScModelField('sc-base-llm', cfg.base_llm, 'primary');
+        setScModelField('sc-fallback-llm', cfg.fallback_llm, 'fallback');
         document.getElementById('sc-temperature').value = cfg.temperature ?? '';
         document.getElementById('sc-max-tokens').value = cfg.max_tokens ?? '';
         document.getElementById('sc-history-limit').value = cfg.history_limit ?? '';
@@ -69,9 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function clearScFields() {
-        ['sc-base-llm','sc-fallback-llm','sc-temperature',
-            'sc-max-tokens','sc-history-limit','sc-auto-cap',
-            'sc-token-limit-tpm','sc-token-limit-tpd'].forEach(id => {
+        setScModelField('sc-base-llm', '', 'primary');
+        setScModelField('sc-fallback-llm', '', 'fallback');
+        ['sc-temperature', 'sc-max-tokens', 'sc-history-limit', 'sc-auto-cap',
+            'sc-token-limit-tpm', 'sc-token-limit-tpd'].forEach(id => {
             document.getElementById(id).value = '';
         });
         document.getElementById('sc-use-prefill').checked = false;
@@ -177,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentServer.defaultCharacter = serverDefault;
         populateSrvDefaultCharacterSelector(serverDefault);
         updateSrvDefaultCharacterStatus();
+        await serverAllowedModelsPromise;
         await loadServerConfig(server.server_id);
         applyModRestrictions();
     }
@@ -193,8 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
         const str = (id) => document.getElementById(id).value.trim() || null;
         const aiOverrides = scToggle.checked ? Object.fromEntries(Object.entries({
-            base_llm: str('sc-base-llm'),
-            fallback_llm: str('sc-fallback-llm'),
+            base_llm: getScModelValue('sc-base-llm', 'primary'),
+            fallback_llm: getScModelValue('sc-fallback-llm', 'fallback'),
             temperature: num('sc-temperature'),
             max_tokens: num('sc-max-tokens'),
             history_limit: num('sc-history-limit'),
@@ -273,10 +296,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 scToggle.checked = false;
             }
         } else {
-            if (!confirm('Remove all overrides for this server?')) {
-                scToggle.checked = true;
-                return;
-            }
             try {
                 const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -565,15 +584,26 @@ document.addEventListener('DOMContentLoaded', function() {
             () => updateSrvDefaultCharacterStatus(),
             'hover:bg-gray-700'
         );
-        const allServerModels = () => [...new Set(serverAllowedModels.map(m => m.model))];
-        setupFilterCombobox(
-            'sc-base-llm', 'sc-base-llm-dd',
-            allServerModels, null, null, 'hover:bg-gray-700'
-        );
-        setupFilterCombobox(
-            'sc-fallback-llm', 'sc-fallback-llm-dd',
-            allServerModels, null, null, 'hover:bg-gray-700'
-        );
+        const allServerModelDisplays = () => serverAllowedModels.map(m => m.display);
+        function wireScModelCombobox(displayId, ddId, defaultSource) {
+            setupFilterCombobox(displayId, ddId, allServerModelDisplays, (selected) => {
+                const entry = serverAllowedModels.find(m => m.display === selected);
+                if (!entry) return;
+                const displayEl = document.getElementById(displayId);
+                const modelEl = document.getElementById(`${displayId}-model`);
+                const sourceEl = document.getElementById(`${displayId}-source`);
+                if (displayEl) displayEl.value = entry.display;
+                if (modelEl) modelEl.value = entry.model;
+                if (sourceEl) sourceEl.value = entry.source;
+            }, (value) => {
+                if (!value.trim()) {
+                    document.getElementById(`${displayId}-model`).value = '';
+                    document.getElementById(`${displayId}-source`).value = defaultSource;
+                }
+            }, 'hover:bg-gray-700');
+        }
+        wireScModelCombobox('sc-base-llm', 'sc-base-llm-dd', 'primary');
+        wireScModelCombobox('sc-fallback-llm', 'sc-fallback-llm-dd', 'fallback');
     }
 
     // Form listener
@@ -589,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(() => {})
         .finally(() => {
-            loadServerAllowedModels();
+            serverAllowedModelsPromise = loadServerAllowedModels();
             fetchServers();
         });
 });

@@ -179,25 +179,16 @@ async def generate_response(task: QueueItem, db: Database):
             base_url=bot_config.ai_endpoint,
             api_key=bot_config.ai_key,
         )
-        _diff_ep = bot_config.fallback_use_different_endpoint and bool(bot_config.fallback_ai_endpoint)
-        fallback_client = AsyncOpenAI(
-            base_url=bot_config.fallback_ai_endpoint,
-            api_key=bot_config.fallback_ai_key or bot_config.ai_key,
-        ) if _diff_ep else primary_client
-
         _effective_endpoint = bot_config.ai_endpoint
         _effective_provider = None
 
-        if _rule_source and _rule_source != "primary":
-            if _rule_source == "fallback":
-                primary_client = fallback_client
-                _effective_endpoint = bot_config.fallback_ai_endpoint
-            elif _rule_source == "vision":
-                _vis_endpoint = bot_config.multimodal_ai_endpoint
-                _vis_key = bot_config.multimodal_ai_api or bot_config.ai_key
-                prov_name = bot_config.multimodal_ai_provider
+        if _rule_source and _rule_source not in ("primary", "fallback"):
+            if _rule_source == "vision":
+                _vis_endpoint = bot_config.multi_model_ai_endpoint
+                _vis_key = bot_config.multi_model_ai_api or bot_config.ai_key
+                prov_name = bot_config.multi_model_ai_provider
                 if prov_name:
-                    for p in (bot_config.multimodal_providers or []):
+                    for p in (bot_config.multi_model_providers or []):
                         if p.name == prov_name:
                             _vis_endpoint = p.endpoint
                             _vis_key = p.api_key or bot_config.ai_key
@@ -207,7 +198,7 @@ async def generate_response(task: QueueItem, db: Database):
                 primary_client = AsyncOpenAI(base_url=_vis_endpoint, api_key=_vis_key)
                 _effective_endpoint = _vis_endpoint
             else:
-                for p in (bot_config.multimodal_providers or []):
+                for p in (bot_config.multi_model_providers or []):
                     if p.name == _rule_source:
                         primary_client = AsyncOpenAI(
                             base_url=p.endpoint,
@@ -221,7 +212,7 @@ async def generate_response(task: QueueItem, db: Database):
             d = char_data["data"]
             prov_name = d.get("provider_override")
             if prov_name:
-                for p in (bot_config.multimodal_providers or []):
+                for p in (bot_config.multi_model_providers or []):
                     if p.name == prov_name:
                         primary_client = AsyncOpenAI(
                             base_url=p.endpoint,
@@ -247,8 +238,26 @@ async def generate_response(task: QueueItem, db: Database):
         if bot_config.use_prefill:
             messages.append({"role": "assistant", "content": f"[Reply] {task.bot}:"})
 
+        def _client_for_fallback():
+            src = (getattr(bot_config, "fallback_llm_source", None) or "").strip() or "primary"
+            if src in ("primary", "fallback"):
+                return primary_client, bot_config.ai_endpoint
+            for p in (bot_config.multi_model_providers or []):
+                if p.name == src and p.endpoint:
+                    return (
+                        AsyncOpenAI(
+                            base_url=p.endpoint,
+                            api_key=p.api_key or bot_config.ai_key,
+                        ),
+                        p.endpoint,
+                    )
+            return primary_client, bot_config.ai_endpoint
+
         async def _call(model, is_fallback=False):
-            c = fallback_client if is_fallback else primary_client
+            if is_fallback:
+                c, _ = _client_for_fallback()
+            else:
+                c = primary_client
             return await c.chat.completions.create(
                 model=model,
                 stop=task.stop,
@@ -311,7 +320,10 @@ async def generate_response(task: QueueItem, db: Database):
         task.result = result
         _prov_tag = f" [{_effective_provider}]" if _effective_provider else ""
         _fb_tag = " fallback" if (_fallback_active and not just_switched) or just_switched else ""
-        _ep = bot_config.fallback_ai_endpoint if (_fallback_active or just_switched) else _effective_endpoint
+        if (_fallback_active and not just_switched) or just_switched:
+            _, _ep = _client_for_fallback()
+        else:
+            _ep = _effective_endpoint
         _ep_label = _endpoint_label(_ep)
         task.endpoint_label = _ep_label
         print(f"[llm] {task.bot}: {model}{_prov_tag}{_fb_tag} ({_ep_label})")

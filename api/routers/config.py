@@ -26,7 +26,7 @@ class AuthMethodsConfig(BaseModel):
 
 # --- Constants and DB Initialization ---
 # This business logic is preserved from your original file.
-PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key', 'fallback_ai_key', 'multimodal_ai_api', 'discord_oauth_client_secret'}
+PRESERVE_FIELDS: Set[str] = {'ai_key', 'discord_key', 'fallback_ai_key', 'multi_model_ai_api', 'discord_oauth_client_secret'}
 REQUIRED_FIELDS: Set[str] = {'default_character', 'ai_endpoint', 'base_llm'}
 MIN_PANEL_PASSWORD_LENGTH = 8
 
@@ -91,9 +91,8 @@ async def get_allowed_models(current_user=Depends(require_role("admin"))):
                 seen.add((m, source))
                 result.append({"display": f"{m} ({label})", "model": m, "source": source})
 
-    add(configs.get("primary_allowed_models"), "primary", "primary")
-    add(configs.get("fallback_allowed_models"), "fallback", "fallback")
-    for p in (configs.get("multimodal_providers") or []):
+    add(configs.get("primary_allowed_models"), "primary", "default")
+    for p in (configs.get("multi_model_providers") or []):
         if isinstance(p, dict) and p.get("name"):
             add(p.get("allowed_models"), p["name"], p["name"])
     return result
@@ -102,7 +101,7 @@ async def get_allowed_models(current_user=Depends(require_role("admin"))):
 @router.get("/providers")
 async def get_providers(current_user=Depends(require_role("mod"))):
     try:
-        providers = db.list_configs().get("multimodal_providers") or []
+        providers = db.list_configs().get("multi_model_providers") or []
         return [
             {"name": p["name"], "allowed_models": p.get("allowed_models", [])}
             for p in providers
@@ -150,10 +149,10 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
                 not str(new_config.get(field, '')).strip()):
                 new_config[field] = existing_config[field]
 
-        # Preserve api_keys inside multimodal_providers: match by name, keep key if incoming is empty
-        new_providers = new_config.get('multimodal_providers')
+        # Preserve api_keys inside multi_model_providers: match by name, keep key if incoming is empty
+        new_providers = new_config.get('multi_model_providers')
         if isinstance(new_providers, list):
-            existing_providers = existing_config.get('multimodal_providers') or []
+            existing_providers = existing_config.get('multi_model_providers') or []
             existing_by_name = {
                 p['name']: p
                 for p in existing_providers

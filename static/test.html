@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy">
+    <title>zahul-ai - Chat Simulator</title>
+    <script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+</head>
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="test">
+    <div id="toast-container" class="toast z-50"></div>
+
+    <div id="navbar-container"></div>
+    <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/test.js" defer></script>
+
+    <main class="page">
+        <div class="main-content sim-page">
+            <div class="page-heading mb-4">
+                <h1 class="page-title">Chat Simulator</h1>
+                <p class="page-subtitle">Test how a character responds — Discord-style preview without sending real messages.</p>
+                <p id="sim-readonly-banner" class="sim-readonly-banner hidden" role="status">
+                    <i class="fas fa-eye mr-2"></i>Read-only — guests can browse the simulator but cannot send messages or change settings.
+                </p>
+            </div>
+
+            <div class="sim-layout">
+                <!-- Settings sidebar -->
+                <aside class="sim-sidebar config-panel p-4">
+                    <h2 class="heading-section mb-4"><i class="fas fa-sliders-h mr-2 text-indigo-400"></i>Setup</h2>
+
+                    <div class="field mb-3">
+                        <label for="sim-character" class="label-form">Character</label>
+                        <div class="relative">
+                            <input type="text" id="sim-character" autocomplete="off" placeholder="Select character…" class="input-field w-full pr-8">
+                            <button class="icon-clear-btn hidden" data-clear="sim-character" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                            <div id="sim-character-dd" class="autocomplete-dd hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="field mb-3" id="sim-server-field">
+                        <label for="sim-server" class="label-form label-tt">Bill to server <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Pick which of your servers pays for this test. Tokens count against that server’s daily <code>token_limit_tpd</code> (with live Discord chat). You can test any character; billing is always on your server.</span></span></label>
+                        <div class="relative">
+                            <input type="text" id="sim-server" autocomplete="off" placeholder="Select server…" class="input-field w-full pr-8">
+                            <button class="icon-clear-btn hidden" data-clear="sim-server" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                            <div id="sim-server-dd" class="autocomplete-dd hidden"></div>
+                        </div>
+                        <input type="hidden" id="sim-server-id" value="">
+                        <p id="sim-server-hint" class="text-hint mt-1 hidden"></p>
+                    </div>
+
+                    <div class="field mb-3">
+                        <label for="sim-user-name" class="label-form">Your display name</label>
+                        <div class="sim-user-row">
+                            <img id="sim-user-avatar" src="/static/avatars/default_user_avatar.png" alt="" class="sim-user-avatar-preview">
+                            <input type="text" id="sim-user-name" placeholder="User" maxlength="64" class="input-field w-full">
+                        </div>
+                    </div>
+
+                    <div class="field mb-3">
+                        <label for="sim-model" class="label-form">Model override</label>
+                        <div class="relative">
+                            <input type="text" id="sim-model" autocomplete="off" placeholder="default from config" class="input-field w-full pr-8">
+                            <button class="icon-clear-btn hidden" data-clear="sim-model" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
+                            <div id="sim-model-dd" class="autocomplete-dd hidden"></div>
+                        </div>
+                        <input type="hidden" id="sim-model-source" value="">
+                    </div>
+
+                    <fieldset class="fieldset-section mb-3">
+                        <legend class="legend-section">Simulation settings</legend>
+                        <p class="text-hint mb-3">Try different values here — only this chat session is affected. The character in the database is <strong>not</strong> changed.</p>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label for="sim-temperature" class="label-tt">Temperature</label>
+                                <input type="number" id="sim-temperature" step="0.05" min="0" max="2" class="input-field w-full">
+                            </div>
+                            <div class="field">
+                                <label for="sim-max-tokens" class="label-tt">Max tokens</label>
+                                <input type="number" id="sim-max-tokens" min="1" max="2000" class="input-field w-full">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="sim-reset-overrides-btn" class="btn-gray text-sm">Reset to character values</button>
+                        <button type="button" id="sim-clear-chat-btn" class="btn-red text-sm">
+                            <i class="fas fa-trash-alt mr-1"></i> Clear chat
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Discord-style chat -->
+                <section class="sim-chat-wrap">
+                    <div class="sim-chat-header">
+                        <div class="sim-chat-header-icon"><i class="fas fa-hashtag"></i></div>
+                        <div>
+                            <div class="sim-chat-header-title">simulation</div>
+                            <div class="sim-chat-header-sub" id="sim-chat-subtitle">Pick a character to start</div>
+                        </div>
+                    </div>
+
+                    <div id="sim-messages" class="sim-chat-messages" aria-live="polite">
+                        <div class="sim-chat-empty" id="sim-chat-empty">
+                            <i class="fas fa-comments sim-chat-empty-icon"></i>
+                            <p>Messages appear here. Configure a character on the left, then type below.</p>
+                        </div>
+                    </div>
+
+                    <div id="sim-meta" class="sim-chat-meta hidden"></div>
+
+                    <form id="sim-compose" class="sim-chat-compose">
+                        <div class="sim-compose-inner">
+                            <input type="text" id="sim-input" autocomplete="off" placeholder="Message #simulation" class="sim-compose-input" disabled>
+                            <button type="submit" id="sim-send-btn" class="btn-primary sim-send-btn" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
+</body>
+</html>

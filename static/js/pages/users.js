@@ -20,6 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
         user: 'no access',
     };
     const ROLE_SORT_ORDER = { super_admin: 1, admin: 2, mod: 3, guest: 4, pending: 5, rejected: 6, user: 5 };
+    const ROLE_LEVEL = { super_admin: 4, admin: 3, mod: 2, guest: 1 };
+
+    function canSetUserPassword(targetUser) {
+        if (targetUser.auth_provider === 'discord') return false;
+        const callerLevel = ROLE_LEVEL[_currentUserRole] || 0;
+        const targetLevel = ROLE_LEVEL[targetUser.role] || 0;
+        if (callerLevel < targetLevel) return false;
+        if (callerLevel === targetLevel && _currentUserRole !== 'super_admin' && targetUser.id !== _currentUserId) {
+            return false;
+        }
+        return true;
+    }
     const EDIT_ROLE_LONG = {
         super_admin: 'Super admin – full panel control',
         guest: 'Guest – read only',
@@ -541,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nd = '\u2013';
         const start = totalItems ? ((_sessionPage - 1) * PAGE_SIZE) + 1 : 0;
         const end = totalItems ? Math.min(_sessionPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'sessions');
+        footer.classList.toggle('hidden', _activeTab !== 'sessions' || totalItems <= 10);
         info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
         prev.disabled = totalItems <= 0 || _sessionPage <= 1;
         next.disabled = totalItems <= 0 || _sessionPage * PAGE_SIZE >= totalItems;
@@ -570,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nd = '\u2013';
         const start = totalItems ? ((_usersPage - 1) * PAGE_SIZE) + 1 : 0;
         const end = totalItems ? Math.min(_usersPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'users');
+        footer.classList.toggle('hidden', _activeTab !== 'users' || totalItems <= 10);
         info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
         prev.disabled = totalItems <= 0 || _usersPage <= 1;
         next.disabled = totalItems <= 0 || _usersPage * PAGE_SIZE >= totalItems;
@@ -599,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nd = '\u2013';
         const start = totalItems ? ((_requestsPage - 1) * PAGE_SIZE) + 1 : 0;
         const end = totalItems ? Math.min(_requestsPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'requests');
+        footer.classList.toggle('hidden', _activeTab !== 'requests' || totalItems <= 10);
         info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
         prev.disabled = totalItems <= 0 || _requestsPage <= 1;
         next.disabled = totalItems <= 0 || _requestsPage * PAGE_SIZE >= totalItems;
@@ -975,9 +987,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function openEditModal(u) {
         _editUser = u;
         const name = u.auth_provider === 'discord' ? (u.discord_username || u.username) : u.username;
-        const isOwner = u.role === 'super_admin';
         const isDiscord = u.auth_provider === 'discord';
-        const canChangePassword = !isOwner && !isDiscord;
+        const canChangePassword = canSetUserPassword(u);
         const canUploadAvatar = !isDiscord;
 
         document.getElementById('edit-modal-title').innerHTML =
@@ -1003,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarPreview.src = u.avatar_url || DEFAULT_USER_AVATAR;
         avatarFileInput.value = '';
 
-        // Password field — hidden for super admin and discord accounts
+        // Password field — role-gated (admin cannot set peer/admin+ passwords)
         document.getElementById('edit-pw-field').classList.toggle('hidden', !canChangePassword);
         document.getElementById('edit-password').value = '';
 
@@ -1026,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const errEl = document.getElementById('edit-modal-error');
         errEl.classList.add('hidden');
         const u = _editUser;
-        const canChangePassword = u.role !== 'super_admin' && u.auth_provider !== 'discord';
+        const canChangePassword = canSetUserPassword(u);
         const canUploadAvatar = u.auth_provider === 'local';
 
         try {
@@ -1052,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!res.ok) throw new Error(parseApiError(await res.json(), 'Server update failed'));
             }
 
-            // Update password (only local non-super-admin accounts)
+            // Update password (local accounts; admin blocked for admin/super_admin peers)
             const pw = document.getElementById('edit-password').value;
             if (canChangePassword && pw) {
                 if (pw.length < 8) return showErr(errEl, 'Password must be at least 8 characters.');

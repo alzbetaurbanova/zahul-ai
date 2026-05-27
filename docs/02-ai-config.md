@@ -82,6 +82,6 @@ The default prompt template shapes every AI request (variables such as character
 ## See also
 
 - [Characters](03-characters.md) - personas and triggers  
-- [Multimodal](11-multimodal.md) - vision / image description
+- [Multi-Model](11-multi-model.md) - vision / image description + multi-model providers
 - [Slash commands → Tools](06-slash-commands.md#tools) - `/rolldice`, `/random`, `/wheel`, `/search`, `/image`
 

@@ -105,8 +105,38 @@
         } catch (e) {}
     }
 
+    function parseSimulatorServerId(channel_id) {
+        if (!channel_id) return null;
+        if (channel_id.startsWith('simulator:')) return channel_id.slice('simulator:'.length) || null;
+        if (channel_id.startsWith('simulation:')) return channel_id.slice('simulation:'.length) || null;
+        return null;
+    }
+
+    function simulatorServerName(serverId) {
+        if (!serverId) return '';
+        if (serverNames[serverId]) return serverNames[serverId];
+        const info = channelMap[`simulator:${serverId}`];
+        if (info?.server_name && info.server_name !== serverId) return info.server_name;
+        for (const info of Object.values(channelMap)) {
+            if (info.server_id === serverId && info.server_name && info.server_name !== serverId) {
+                return info.server_name;
+            }
+        }
+        return '';
+    }
+
+    function resolveSimulatorLocation(channel_id) {
+        const serverId = parseSimulatorServerId(channel_id);
+        const serverName = simulatorServerName(serverId);
+        if (serverName) return `${serverName} / simulator`;
+        return 'simulator';
+    }
+
     function resolveChannel(channel_id) {
         if (!channel_id) return '';
+        if (channel_id.startsWith('simulation:') || channel_id.startsWith('simulator:') || channel_id === 'simulation') {
+            return resolveSimulatorLocation(channel_id);
+        }
         if (channel_id === 'dm') return 'Direct Message';
         if (channel_id.startsWith('dm:')) return `DM: ${channel_id.slice(3)}`;
         const rawId = channel_id.startsWith('channel:') ? channel_id.slice(8) : channel_id;
@@ -424,7 +454,11 @@
 
     function discordRow(item) {
         const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
-        const sourceColor = item.source === 'scheduler' ? 'bg-indigo-900 text-indigo-300' : 'bg-gray-800 text-gray-300';
+        const sourceColor = item.source === 'scheduler'
+            ? 'bg-indigo-900 text-indigo-300'
+            : item.source === 'test'
+                ? 'bg-amber-900 text-amber-300'
+                : 'bg-gray-800 text-gray-300';
         return `<div data-log-id="${item.id}" class="card-dark card-dark--row card-dark--clickable">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -481,6 +515,7 @@
             'task.create': 'bg-green-900 text-green-300',
             'task.delete': 'bg-red-900 text-red-300',
             'task.update': 'bg-blue-900 text-blue-300',
+            'test.chatbot': 'bg-indigo-950 text-indigo-200',
             'trash.restore': 'bg-orange-900 text-orange-300',
             'user.create': 'bg-indigo-900 text-indigo-300',
             'user.delete': 'bg-red-900 text-red-300',
@@ -489,6 +524,7 @@
         };
         const labels = {
             'config.security_update': 'config.security.update',
+            'test.chatbot': 'test.chatbot',
         };
         const overrideOn  = ['servers.override.on'];
         const overrideOff = ['servers.override.off'];
@@ -519,6 +555,7 @@
     function updatePagination() {
         const start = (currentPage - 1) * LIMIT + 1;
         const end = Math.min(currentPage * LIMIT, totalItems);
+        document.getElementById('pagination').classList.toggle('hidden', totalItems <= 10);
         document.getElementById('pagination-info').textContent = totalItems ? `${start}–${end} of ${totalItems}` : '';
         document.getElementById('prev-btn').disabled = currentPage <= 1;
         document.getElementById('next-btn').disabled = currentPage * LIMIT >= totalItems;
@@ -539,11 +576,19 @@
         const item = await res.json();
         const body = document.getElementById('detail-body');
         const isDM = !item.channel_id || item.channel_id === 'dm' || item.channel_id.startsWith('dm:');
-        const chResolved = resolveChannel(item.channel_id || '');
-        const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
-        const chServer = isDM ? 'DM' : chParts[0];
-        const dmRecipient = item.channel_id && item.channel_id.startsWith('dm:') ? item.channel_id.slice(3) : null;
-        const chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
+        const simServerId = parseSimulatorServerId(item.channel_id || '');
+        let chServer;
+        let chChannel;
+        if (simServerId) {
+            chServer = simulatorServerName(simServerId) || '—';
+            chChannel = 'simulator';
+        } else {
+            const chResolved = resolveChannel(item.channel_id || '');
+            const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
+            chServer = isDM ? 'DM' : chParts[0];
+            const dmRecipient = item.channel_id && item.channel_id.startsWith('dm:') ? item.channel_id.slice(3) : null;
+            chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
+        }
         const statusCls = item.status === 'error' ? 'text-red-400' : 'text-green-400';
 
         const row = (label, value, cls='') =>
