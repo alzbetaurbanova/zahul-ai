@@ -9,6 +9,11 @@ wheels/
 # Virtual environments
 .venv
 venv
+
+# Environment variables
+.env
+.env.*
+!.env.example
 token_usage.txt
 
 # Temp and generated files

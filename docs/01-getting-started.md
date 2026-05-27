@@ -22,10 +22,24 @@ Pick one path below. All of them run the same app; the difference is how you man
 ```bash
 git clone https://github.com/alzbetaurbanova/zahul-ai.git
 cd zahul-ai
+```
+
+Before starting, create a `.env` file in the project root with a secret key used to encrypt sensitive config values (Discord token, API keys) stored in the database:
+
+```bash
+# Generate a random key
+python3 -c "import secrets; print('TOKEN_KEY=' + secrets.token_hex(32))" >> .env
+```
+
+Keep this key safe — if you lose it you will need to re-enter all tokens and API keys through the panel. Never commit `.env` to version control (it is already in `.gitignore`).
+
+```bash
 docker compose up -d
 ```
 
 The panel listens on port **5666** by default (see `docker-compose.yml`).
+
+> **Upgrading an existing install:** if you are adding `TOKEN_KEY` to an existing deployment, existing plain text values in the database are migrated automatically on first startup after the key is set.
 
 ### Option B - uv (local development)
 

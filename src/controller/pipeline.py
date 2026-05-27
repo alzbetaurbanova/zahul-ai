@@ -270,7 +270,8 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
     except Exception as e:
         print(f"Error processing message: {e}\n{traceback.format_exc()}")
         try:
-            await message.add_reaction('❌')
+            if not zahul.is_closed():
+                await message.add_reaction('❌')
         except: pass
     
     finally:
@@ -286,33 +287,41 @@ async def think(zahul, db: Database, queue: asyncio.Queue) -> None:
 
     print("🧠 AI Core started. Waiting for messages...")
 
-    while True:
-        # 1. Clean up finished tasks
-        background_tasks = {t for t in background_tasks if not t.done()}
+    try:
+        while True:
+            # 1. Clean up finished tasks
+            background_tasks = {t for t in background_tasks if not t.done()}
 
-        # 2. Get dynamic config
-        try:
-            bot_config = get_bot_config(db)
-            concurrency_limit = bot_config.concurrency
-            if concurrency_limit < 1: 
+            # 2. Get dynamic config
+            try:
+                bot_config = get_bot_config(db)
+                concurrency_limit = bot_config.concurrency
+                if concurrency_limit < 1:
+                    concurrency_limit = 1
+            except Exception:
                 concurrency_limit = 1
-        except Exception:
-            concurrency_limit = 1
 
-        # 3. Check Concurrency Limit
-        if len(background_tasks) >= concurrency_limit:
-            await asyncio.wait(background_tasks, return_when=asyncio.FIRST_COMPLETED)
-            continue 
+            # 3. Check Concurrency Limit
+            if len(background_tasks) >= concurrency_limit:
+                await asyncio.wait(background_tasks, return_when=asyncio.FIRST_COMPLETED)
+                continue
 
-        # 4. Get Message
-        message: discord.Message = await queue.get()
+            # 4. Get Message
+            message: discord.Message = await queue.get()
 
-        # 5. Spawn Worker
-        task = asyncio.create_task(
-            process_message(zahul, db, message, messenger, queue)
-        )
-        
-        background_tasks.add(task)
+            # 5. Spawn Worker
+            task = asyncio.create_task(
+                process_message(zahul, db, message, messenger, queue)
+            )
+
+            background_tasks.add(task)
+    except asyncio.CancelledError:
+        for task in background_tasks:
+            if not task.done():
+                task.cancel()
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+        raise
 
 def clean_up(queue_item: QueueItem) -> QueueItem:
     """

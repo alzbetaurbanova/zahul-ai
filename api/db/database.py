@@ -48,8 +48,10 @@ class Database:
     def _get_connection(self):
         """Returns a new database connection."""
         _ensure_db_directory(self.db_path)
-        conn = sqlite3.connect(self.db_path)
-        conn.execute("PRAGMA foreign_keys = ON;") # Ensure foreign key constraints are enforced
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA foreign_keys = ON;")
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -279,6 +281,7 @@ class Database:
                 conn.execute("INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)", (key, val))
             conn.commit()
         self._cleanup_mislinked_scheduler_channels()
+        self.migrate_sensitive_config()
 
     def _cleanup_mislinked_scheduler_channels(self):
         """Remove auto-linked legacy scheduler channels (wrong server attribution)."""
@@ -347,8 +350,25 @@ class Database:
     # ------------------------------------------------------
     # Config (Key-Value Store)
     # ------------------------------------------------------
+    def _encrypt_config_value(self, key: str, value: Any) -> Any:
+        from api.utils.crypto import SENSITIVE_KEYS, encrypt, encrypt_providers
+        if key in SENSITIVE_KEYS and isinstance(value, str):
+            return encrypt(value)
+        if key == "multimodal_providers" and isinstance(value, list):
+            return encrypt_providers(value)
+        return value
+
+    def _decrypt_config_value(self, key: str, value: Any) -> Any:
+        from api.utils.crypto import SENSITIVE_KEYS, decrypt, decrypt_providers
+        if key in SENSITIVE_KEYS and isinstance(value, str):
+            return decrypt(value)
+        if key == "multimodal_providers" and isinstance(value, list):
+            return decrypt_providers(value)
+        return value
+
     def set_config(self, key: str, value: Any):
         """Create or update a configuration key-value pair."""
+        value = self._encrypt_config_value(key, value)
         with self._get_connection() as conn:
             conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)", (key, json.dumps(value)))
             conn.commit()
@@ -358,10 +378,11 @@ class Database:
         """Write multiple config key-value pairs in a single transaction."""
         if not items:
             return
+        encrypted = {k: self._encrypt_config_value(k, v) for k, v in items.items()}
         with self._get_connection() as conn:
             conn.executemany(
                 "REPLACE INTO config (key, value) VALUES (?, ?)",
-                [(k, json.dumps(v)) for k, v in items.items()]
+                [(k, json.dumps(v)) for k, v in encrypted.items()]
             )
             conn.commit()
         db_cache.invalidate_config()
@@ -370,9 +391,11 @@ class Database:
         """Read a configuration value by its key."""
         with self._get_connection() as conn:
             row = conn.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()
-            # --- MODIFIED LINE ---
-            return self._parse_json_value(row["value"]) if row else None
-            
+            if not row:
+                return None
+            value = self._parse_json_value(row["value"])
+            return self._decrypt_config_value(key, value)
+
     def list_configs(self) -> Dict[str, Any]:
         """List all configuration key-value pairs (cached reads; invalidated on write)."""
         return db_cache.get_cached_config(self._list_configs_uncached)
@@ -380,7 +403,31 @@ class Database:
     def _list_configs_uncached(self) -> Dict[str, Any]:
         with self._get_connection() as conn:
             rows = conn.execute("SELECT key, value FROM config").fetchall()
-            return {row["key"]: self._parse_json_value(row["value"]) for row in rows}
+            return {
+                row["key"]: self._decrypt_config_value(row["key"], self._parse_json_value(row["value"]))
+                for row in rows
+            }
+
+    def migrate_sensitive_config(self):
+        """Re-encrypt any plaintext sensitive config values (run once on startup)."""
+        from api.utils.crypto import SENSITIVE_KEYS, is_encrypted, encrypt, encrypt_providers
+        with self._get_connection() as conn:
+            rows = conn.execute("SELECT key, value FROM config").fetchall()
+            for row in rows:
+                key = row["key"]
+                if key not in SENSITIVE_KEYS and key != "multimodal_providers":
+                    continue
+                raw = self._parse_json_value(row["value"])
+                if key in SENSITIVE_KEYS and isinstance(raw, str) and raw and not is_encrypted(raw):
+                    conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
+                                 (key, json.dumps(encrypt(raw))))
+                elif key == "multimodal_providers" and isinstance(raw, list):
+                    needs_enc = any(p.get("api_key") and not is_encrypted(p["api_key"]) for p in raw)
+                    if needs_enc:
+                        conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
+                                     (key, json.dumps(encrypt_providers(raw))))
+            conn.commit()
+        db_cache.invalidate_config()
 
     def delete_config(self, key: str):
         with self._get_connection() as conn:
@@ -1258,7 +1305,9 @@ class Database:
         """
         now = self._utcnow_iso()
         _ensure_db_directory(self.db_path)
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON;")
         try:

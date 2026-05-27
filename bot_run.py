@@ -103,6 +103,8 @@ class Zahul(discord.Client):
         await self.tree.sync()
 
         self.invite_link = None
+        from api.bot_state import bot_state
+        bot_state.bot_loop = asyncio.get_running_loop()
         self.think_task = asyncio.create_task(pipeline.think(self, self.db, self.queue))
         self.scheduler_task = asyncio.create_task(_run_scheduler(self))
 
