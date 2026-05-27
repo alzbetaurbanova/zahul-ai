@@ -57,6 +57,11 @@ def _run_bot_in_thread():
         bot_state.bot_instance = Zahul(intents=intents)
         bot_state.bot_instance.run()
         logging.info("--- Bot has shut down cleanly. ---")
+    except RuntimeError as e:
+        if 'Event loop is closed' in str(e):
+            logging.info("--- Bot has shut down cleanly. ---")
+        else:
+            logging.critical(f'!!! Bot thread crashed: {e} !!!', exc_info=True)
     except Exception as e:
         logging.critical(f'!!! Bot thread crashed: {e} !!!', exc_info=True)
     finally:

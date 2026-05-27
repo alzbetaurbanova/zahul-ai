@@ -5,6 +5,8 @@ import argparse
 import asyncio
 import os
 import secrets
+from dotenv import load_dotenv
+load_dotenv()
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode

@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             showToast('Configuration saved successfully!');
+            checkEncryptionStatus();
 
             // Clear password fields after save for security
             elements['ai_key'].value = '';
@@ -691,7 +692,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     loadPrompt();
     loadSecurityStatus();
+    checkEncryptionStatus();
 });
+
+async function checkEncryptionStatus() {
+    try {
+        const r = await fetch('/api/config/encryption-status');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d.encrypted) {
+            showToast('TOKEN_KEY is not set — tokens and API keys are stored unencrypted. Set TOKEN_KEY in your .env file.', 'error');
+        }
+    } catch {}
+}
 
 function toggleVisibility(inputId, btn) {
     const input = document.getElementById(inputId);

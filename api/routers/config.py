@@ -79,6 +79,12 @@ def _validate_panel_auth_prerequisites(
         raise HTTPException(status_code=400, detail="Create an admin account before enabling panel protection.")
 
 
+@router.get("/encryption-status")
+async def get_encryption_status(_: dict = Depends(require_role("super_admin"))):
+    import os
+    return {"encrypted": bool(os.getenv("TOKEN_KEY", ""))}
+
+
 @router.get("/models")
 async def get_allowed_models(current_user=Depends(require_role("admin"))):
     configs = db.list_configs()

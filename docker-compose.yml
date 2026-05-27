@@ -10,9 +10,10 @@ services:
       - DATABASE_URL=/app/data/bot.db
       - TRASH_DB_URL=/app/data/trash.db
       - TZ=Europe/Bratislava
+      - TOKEN_KEY=${TOKEN_KEY}
 
     command: python main.py --host 0.0.0.0
-    stop_grace_period: 30s
+    stop_grace_period: 10s
 
     volumes:
       - ./data:/app/data

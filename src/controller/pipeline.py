@@ -270,7 +270,8 @@ async def process_message(zahul, db: Database, message: discord.Message, messeng
     except Exception as e:
         print(f"Error processing message: {e}\n{traceback.format_exc()}")
         try:
-            await message.add_reaction('❌')
+            if not zahul.is_closed():
+                await message.add_reaction('❌')
         except: pass
     
     finally:

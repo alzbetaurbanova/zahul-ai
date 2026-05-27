@@ -374,6 +374,7 @@
     async function fetchLogs() {
         const list = document.getElementById('log-list');
         const apiTab = effectiveLogTab();
+
         if (apiTab === 'admin' && !canViewAdminLogs()) {
             list.innerHTML = adminPermissionHtml();
             totalItems = 0;
@@ -468,7 +469,6 @@
                     ${item.channel_id ? `<span class="text-xs text-gray-600">${esc(resolveChannel(item.channel_id))}</span>` : ''}
                 </div>
                 <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
-                    <span class="${statusColor}">${item.status === 'error' ? 'error' : 'ok'}</span>
                     <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                     <span>${fmt(item.timestamp)}</span>
                 </div>
@@ -540,6 +540,7 @@
             : (item.target || '');
         return `<div class="card-dark card-dark--row card-dark--row-admin">
             <div class="flex items-center gap-2 min-w-0">
+                <span class="text-muted flex-shrink-0" title="Log ID">#${item.id}</span>
                 <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${color}">${esc(label)}</span>
                 ${overrideLabel ? `<span class="text-xs text-gray-400 flex-shrink-0">${overrideLabel}</span>` : ''}
                 ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
@@ -612,6 +613,8 @@
                     ${row('History', `${item.history_count ?? '—'} msgs`)}
                     ${row('Temperature', item.temperature != null ? item.temperature : '—')}
                     ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
+                    ${row('Log ID', `#${item.id}`)}
+                    ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}</span>`)}
                     ${item.model ? `<div class="metadata-label">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
                 </div>
 
