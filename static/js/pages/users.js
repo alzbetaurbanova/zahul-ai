@@ -903,6 +903,20 @@ document.addEventListener('DOMContentLoaded', () => {
     wireCbDdClear('dd-new-servers-clear', 'dd-new-servers', () => updateServerDdLabel('dd-new-servers'));
     wireCbDdClear('dd-edit-servers-clear', 'dd-edit-servers', () => updateServerDdLabel('dd-edit-servers'));
 
+    document.getElementById('edit-avatar-file')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        const label = document.getElementById('edit-avatar-file-label');
+        const preview = document.getElementById('edit-avatar-preview');
+        if (!file) {
+            label.textContent = 'Choose image…';
+            return;
+        }
+        label.textContent = file.name;
+        const url = URL.createObjectURL(file);
+        preview.src = url;
+        preview.onload = () => URL.revokeObjectURL(url);
+    });
+
     // --- New User Modal ---
 
     let _authTab = 'local';
@@ -1013,6 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarField.classList.toggle('hidden', !canUploadAvatar);
         avatarPreview.src = u.avatar_url || DEFAULT_USER_AVATAR;
         avatarFileInput.value = '';
+        document.getElementById('edit-avatar-file-label').textContent = 'Choose image…';
 
         // Password field — role-gated (admin cannot set peer/admin+ passwords)
         document.getElementById('edit-pw-field').classList.toggle('hidden', !canChangePassword);

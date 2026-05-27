@@ -7,6 +7,7 @@ class BotState:
     def __init__(self):
         self.bot_instance = None
         self.bot_thread: Optional[threading.Thread] = None
+        self.bot_loop = None
 
 # Create a single, global instance of this state object that will be imported everywhere.
 bot_state = BotState()

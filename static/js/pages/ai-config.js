@@ -601,17 +601,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return resolveModelFromDisplay(display, opts, preferredSource) || display;
     }
 
-    function getProviderModelDisplays() {
+    function getVisionAllowedModelDisplays() {
+        // Vision Model combobox should offer allowed models from all config sources:
+        // - primary_allowed_models
+        // - fallback_allowed_models
+        // - multimodal provider cards (their allowed_models)
         const out = [];
         const seen = new Set();
-        getProvidersFromDOM().forEach(p => {
-            if (!p.name) return;
-            (p.allowed_models || []).forEach(m => {
-                const key = `${m}|${p.name}`;
-                if (!m || seen.has(key)) return;
-                seen.add(key);
-                out.push({ display: formatModelDisplay(m, p.name), model: m, source: p.name });
-            });
+        document.querySelectorAll('.provider-card').forEach(card => {
+            const name = card.querySelector('.provider-name').value.trim();
+            if (!name) return;
+            card.querySelector('.provider-models').value
+                .split('\n').map(s => s.trim()).filter(Boolean)
+                .forEach(m => {
+                    const key = `${m}|${name}`;
+                    if (!seen.has(key)) { seen.add(key); out.push({ display: `${m} (${name})`, model: m, source: name }); }
+                });
         });
         return out;
     }
@@ -649,9 +654,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setupFilterCombobox(
             'multi_model_ai_model',
             'multi-model-ai-model-dd',
-            () => getProviderModelDisplays().map(e => e.display),
+            () => getVisionAllowedModelDisplays().map(e => e.display),
             (selected) => {
-                const entry = getProviderModelDisplays().find(e => e.display === selected);
+                const entry = getVisionAllowedModelDisplays().find(e => e.display === selected);
                 if (entry) {
                     elements['multi_model_ai_model'].value = entry.model;
                     elements['multi_model_ai_provider'].value = entry.source;
