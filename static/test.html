@@ -36,7 +36,7 @@
                     <h2 class="heading-section mb-4"><i class="fas fa-sliders-h mr-2 text-indigo-400"></i>Setup</h2>
 
                     <div class="field mb-3">
-                        <label for="sim-character" class="label-form">Character</label>
+                        <label for="sim-character" class="label-form label-tt">Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-bottom-left">The character whose persona and settings will be used in the simulation. Responses follow their system prompt, tone, and history rules.</span></span></label>
                         <div class="relative">
                             <input type="text" id="sim-character" autocomplete="off" placeholder="Select character…" class="input-field w-full pr-8">
                             <button class="icon-clear-btn hidden" data-clear="sim-character" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
@@ -56,7 +56,7 @@
                     </div>
 
                     <div class="field mb-3">
-                        <label for="sim-user-name" class="label-form">Your display name</label>
+                        <label for="sim-user-name" class="label-form label-tt">Your display name <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">The name shown as the sender of your test messages. Useful if the character has rules that react differently to specific user names.</span></span></label>
                         <div class="sim-user-row">
                             <img id="sim-user-avatar" src="/static/avatars/default_user_avatar.png" alt="" class="sim-user-avatar-preview">
                             <input type="text" id="sim-user-name" placeholder="User" maxlength="64" class="input-field w-full">
@@ -64,7 +64,7 @@
                     </div>
 
                     <div class="field mb-3">
-                        <label for="sim-model" class="label-form">Model override</label>
+                        <label for="sim-model" class="label-form label-tt">Model override <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Force a specific AI model for this session. Leave empty to use the model set on the character, or the global default from config.</span></span></label>
                         <div class="relative">
                             <input type="text" id="sim-model" autocomplete="off" placeholder="default from config" class="input-field w-full pr-8">
                             <button class="icon-clear-btn hidden" data-clear="sim-model" data-combobox-managed="1" title="Clear"><i class="fas fa-times"></i></button>
@@ -76,14 +76,18 @@
                     <fieldset class="fieldset-section mb-3">
                         <legend class="legend-section">Simulation settings</legend>
                         <p class="text-hint mb-3">Try different values here — only this chat session is affected. The character in the database is <strong>not</strong> changed.</p>
-                        <div class="form-grid">
+                        <div class="form-grid form-grid-3">
                             <div class="field">
-                                <label for="sim-temperature" class="label-tt">Temperature</label>
+                                <label for="sim-temperature" class="label-tt">Temp <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Controls randomness. Lower values (e.g. 0.3) give focused, predictable replies. Higher values (e.g. 1.2) give more varied, creative ones. Typical range: 0.5-1.0.</span></span></label>
                                 <input type="number" id="sim-temperature" step="0.05" min="0" max="2" class="input-field w-full">
                             </div>
                             <div class="field">
-                                <label for="sim-max-tokens" class="label-tt">Max tokens</label>
+                                <label for="sim-max-tokens" class="label-tt">Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum number of tokens the model can generate per reply. Capped at 2000 in the simulator. Roughly 1 token = 0.75 words.</span></span></label>
                                 <input type="number" id="sim-max-tokens" min="1" max="2000" class="input-field w-full">
+                            </div>
+                            <div class="field">
+                                <label for="sim-history-limit" class="label-tt">History <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-right">How many previous messages from this session are included as context. 0 means no memory of prior turns. Empty = use the character's configured limit.</span></span></label>
+                                <input type="number" id="sim-history-limit" min="0" max="100" placeholder="default" class="input-field w-full">
                             </div>
                         </div>
                     </fieldset>

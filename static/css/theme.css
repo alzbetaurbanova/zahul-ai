@@ -133,6 +133,12 @@
 
     /* Misc shadows */
     --shadow-panel: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+    /* Scrollbars */
+    --scrollbar-size: 10px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: var(--surface-mid);
+    --scrollbar-thumb-hover: var(--primary-light);
 }
 
 :root input[type="date"],
@@ -210,6 +216,11 @@
     /* Danger / validation */
     --danger-text: #b05a6a;
     --danger-text-light: #c47a87;
+
+    /* Scrollbars */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: var(--surface-mid);
+    --scrollbar-thumb-hover: var(--primary);
 }
 
 [data-theme="light"] input[type="date"],
@@ -407,3 +418,87 @@
 [data-theme="light"] .tooltip-text { color: var(--light); }
 
 [data-theme="light"] .tooltip-popup { color: var(--text-soft); }
+
+/* Chat simulator — light: whole panel uses opaque primary hover tint; dark: styles.css Discord palette */
+[data-theme="light"] .sim-chat-wrap {
+    background-color: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-raised));
+    box-shadow: var(--shadow-panel);
+}
+
+[data-theme="light"] .sim-chat-header {
+    background-color: color-mix(in srgb, var(--primary) 14%, var(--surface-deep));
+    border-bottom-color: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-chat-header-icon {
+    background-color: color-mix(in srgb, var(--primary) 18%, var(--surface));
+    color: var(--primary);
+}
+
+[data-theme="light"] .sim-chat-header-title {
+    color: var(--light);
+}
+
+[data-theme="light"] :is(
+    .sim-chat-header-sub,
+    .sim-chat-empty,
+    .sim-chat-meta,
+    .sim-msg-time,
+    .sim-msg-meta
+) {
+    color: var(--text-dim);
+}
+
+[data-theme="light"] .sim-msg-author {
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-msg--bot .sim-msg-author {
+    color: var(--primary);
+}
+
+[data-theme="light"] .sim-msg-content {
+    color: var(--text-soft);
+}
+
+[data-theme="light"] .sim-msg:hover {
+    background-color: color-mix(in srgb, var(--primary) 16%, var(--surface-deep));
+}
+
+[data-theme="light"] .sim-inline-code {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-chat-meta {
+    background-color: color-mix(in srgb, var(--primary) 14%, var(--surface-deep));
+    border-top-color: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-chat-compose {
+    background-color: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+}
+
+[data-theme="light"] .sim-compose-inner {
+    background-color: color-mix(in srgb, var(--primary) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-compose-input {
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-compose-input::placeholder {
+    color: var(--text-muted);
+}
+
+[data-theme="light"] .sim-typing-dots span {
+    background-color: var(--text-dim);
+}
+
+[data-theme="light"] .sim-readonly-banner {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-raised));
+    color: var(--primary-dark);
+}

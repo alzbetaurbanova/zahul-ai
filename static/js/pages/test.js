@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modelSourceInput = document.getElementById('sim-model-source');
     const temperatureInput = document.getElementById('sim-temperature');
     const maxTokensInput = document.getElementById('sim-max-tokens');
+    const historyLimitInput = document.getElementById('sim-history-limit');
     const SIM_MAX_TOKENS = 2000;
     const subtitleEl = document.getElementById('sim-chat-subtitle');
     const metaEl = document.getElementById('sim-meta');
@@ -59,13 +60,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const temp = data.temperature ?? defaults.temperature ?? 0.7;
         const rawTokens = data.max_tokens ?? defaults.max_tokens ?? 256;
         const tokens = Math.min(Math.max(1, Number(rawTokens) || 256), SIM_MAX_TOKENS);
-        return { temperature: temp, max_tokens: tokens };
+        const historyLimit = data.history_limit ?? defaults.history_limit ?? null;
+        return { temperature: temp, max_tokens: tokens, history_limit: historyLimit };
     }
 
     function applySimOverrideFields(char) {
-        const { temperature, max_tokens } = effectiveOverridesForCharacter(char);
+        const { temperature, max_tokens, history_limit } = effectiveOverridesForCharacter(char);
         temperatureInput.value = String(temperature);
         maxTokensInput.value = String(max_tokens);
+        historyLimitInput.value = history_limit != null ? String(history_limit) : '';
     }
 
     function parseSimMaxTokens() {
@@ -372,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateServerFieldState();
         updateComposeState();
         loadServerQuota(server.server_id);
+        loadEffectiveSettings();
     }
 
     async function loadUserServers() {
@@ -391,44 +395,35 @@ document.addEventListener('DOMContentLoaded', () => {
             updateServerFieldState();
             return;
         }
-
-        let servers = [];
-        try {
-            const res = await fetch(`/api/simulate/servers?character=${encodeURIComponent(name)}`);
-            if (res.ok) {
-                servers = await res.json();
-            } else {
-                throw new Error('Failed');
-            }
-        } catch {
-            const listItem = characterMap[name];
-            servers = listItem?.servers || [];
-            if (servers.length && servers[0].token_limit === undefined) {
-                const enriched = await Promise.all(servers.map(async (s) => {
-                    try {
-                        const r = await fetch(`/api/simulate/defaults?server_id=${encodeURIComponent(s.server_id)}`);
-                        if (!r.ok) return s;
-                        const q = await r.json();
-                        return { ...s, token_limit: q.token_limit, tokens_used_today: q.tokens_used_today };
-                    } catch {
-                        return s;
-                    }
-                }));
-                servers = enriched;
-            }
-        }
-
-        applyServerOptions(servers);
+        // Billing is always on the user's own server - use the full user server list
+        // and keep the current selection when switching characters.
+        applyServerOptions(userServers, { keepSelection: true });
         updateServerFieldState();
-        if (!servers.length) {
+        if (!userServers.length) {
             showToast('No server available to bill this test against', 'error');
         }
+    }
+
+    async function loadEffectiveSettings() {
+        if (!selectedCharacter || !selectedServerId) return;
+        try {
+            const res = await fetch(
+                `/api/simulate/defaults?server_id=${encodeURIComponent(selectedServerId)}&character=${encodeURIComponent(selectedCharacter.name)}`
+            );
+            if (!res.ok) return;
+            const d = await res.json();
+            temperatureInput.value = d.temperature ?? '';
+            maxTokensInput.value = d.max_tokens ?? '';
+            historyLimitInput.value = d.history_limit ?? '';
+        } catch (_) {}
     }
 
     function applyCharacterDefaults(char) {
         selectedCharacter = char;
         const data = char.data || {};
-        applySimOverrideFields(char);
+        temperatureInput.value = '';
+        maxTokensInput.value = '';
+        historyLimitInput.value = '';
         if (data.provider_model) {
             modelInput.value = displayForModel(data.provider_model, data.provider_override || 'primary', allowedModels);
             modelSourceInput.value = data.provider_override || 'primary';
@@ -440,15 +435,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateComposeState();
     }
 
-    function resetOverrides() {
+    async function resetOverrides() {
+        await loadEffectiveSettings();
+        modelInput.value = '';
+        modelSourceInput.value = '';
         if (selectedCharacter) {
-            applySimOverrideFields(selectedCharacter);
-            showToast('Simulation settings restored from character');
-        } else {
-            temperatureInput.value = String(defaults.temperature ?? 0.7);
-            maxTokensInput.value = String(Math.min(Number(defaults.max_tokens) || 256, SIM_MAX_TOKENS));
-            modelInput.value = '';
-            modelSourceInput.value = '';
+            const data = selectedCharacter.data || {};
+            if (data.provider_model) {
+                modelInput.value = displayForModel(data.provider_model, data.provider_override || 'primary', allowedModels);
+                modelSourceInput.value = data.provider_override || 'primary';
+            }
+            showToast('Simulation settings restored');
         }
     }
 
@@ -475,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedCharacter = null;
         temperatureInput.value = '';
         maxTokensInput.value = '';
+        historyLimitInput.value = '';
         applyServerOptions([], { keepSelection: false });
         updateServerFieldState();
         updateSubtitle();
@@ -501,6 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (defaultsRes.ok) {
                 defaults = await defaultsRes.json();
+                if (defaults.history_limit != null) {
+                    historyLimitInput.placeholder = String(defaults.history_limit);
+                }
             }
         } catch (e) {
             showToast('Failed to load simulator data', 'error');
@@ -594,6 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             model_source: source || null,
             temperature: parseSimTemperature(),
             max_tokens: parseSimMaxTokens(),
+            history_limit: parseOptionalInt(historyLimitInput),
             conversation: conversation.slice(0, -1),
         };
 

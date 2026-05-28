@@ -34,6 +34,36 @@ main.page {
     scrollbar-gutter: stable;
 }
 
+/* Custom scrollbars (Firefox + WebKit); tokens in theme.css */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 /* ========================================================================== */
 /* Shared Navigation                                                          */
 /* ========================================================================== */
@@ -1084,6 +1114,27 @@ pre {
     transform: none;
 }
 
+.tt .tt-body.tt-align-right {
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
+.tt .tt-body.tt-bottom-left {
+    bottom: auto;
+    top: calc(100% + 8px);
+    left: 0;
+    transform: none;
+}
+
+.tt .tt-body.tt-bottom-right {
+    bottom: auto;
+    top: calc(100% + 8px);
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
 /* ========================================================================== */
 /* Component Classes                                                          */
 /* ========================================================================== */
@@ -1105,6 +1156,14 @@ pre {
     .form-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    .form-grid.form-grid-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.sim-sidebar .form-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
 }
 
 .provider-card {
@@ -3907,7 +3966,7 @@ body[data-page="logs"] #detail-modal .modal-box {
 
 .sim-page .sim-layout {
     display: grid;
-    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
     gap: 1rem;
     min-height: calc(100vh - 12rem);
 }

@@ -176,6 +176,7 @@ async def generate_simulated_response(
     character_name: str,
     user_message: str,
     user_name: str = "User",
+    server_id: Optional[str] = None,
     model: Optional[str] = None,
     model_source: Optional[str] = "primary",
     temperature: Optional[float] = None,
@@ -192,7 +193,9 @@ async def generate_simulated_response(
             "error": True,
         }
 
-    bot_config = get_bot_config(db)
+    # Server override > global default
+    from src.utils.llm_new import get_effective_config
+    bot_config = get_effective_config(db, server_id)
     character = ActiveCharacter(char_data, db)
 
     effective_temperature = bot_config.temperature
@@ -200,6 +203,7 @@ async def generate_simulated_response(
     effective_history_limit = bot_config.history_limit
     effective_model = bot_config.base_llm
 
+    # Character override > server override
     d = char_data.get("data") or {}
     if d.get("temperature") is not None:
         effective_temperature = d["temperature"]
@@ -208,6 +212,22 @@ async def generate_simulated_response(
     if d.get("history_limit") is not None:
         effective_history_limit = d["history_limit"]
 
+    # Per-server character rule > character override
+    if server_id and d.get("model_rules_enabled") and d.get("model_rules"):
+        for rule in d["model_rules"]:
+            if server_id in (rule.get("servers") or []):
+                if rule.get("model"):
+                    effective_model = rule["model"]
+                    model_source = rule.get("source") or model_source
+                if rule.get("temperature") is not None:
+                    effective_temperature = rule["temperature"]
+                if rule.get("max_tokens") is not None:
+                    effective_max_tokens = rule["max_tokens"]
+                if rule.get("history_limit") is not None:
+                    effective_history_limit = rule["history_limit"]
+                break
+
+    # Simulator UI override > everything
     if temperature is not None:
         effective_temperature = temperature
     if max_tokens is not None:

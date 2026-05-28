@@ -58,6 +58,7 @@ class SimulateChatRequest(BaseModel):
     model_source: Optional[str] = "primary"
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1, le=SIM_MAX_TOKENS)
+    history_limit: Optional[int] = Field(default=None, ge=0, le=50)
     global_note: Optional[str] = None
     conversation: Optional[list[SimulateMessage]] = None
 
@@ -116,23 +117,40 @@ async def get_simulation_servers(
 @router.get("/defaults")
 async def get_simulation_defaults(
     server_id: Optional[str] = Query(default=None),
+    character: Optional[str] = Query(default=None),
     current_user: dict = Depends(get_simulate_viewer),
 ):
-    """Global bot defaults for override fields."""
-    cfg = get_bot_config(db)
+    """Global bot defaults for override fields. With server_id+character returns effective values applying full priority chain."""
+    from src.utils.llm_new import get_effective_config
+    sid = server_id.strip() if server_id else None
+    cfg = get_effective_config(db, sid)
     payload = {
         "temperature": cfg.temperature,
         "max_tokens": min(cfg.max_tokens, SIM_MAX_TOKENS),
         "max_tokens_cap": SIM_MAX_TOKENS,
+        "history_limit": cfg.history_limit,
         "base_llm": cfg.base_llm,
         "token_limit": None,
         "tokens_used_today": 0,
     }
-    if server_id:
-        assert_server_scope(db, server_id.strip(), current_user)
-        quota = server_quota_info(db, server_id.strip())
+    if sid:
+        assert_server_scope(db, sid, current_user)
+        quota = server_quota_info(db, sid)
         payload["token_limit"] = quota["token_limit"]
         payload["tokens_used_today"] = quota["tokens_used_today"]
+    if sid and character:
+        char_data = db.get_character(character.strip())
+        d = (char_data.get("data") or {}) if char_data else {}
+        for key in ("temperature", "max_tokens", "history_limit"):
+            if d.get(key) is not None:
+                payload[key] = min(d[key], SIM_MAX_TOKENS) if key == "max_tokens" else d[key]
+        if d.get("model_rules_enabled") and d.get("model_rules"):
+            for rule in d["model_rules"]:
+                if sid in (rule.get("servers") or []):
+                    for key in ("temperature", "max_tokens", "history_limit"):
+                        if rule.get(key) is not None:
+                            payload[key] = min(rule[key], SIM_MAX_TOKENS) if key == "max_tokens" else rule[key]
+                    break
     return payload
 
 
@@ -177,10 +195,12 @@ async def simulate_chat(
         character_name=body.character.strip(),
         user_message=body.message,
         user_name=body.user_name.strip() or "User",
+        server_id=server_id,
         model=body.model,
         model_source=body.model_source,
         temperature=body.temperature,
         max_tokens=_resolve_sim_max_tokens(db, body.character.strip(), body.max_tokens),
+        history_limit=body.history_limit,
         global_note=body.global_note,
         conversation=conversation,
     )
