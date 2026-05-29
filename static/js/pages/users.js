@@ -243,8 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fu.value = '';
             if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu);
         }
-        document.getElementById('filter-role').value = '';
-        document.getElementById('filter-auth').value = '';
+        ['filter-role', 'filter-auth'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = '';
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(el);
+        });
         document.getElementById('filter-user-dd').classList.add('hidden');
         document.querySelectorAll('#users-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         document.querySelectorAll('#users-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
@@ -321,11 +325,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('users-filter-type')?.classList.toggle('hidden', resolvedTab !== 'users' && resolvedTab !== 'requests');
         document.getElementById('sessions-filters').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('user-list').classList.toggle('hidden', resolvedTab !== 'users');
-        document.getElementById('users-pagination').classList.toggle('hidden', resolvedTab !== 'users');
+        if (resolvedTab !== 'users') document.getElementById('users-pagination').classList.add('hidden');
         document.getElementById('request-list').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('requests-pagination').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('session-list').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('session-list-footer').classList.toggle('hidden', resolvedTab !== 'sessions');
+        if (resolvedTab === 'users' && _allUsers.length > 0) {
+            renderUsers();
+        }
         if (resolvedTab === 'requests') {
             if (_requestsLoaded) {
                 renderRequests();
@@ -544,20 +551,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateSessionFooter(totalItems) {
-        const footer = document.getElementById('session-list-footer');
-        const info = document.getElementById('session-pagination-info');
-        const prev = document.getElementById('session-prev-btn');
-        const next = document.getElementById('session-next-btn');
+    function updatePaginationFooter(totalItems, { footerId, infoId, prevId, nextId, tabName, page }) {
+        const footer = document.getElementById(footerId);
+        const info = document.getElementById(infoId);
+        const prev = document.getElementById(prevId);
+        const next = document.getElementById(nextId);
         if (!footer || !info || !prev || !next) return;
         const nd = '\u2013';
-        const start = totalItems ? ((_sessionPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_sessionPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'sessions' || totalItems <= 10);
+        const start = totalItems ? ((page - 1) * PAGE_SIZE) + 1 : 0;
+        const end = totalItems ? Math.min(page * PAGE_SIZE, totalItems) : 0;
+        footer.classList.toggle('hidden', _activeTab !== tabName || totalItems <= PAGE_SIZE);
         info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _sessionPage <= 1;
-        next.disabled = totalItems <= 0 || _sessionPage * PAGE_SIZE >= totalItems;
+        prev.disabled = totalItems <= 0 || page <= 1;
+        next.disabled = totalItems <= 0 || page * PAGE_SIZE >= totalItems;
         syncUsersUrl();
+    }
+
+    function updateSessionFooter(n) {
+        updatePaginationFooter(n, { footerId: 'session-list-footer', infoId: 'session-pagination-info', prevId: 'session-prev-btn', nextId: 'session-next-btn', tabName: 'sessions', page: _sessionPage });
     }
 
     function initUsersPagination() {
@@ -573,20 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateUsersFooter(totalItems) {
-        const footer = document.getElementById('users-pagination');
-        const info = document.getElementById('users-pagination-info');
-        const prev = document.getElementById('users-prev-btn');
-        const next = document.getElementById('users-next-btn');
-        if (!footer || !info || !prev || !next) return;
-        const nd = '\u2013';
-        const start = totalItems ? ((_usersPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_usersPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'users' || totalItems <= 10);
-        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _usersPage <= 1;
-        next.disabled = totalItems <= 0 || _usersPage * PAGE_SIZE >= totalItems;
-        syncUsersUrl();
+    function updateUsersFooter(n) {
+        updatePaginationFooter(n, { footerId: 'users-pagination', infoId: 'users-pagination-info', prevId: 'users-prev-btn', nextId: 'users-next-btn', tabName: 'users', page: _usersPage });
     }
 
     function initRequestsPagination() {
@@ -602,20 +601,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateRequestsFooter(totalItems) {
-        const footer = document.getElementById('requests-pagination');
-        const info = document.getElementById('requests-pagination-info');
-        const prev = document.getElementById('requests-prev-btn');
-        const next = document.getElementById('requests-next-btn');
-        if (!footer || !info || !prev || !next) return;
-        const nd = '\u2013';
-        const start = totalItems ? ((_requestsPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_requestsPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'requests' || totalItems <= 10);
-        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _requestsPage <= 1;
-        next.disabled = totalItems <= 0 || _requestsPage * PAGE_SIZE >= totalItems;
-        syncUsersUrl();
+    function updateRequestsFooter(n) {
+        updatePaginationFooter(n, { footerId: 'requests-pagination', infoId: 'requests-pagination-info', prevId: 'requests-prev-btn', nextId: 'requests-next-btn', tabName: 'requests', page: _requestsPage });
     }
 
     function renderSessions(sessions) {

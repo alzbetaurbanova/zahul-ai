@@ -460,22 +460,29 @@
         const resetPageAndFetch = () => { currentPage = 1; fetchTasks(); };
         const SCHEDULER_BADGE_BASE = 'scheduler-badge';
 
+        const fEls = {
+            type:      document.getElementById('filter-type'),
+            from:      document.getElementById('filter-from'),
+            to:        document.getElementById('filter-to'),
+            character: document.getElementById('filter-character'),
+            server:    document.getElementById('filter-server'),
+            charDd:    document.getElementById('filter-character-dd'),
+            serverDd:  document.getElementById('filter-server-dd'),
+        };
+
         function buildTasksQueryParams() {
             const params = new URLSearchParams();
             params.set('page', String(currentPage));
             params.set('limit', String(PAGE_SIZE));
-            const type = document.getElementById('filter-type').value;
-            if (type) params.set('type', type);
+            if (fEls.type?.value) params.set('type', fEls.type.value);
             [...document.querySelectorAll('.filter-status-cb:checked')].forEach(el => {
                 params.append('status', el.value);
             });
-            const charFilter = (document.getElementById('filter-character').value || '').trim();
+            const charFilter = (fEls.character?.value || '').trim();
             if (charFilter) params.set('character', charFilter);
-            const from = document.getElementById('filter-from').value;
-            const to = document.getElementById('filter-to').value;
-            if (from) params.set('date_from', from);
-            if (to) params.set('date_to', to);
-            const serverName = (document.getElementById('filter-server')?.value || '').trim();
+            if (fEls.from?.value) params.set('date_from', fEls.from.value);
+            if (fEls.to?.value) params.set('date_to', fEls.to.value);
+            const serverName = (fEls.server?.value || '').trim();
             const selectedServerId = serverNameMap[serverName];
             if (selectedServerId) params.set('server_id', selectedServerId);
             return params;
@@ -543,7 +550,7 @@
             history.replaceState(null, '', '?' + p.toString());
             const start = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
             const end = Math.min(currentPage * PAGE_SIZE, total);
-            document.getElementById('pagination').classList.toggle('hidden', total <= 10);
+            document.getElementById('pagination').classList.toggle('hidden', total <= PAGE_SIZE);
             document.getElementById('pagination-info').textContent = total ? `${start}–${end} of ${total}` : '';
             document.getElementById('prev-btn').disabled = currentPage <= 1;
             document.getElementById('next-btn').disabled = currentPage * PAGE_SIZE >= total;
@@ -1009,12 +1016,11 @@
         document.getElementById('page-size-select').value = PAGE_SIZE;
 
         // --- Filters ---
-        document.getElementById('filter-type').addEventListener('change', () => {
+        fEls.type?.addEventListener('change', () => {
             updateStatusOptions();
             resetPageAndFetch();
         });
-        ['filter-from', 'filter-to'].forEach((id) => {
-            const el = document.getElementById(id);
+        [fEls.from, fEls.to].forEach((el) => {
             if (!el) return;
             el.addEventListener('change', resetPageAndFetch);
             if (typeof setupDatePickerPopupOnly === 'function') {
@@ -1022,23 +1028,24 @@
             }
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
-            document.getElementById('filter-type').value = '';
-            document.getElementById('filter-from').value = '';
-            document.getElementById('filter-to').value = '';
-            const fc = document.getElementById('filter-character');
-            if (fc) {
-                fc.value = '';
-                if ('dataset' in fc && 'value' in fc.dataset) fc.dataset.value = '';
-                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fc);
-                document.getElementById('filter-character-dd')?.classList.add('hidden');
-                fc.dispatchEvent(new Event('change', { bubbles: true }));
+            if (fEls.type) {
+                fEls.type.value = '';
+                if (typeof refreshCustomSelect === 'function') refreshCustomSelect(fEls.type);
             }
-            const fs = document.getElementById('filter-server');
-            if (fs) {
-                fs.value = '';
-                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fs);
-                document.getElementById('filter-server-dd')?.classList.add('hidden');
-                fs.dispatchEvent(new Event('change', { bubbles: true }));
+            if (fEls.from) fEls.from.value = '';
+            if (fEls.to) fEls.to.value = '';
+            if (fEls.character) {
+                fEls.character.value = '';
+                if ('dataset' in fEls.character && 'value' in fEls.character.dataset) fEls.character.dataset.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fEls.character);
+                fEls.charDd?.classList.add('hidden');
+                fEls.character.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (fEls.server) {
+                fEls.server.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fEls.server);
+                fEls.serverDd?.classList.add('hidden');
+                fEls.server.dispatchEvent(new Event('change', { bubbles: true }));
             }
             if (typeof clearCheckboxDropdownPrefix === 'function') {
                 clearCheckboxDropdownPrefix('filter-status');
@@ -1061,12 +1068,12 @@
             }, document.getElementById('task-form'));
         }
         document.getElementById('clear-from-btn').addEventListener('click', () => {
-            document.getElementById('filter-from').value = '';
+            if (fEls.from) fEls.from.value = '';
             currentPage = 1;
             fetchTasks();
         });
         document.getElementById('clear-to-btn').addEventListener('click', () => {
-            document.getElementById('filter-to').value = '';
+            if (fEls.to) fEls.to.value = '';
             currentPage = 1;
             fetchTasks();
         });

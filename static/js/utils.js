@@ -655,13 +655,6 @@ function toIsoDate(y, mo, d) {
     return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-function formatDatePickerLabel(iso, showYear) {
-    const p = parseIsoDate(iso);
-    if (!p) return '';
-    const base = `${String(p.d).padStart(2, '0')}.${String(p.mo).padStart(2, '0')}`;
-    return showYear ? `${base}.${p.y}` : base;
-}
-
 function parseManualDate(text, fallbackYear) {
     const raw = String(text || '').trim();
     if (!raw) return null;
@@ -1395,12 +1388,6 @@ function bootDatePickers() {
     initDateTimePickers(document);
 }
 
-/** @deprecated Use setupFilterDatePicker / data-date-picker */
-function initDateFilterMd(inputId, onChange) {
-    const input = document.getElementById(inputId);
-    if (input) setupFilterDatePicker(input, { onChange });
-}
-
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootDatePickers);
 } else {
@@ -1620,7 +1607,6 @@ window.setupDatePickerPopupOnly = setupDatePickerPopupOnly;
 window.applyFilterDateFieldInput = applyFilterDateFieldInput;
 window.refreshDatePicker = refreshDatePicker;
 window.initDatePickers = initDatePickers;
-window.initDateFilterMd = initDateFilterMd;
 window.setupDateTimePicker = setupDateTimePicker;
 window.refreshDateTimePicker = refreshDateTimePicker;
 window.initDateTimePickers = initDateTimePickers;

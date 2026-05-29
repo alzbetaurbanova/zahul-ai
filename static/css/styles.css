@@ -146,31 +146,6 @@ site-footer {
     border-bottom: 2px solid var(--primary);
 }
 
-.nav-logout-wrap {
-    min-width: 70px;
-    text-align: right;
-    margin-left: 1.5rem;
-}
-
-.nav-logout {
-    visibility: hidden;
-}
-
-.nav-logout-icon {
-    display: inline;
-    vertical-align: -1px;
-    margin-right: 4px;
-}
-
-.nav-mobile-logout {
-    margin-left: auto;
-}
-
-.nav-mobile-logout-icon {
-    display: inline;
-    vertical-align: -1px;
-    margin-right: 6px;
-}
 
 .hamburger-btn {
     display: flex;
@@ -571,13 +546,6 @@ textarea:disabled {
 /* ========================================================================== */
 /* Character Editor                                                           */
 /* ========================================================================== */
-.character-card-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.2s ease;
-}
-
 .model-rule {
     background-color: var(--surface-deep);
     border: 1px solid var(--surface-raised);
@@ -634,10 +602,6 @@ textarea:disabled {
     color: var(--danger-text);
     border-color: var(--danger-border);
     background-color: var(--danger-bg-soft);
-}
-
-.group:hover .character-card-img {
-    transform: scale(1.1);
 }
 
 .relative-inline-block {
@@ -726,7 +690,7 @@ textarea:disabled {
 /* ========================================================================== */
 .log-stream {
     font-family: 'Fira Code', monospace;
-    background-color: var(--overlay-dark);
+    background-color: var(--log-stream-bg);
     border: 1px solid var(--primary-tint-20);
 }
 
@@ -2671,11 +2635,6 @@ body[data-page="stats"] .tab-btn.tab-active {
 body[data-page="logs"] .tab-btn.tab-active::after,
 body[data-page="users"] .tab-btn.tab-active::after,
 body[data-page="stats"] .tab-btn.tab-active::after {
-    transform: scaleX(1);
-}
-
-body[data-page="logs"] .tab-btn.tab-active::after,
-body[data-page="users"] .tab-btn.tab-active::after {
     transform: scaleX(1);
 }
 

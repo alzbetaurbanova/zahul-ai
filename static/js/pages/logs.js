@@ -248,18 +248,16 @@
     }
 
     if (typeof wireCbDdClear === 'function') {
-        wireCbDdClear('dd-source-clear', 'dd-source', () => {
-            currentPage = 1;
-            fetchLogs();
-        });
-        wireCbDdClear('dd-status-clear', 'dd-status', () => {
-            currentPage = 1;
-            fetchLogs();
-        });
-        wireCbDdClear('dd-action-clear', 'dd-action', () => {
-            adminActionSearch?.reset();
-            currentPage = 1;
-            fetchLogs();
+        [
+            { clear: 'dd-source-clear', dd: 'dd-source' },
+            { clear: 'dd-status-clear', dd: 'dd-status' },
+            { clear: 'dd-action-clear', dd: 'dd-action', before: () => adminActionSearch?.reset() },
+        ].forEach(({ clear, dd, before }) => {
+            wireCbDdClear(clear, dd, () => {
+                before?.();
+                currentPage = 1;
+                fetchLogs();
+            });
         });
     }
 
@@ -471,6 +469,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
                     <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                     <span>${fmt(item.timestamp)}</span>
+                    <span class="${statusColor}">${item.status === 'error' ? 'error' : 'ok'}</span>
                 </div>
             </div>
             <p class="text-xs text-gray-400 truncate">${esc(item.trigger || '')}</p>
@@ -556,7 +555,7 @@
     function updatePagination() {
         const start = (currentPage - 1) * LIMIT + 1;
         const end = Math.min(currentPage * LIMIT, totalItems);
-        document.getElementById('pagination').classList.toggle('hidden', totalItems <= 10);
+        document.getElementById('pagination').classList.toggle('hidden', totalItems <= LIMIT);
         document.getElementById('pagination-info').textContent = totalItems ? `${start}–${end} of ${totalItems}` : '';
         document.getElementById('prev-btn').disabled = currentPage <= 1;
         document.getElementById('next-btn').disabled = currentPage * LIMIT >= totalItems;
@@ -598,9 +597,8 @@
         body.innerHTML = `
             <div class="detail-content">
 
-                <div class="flex items-center justify-between log-ts">
+                <div class="log-ts">
                     <span>${fmt(item.timestamp)}</span>
-                    <span class="${statusCls} mr-4">${item.status === 'error' ? 'error' : 'ok'}</span>
                 </div>
 
                 <div class="metadata-grid">

@@ -98,6 +98,7 @@
     --overlay-backdrop: rgba(0, 0, 0, 0.75);
     --overlay-scrim: rgba(0, 0, 0, 0.6);
     --overlay-dark: rgba(15, 23, 42, 0.8);
+    --log-stream-bg: #181b24;
 
     /* Shadows */
     --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -194,6 +195,7 @@
     --overlay-backdrop: rgba(27, 39, 52, 0.45);
     --overlay-scrim: rgba(27, 39, 52, 0.35);
     --overlay-dark: rgba(236, 242, 249, 0.92);
+    --log-stream-bg: #ecf2f9;
     --shadow-dropdown: 0 10px 25px rgba(27, 39, 52, 0.15);
     --shadow-dropdown-soft: 0 4px 12px rgba(27, 39, 52, 0.1);
     --shadow-menu: 0 10px 25px rgba(27, 39, 52, 0.12);
