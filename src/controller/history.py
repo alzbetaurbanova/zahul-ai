@@ -74,7 +74,7 @@ class _HistoryFormatter:
     async def _get_image_caption(self, message: discord.Message) -> Optional[str]:
         """
         Gets an image caption. Checks the database first. Only generates a new one
-        if multimodal is enabled in the bot's config.
+        if multi-model is enabled in the bot's config.
         """
         if not message.attachments:
             return None
@@ -86,7 +86,7 @@ class _HistoryFormatter:
             return caption
 
         # 2. If no caption exists, check if we are allowed to generate one
-        if not self.bot_config.multimodal_enable:
+        if not self.bot_config.multi_model_enable:
             return None  # Generation is disabled, so we return nothing
 
         # 3. If enabled, proceed with generation

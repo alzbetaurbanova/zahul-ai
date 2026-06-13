@@ -180,19 +180,10 @@ class Zahul(discord.Client):
 
     def run(self, *args, **kwargs):
         """Starts the bot after fetching the token from the database."""
-        try:
-            token = self.config.discord_key
-            if not token:
-                raise ValueError("Discord key is not set in the database.")
-            
-            # Start background tasks
-            #asyncio.create_task(pipeline.think(self.db, self.queue))
-            
-            # Run the bot
-            super().run(token, *args, **kwargs)
-        except Exception as e:
-            print(f"Fatal error during bot startup: {e}")
-            print("Please ensure your database is configured correctly via the API/frontend.")
+        token = self.config.discord_key
+        if not token:
+            raise ValueError("Discord key is not set in the database.")
+        super().run(token, *args, **kwargs)
 
 # --- Modals ---
 class EditMessageModal(discord.ui.Modal, title='Edit Message'):

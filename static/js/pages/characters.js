@@ -67,13 +67,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let serverNameMap = {};    // display name -> server_id
     let availableServers = []; // {server_id, server_name}[] for model rules
     let modelRuleCounter = 0;
+    let _mrSrvMeasureRoot = null;
     let serversReadyPromise = Promise.resolve();
     let allowedModels = [];
+    let allowedModelsPromise = Promise.resolve();
 
     async function loadAllowedModels() {
         try {
             const res = await fetch('/api/config/models');
-            if (res.ok) allowedModels = await res.json();
+            if (res.ok) allowedModels = normalizeAllowedModels(await res.json());
         } catch (_) {}
     }
 
@@ -119,6 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (_) {}
             availableServers = filtered.map(s => ({ server_id: s.server_id, server_name: s.server_name }));
             wireServerFilterCombobox();
+            syncModelRuleWidths();
         } catch (e) {
             showToast('Failed to load server filter.', 'error');
         }
@@ -157,14 +160,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function allServersLabel() { return isAdmin() ? 'All servers' : 'All my servers'; }
 
     function buildServerCheckboxes(selectedIds = []) {
-        const servers = isMod()
-            ? availableServers.filter(s => currentUserServerIds.includes(s.server_id))
-            : availableServers;
+        const servers = modelRulePickerServers();
         if (!servers.length) return '<p class="text-dim text-xs px-3 py-2">No servers loaded</p>';
         return servers.map(s => `
-            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-700 rounded cursor-pointer text-sm">
-                <input type="checkbox" class="accent-indigo-500" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
-                <span class="text-gray-200 truncate">${escapeHtml(s.server_name)}</span>
+            <label class="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer text-sm">
+                <input type="checkbox" class="custom-cb" value="${escapeHtml(s.server_id)}" ${selectedIds.includes(s.server_id) ? 'checked' : ''}>
+                <span class="text-gray-200 whitespace-nowrap">${escapeHtml(s.server_name)}</span>
             </label>`).join('');
     }
 
@@ -192,39 +193,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function measureDropdownWidth(dd) {
-        const measurer = document.createElement('span');
-        measurer.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;font-size:0.875rem;';
-        document.body.appendChild(measurer);
-        let maxW = 0;
-        dd.querySelectorAll('label > span').forEach(span => {
-            measurer.textContent = span.textContent;
-            // label: px-3 (24px) + gap-2 (8px) + checkbox (~16px) = 48px overhead
-            const w = measurer.offsetWidth + 48;
-            if (w > maxW) maxW = w;
-        });
-        document.body.removeChild(measurer);
-        return maxW;
+    function modelRulePickerServers() {
+        return isMod()
+            ? availableServers.filter(s => currentUserServerIds.includes(s.server_id))
+            : availableServers;
+    }
+
+    function modelRuleServerLabelTexts() {
+        const servers = modelRulePickerServers();
+        const texts = new Set([allServersLabel(), 'None', ...servers.map(s => s.server_name)]);
+        for (let n = 2; n <= servers.length; n++) texts.add(`${n} servers`);
+        return [...texts];
+    }
+
+    function measureModelRuleServerColumnWidth() {
+        const texts = modelRuleServerLabelTexts();
+        if (!texts.length) return 0;
+
+        if (!_mrSrvMeasureRoot) {
+            _mrSrvMeasureRoot = document.createElement('div');
+            _mrSrvMeasureRoot.setAttribute('aria-hidden', 'true');
+            _mrSrvMeasureRoot.style.cssText = 'position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none;z-index:-1';
+            document.body.appendChild(_mrSrvMeasureRoot);
+        }
+
+        let maxRow = 0;
+        for (const text of texts) {
+            _mrSrvMeasureRoot.innerHTML = `
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded text-sm">
+                    <input type="checkbox" class="custom-cb" disabled tabindex="-1">
+                    <span class="text-gray-200 whitespace-nowrap">${escapeHtml(text)}</span>
+                </label>`;
+            maxRow = Math.max(maxRow, _mrSrvMeasureRoot.firstElementChild.offsetWidth);
+        }
+
+        let maxBtn = 0;
+        for (const text of texts) {
+            _mrSrvMeasureRoot.innerHTML = `
+                <button type="button" class="mr-srv-btn" style="width:max-content">
+                    <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(text)}</span>
+                    <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0" aria-hidden="true"></i>
+                </button>`;
+            maxBtn = Math.max(maxBtn, _mrSrvMeasureRoot.firstElementChild.offsetWidth);
+        }
+
+        return Math.max(maxRow, maxBtn);
     }
 
     function syncModelRuleWidths() {
         requestAnimationFrame(() => {
             if (document.getElementById('model-rules-body')?.classList.contains('hidden')) return;
-            document.querySelectorAll('#model-rules-list .model-rule').forEach(rule => {
-                const wrap = rule.querySelector('.mr-srv-wrap');
-                const btn = rule.querySelector('.mr-srv-btn');
-                const dd = rule.querySelector('[id^="mr-dd-"]');
-                if (!wrap || !btn || !dd) return;
-
-                wrap.style.width = '';
-                btn.style.width = 'max-content';
-                const btnW = btn.offsetWidth;
-                const ddW = measureDropdownWidth(dd);
-                const w = Math.max(btnW, ddW);
-                if (w > 0) {
-                    wrap.style.width = `${w}px`;
-                    btn.style.width = '100%';
-                }
+            const w = measureModelRuleServerColumnWidth();
+            if (w <= 0) return;
+            document.querySelectorAll('#model-rules-list .mr-srv-wrap').forEach(wrap => {
+                wrap.style.width = `${w}px`;
             });
         });
     }
@@ -234,26 +256,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const ddId = `mr-dd-${id}`;
         const allRuleServers = rule.servers || [];
         const existingEntry = allowedModels.find(m => m.model === rule.model && m.source === (rule.source || 'primary'));
-        const displayValue = existingEntry ? existingEntry.display : (rule.model || '');
+        const displayValue = existingEntry
+            ? existingEntry.display
+            : formatModelDisplay(rule.model, rule.source);
         const triggersValue = Array.isArray(rule.triggers) ? rule.triggers.join(', ') : (rule.triggers || '');
         const div = document.createElement('div');
-        div.className = 'model-rule border border-gray-700 rounded-lg p-3 bg-gray-900';
+        div.className = 'model-rule';
         div.innerHTML = `
             <div class="flex items-end gap-2">
                 <div class="mr-srv-wrap relative shrink-0">
                     <label for="mr-srv-btn-${id}" class="label-xs block mb-1">Server <span aria-hidden="true">*</span></label>
-                    <button type="button" id="mr-srv-btn-${id}" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm hover:border-gray-500" data-dd="${ddId}">
+                    <button type="button" id="mr-srv-btn-${id}" class="mr-srv-btn w-full flex items-center justify-between gap-1.5 text-sm" data-dd="${ddId}">
                         <span class="mr-srv-label shrink-0 text-gray-300 text-left whitespace-nowrap">${escapeHtml(allServersLabel())}</span>
                         <i class="fas fa-chevron-down text-xs text-gray-500 shrink-0"></i>
                     </button>
-                    <div id="${ddId}" class="hidden absolute z-50 left-0 top-full mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div id="${ddId}" class="mr-srv-dd hidden absolute z-50 left-0 top-full mt-1 min-w-full w-max max-h-48 overflow-y-auto">
                         <div class="p-1 whitespace-nowrap">${buildServerCheckboxes(rule.servers || [])}</div>
                     </div>
                 </div>
                 <div class="relative flex-1 min-w-0">
                     <label for="mr-model-input-${id}" class="label-xs block mb-1">Model name (source) <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body" style="left:0;transform:none;">Leave empty to inherit the server or global default model.</span></span></label>
                     <div class="relative">
-                        <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (primary)" value="${escapeHtml(displayValue)}">
+                        <input type="text" id="mr-model-input-${id}" class="input-field w-full mr-model-display text-sm pr-8" autocomplete="off" placeholder="e.g. gpt-4o (default)" value="${escapeHtml(displayValue)}">
                         <input type="hidden" class="mr-model" value="${escapeHtml(rule.model || '')}">
                         <input type="hidden" class="mr-source" value="${escapeHtml(rule.source || 'primary')}">
                         <div id="mr-model-dd-${id}" class="autocomplete-dd hidden"></div>
@@ -332,6 +356,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setupFilterCombobox(`mr-model-input-${id}`, `mr-model-dd-${id}`, allowedModelDisplays, (selected) => {
             const entry = allowedModels.find(m => m.display === selected);
             if (entry) {
+                const displayInput = div.querySelector('.mr-model-display');
+                if (displayInput) displayInput.value = entry.display;
                 div.querySelector('.mr-model').value = entry.model;
                 div.querySelector('.mr-source').value = entry.source;
             }
@@ -663,13 +689,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add cards for each character from the list
             characters.forEach(char => {
                 const card = document.createElement('div');
-                card.className = 'group relative aspect-square bg-gray-900 rounded-lg cursor-pointer overflow-hidden shadow-lg transition-transform transform hover:scale-105 border border-gray-800';
+                card.className = 'character-card group';
                 card.dataset.charName = char.name;
                 card.dataset.charId = char.id;
                 card.innerHTML = `
                     <img alt="" class="character-card-img">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                    <h3 class="absolute bottom-0 left-0 p-3 font-bold text-white text-lg">${escapeHtml(char.name)}</h3>
+                    <div class="character-card-overlay" aria-hidden="true"></div>
+                    <h3 class="character-card-title">${escapeHtml(char.name)}</h3>
                 `;
                 applyCharacterCardAvatar(card.querySelector('img'), char);
                 card.addEventListener('click', () => loadCharacterForEdit(char.id));
@@ -715,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
             charHistoryLimitInput.value = char.data.history_limit != null ? char.data.history_limit : '';
             charMaxTokensInput.value = char.data.max_tokens != null ? char.data.max_tokens : '';
             triggersInput.value = char.triggers.join(', ');
-            await serversReadyPromise;
+            await Promise.all([serversReadyPromise, allowedModelsPromise]);
             loadModelRules(char.data.model_rules_enabled || false, char.data.model_rules || []);
 
             updateAvatarPreview(avatarUrlInput.value);
@@ -1240,7 +1266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(() => {})
         .finally(() => {
             serversReadyPromise = loadServerFilter();
-            loadAllowedModels();
+            allowedModelsPromise = loadAllowedModels();
             fetchAndDisplayCharacters();
         });
     });

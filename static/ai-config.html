@@ -7,7 +7,9 @@
     <title>zahul-ai - AI Configuration</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 <body class="bg-darker text-light flex flex-col min-h-screen" data-page="ai-config">
     <div id="toast-container" class="toast z-50"></div>
@@ -18,10 +20,12 @@
     <script src="/static/js/pages/ai-config.js" defer></script>
 
     <!-- Main Content -->
-    <main class="flex-grow p-6">
-        <div class="max-w-4xl mx-auto">
-            <h1 class="heading-page mb-2">AI Configuration</h1>
-            <p class="text-gray-400 mb-8">Manage the core settings for the AI and bot integration.</p>
+    <main class="page">
+        <div class="main-content">
+            <div class="page-heading">
+                <h1 class="page-title">AI Configuration</h1>
+                <p class="page-subtitle">Manage the core settings for the AI and bot integration.</p>
+            </div>
 
             <div class="config-panel p-8 space-y-8">
                 <!-- Main Config Form -->
@@ -32,37 +36,50 @@
                         <legend class="legend-section">Core AI Settings</legend>
                         <div class="form-grid">
                             <div>
-                                <label for="ai_endpoint" class="label-tt">AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
-                                <input type="url" id="ai_endpoint" class="input-field" required>
+                                <label for="ai_endpoint" class="label-tt">Default AI Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of your primary AI provider's API (e.g. OpenRouter, local Ollama). Must be an OpenAI-compatible endpoint.</span></span></label>
+                                <input type="url" id="ai_endpoint" class="field" required>
                             </div>
                             <div>
                                 <label for="base_llm" class="label-tt">Primary Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model identifier used for all responses. Must match the provider's model name exactly. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
                                 <div class="relative">
-                                    <input type="text" id="base_llm" autocomplete="off" class="input-field" required placeholder="e.g., gryphe/mythomax-l2-13b">
+                                    <input type="text" id="base_llm" autocomplete="off" class="input-field w-full text-sm pr-8" required placeholder="e.g. llama-3.3-70b (default)">
+                                    <input type="hidden" id="base_llm-model" value="">
+                                    <input type="hidden" id="base_llm-source" value="primary">
                                     <div id="base-llm-dd" class="autocomplete-dd hidden"></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-4">
-                            <label for="primary_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the primary model, and in other sections like character overrides.</span></span></label>
-                            <textarea id="primary_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.3-70b-versatile&#10;llama-3.1-8b-instant"></textarea>
+                        <div class="form-fields-full">
+                            <div>
+                                <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
+                                <div class="relative">
+                                    <input type="password" id="ai_key" autocomplete="new-password" class="field pr-10" placeholder="Leave blank to keep existing key">
+                                    <button type="button" onclick="toggleVisibility('ai_key', this)" class="btn-eye">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="primary_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the primary model, and in other sections like character overrides.</span></span></label>
+                                <textarea id="primary_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.3-70b-versatile&#10;llama-3.1-8b-instant"></textarea>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <div>
                                 <label for="history_limit" class="label-tt">History Limit <span class="text-unit">(msgs)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How many past messages the AI sees as context per response.</span></span></label>
-                                <input type="number" id="history_limit" step="1" min="1" max="50" class="input-field" placeholder="e.g. 10">
+                                <input type="number" id="history_limit" step="1" min="1" max="50" class="field" placeholder="e.g. 10">
                             </div>
                             <div>
                                 <label for="max_tokens" class="label-tt">Max Output Tokens <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Maximum response length in tokens. Can be overridden per character. Actual maximum depends on the model - check your provider's model page for the exact limit.</span></span></label>
-                                <input type="number" id="max_tokens" step="1" min="64" max="131072" class="input-field" placeholder="e.g. 256">
+                                <input type="number" id="max_tokens" step="1" min="64" max="131072" class="field" placeholder="e.g. 256">
                             </div>
                             <div>
                                 <label for="temperature" class="label-tt">Temperature <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Controls randomness. 0 = predictable, 2 = chaotic. Can be overridden per character.</span></span></label>
-                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="input-field">
+                                <input type="number" id="temperature" step="0.1" min="0" max="2" class="field">
                             </div>
                             <div>
                                 <label for="auto_cap" class="label-tt">Chain Limit <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Max bot-to-bot replies per chain before it stops. Also the default value reset by /autocap reset.</span></span></label>
-                                <input type="number" id="auto_cap" step="1" min="0" class="input-field">
+                                <input type="number" id="auto_cap" step="1" min="0" class="field">
                             </div>
                         </div>
                     </fieldset>
@@ -74,13 +91,15 @@
                             <div>
                                 <label for="fallback_llm" class="label-tt">Fallback Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used automatically when the primary model hits a rate limit. Context window and max output tokens vary per model - check your provider's model page for the exact limits.</span></span></label>
                                 <div class="relative">
-                                    <input type="text" id="fallback_llm" autocomplete="off" class="input-field" placeholder="e.g., llama-3.1-8b-instant">
+                                    <input type="text" id="fallback_llm" autocomplete="off" class="input-field w-full text-sm pr-8" placeholder="e.g. llama-3.1-8b (default)">
+                                    <input type="hidden" id="fallback_llm-model" value="">
+                                    <input type="hidden" id="fallback_llm-source" value="primary">
                                     <div id="fallback-llm-dd" class="autocomplete-dd hidden"></div>
                                 </div>
                             </div>
                             <div>
                                 <label for="fallback_duration" class="label-tt">Fallback Duration <span class="text-unit">(seconds)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">How long the fallback model stays active after a rate limit hit. (e.g. 7200 = 2 hours)</span></span></label>
-                                <input type="number" id="fallback_duration" step="60" min="60" class="input-field" placeholder="e.g., 7200">
+                                <input type="number" id="fallback_duration" step="60" min="60" class="field" placeholder="e.g., 7200">
                             </div>
                             <div>
                                 <label for="token_limit_tpm" class="label-tt">Rate Limit Trigger <span class="text-unit">(tokens/min)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Per-minute token threshold that triggers a switch to the fallback model.</span></span></label>
@@ -91,35 +110,7 @@
                                 <input type="number" id="token_limit_tpd" step="10000" min="0" class="input-field" placeholder="e.g., 100000 – 0 to disable">
                             </div>
                         </div>
-                        <div class="flex-between divider pt-4 mt-4">
-                            <div>
-                                <label for="fallback_use_different_endpoint" class="label-inline">Use different endpoint for fallback</label>
-                                <p class="text-hint">When on, the fallback model uses its own endpoint and API key instead of the primary.</p>
-                            </div>
-                            <label class="toggle-wrap">
-                                <input id="fallback_use_different_endpoint" type="checkbox" class="sr-only peer">
-                                <div class="toggle-track"></div>
-                            </label>
-                        </div>
-                        <div id="fallback-endpoint-fields" class="hidden pl-6 space-y-4 border-l-2 border-gray-700 mt-2">
-                            <div>
-                                <label for="fallback_ai_endpoint" class="label-tt">Fallback Endpoint URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Base URL of the fallback provider's API. Must be an OpenAI-compatible endpoint.</span></span></label>
-                                <input type="url" id="fallback_ai_endpoint" class="input-field" placeholder="e.g. https://api.groq.com/openai/v1">
-                            </div>
-                            <div>
-                                <label for="fallback_ai_key" class="label-tt">Fallback API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Leave blank to reuse the primary AI API key. Only fill in on first setup or when rotating.</span></span></label>
-                                <div class="relative">
-                                    <input type="password" id="fallback_ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to use primary key">
-                                    <button type="button" onclick="toggleVisibility('fallback_ai_key', this)" class="btn-eye">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label for="fallback_allowed_models" class="label-tt">Allowed Models <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One model per line. Used mainly to populate dropdowns - here for the fallback model, and in other sections like character overrides.</span></span></label>
-                                <textarea id="fallback_allowed_models" class="input-field font-mono" rows="3" placeholder="e.g., llama-3.1-8b-instant&#10;gemma-7b-it"></textarea>
-                            </div>
-                        </div>
+                        <p class="text-hint divider pt-4 mt-4 w-full">Note: The label in parentheses on the fallback model shows which endpoint is used. To run fallback on a different API, add that provider under Multi Providers below and pick its model in the fallback dropdown.</p>
                     </fieldset>
 
                     <!-- Keys & Integration -->
@@ -130,18 +121,9 @@
                         </p>
                         <div class="form-grid">
                             <div>
-                                <label for="ai_key" class="label-tt">AI API Key <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the key. Leave blank to keep the existing value. Never share this key.</span></span></label>
-                                <div class="relative">
-                                    <input type="password" id="ai_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
-                                    <button type="button" onclick="toggleVisibility('ai_key', this)" class="btn-eye">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
                                 <label for="discord_key" class="label-tt">Discord Bot Token <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Only fill in on first setup or when rotating the token. Leave blank to keep the existing value. Never share this token.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="discord_key" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing key">
+                                    <input type="password" id="discord_key" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing key">
                                     <button type="button" onclick="toggleVisibility('discord_key', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -149,7 +131,7 @@
                             </div>
                             <div>
                                 <label for="public_url" class="label-tt">Public URL <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Public address of the server. Used to build absolute URLs for Discord webhook avatar images. If empty or set to localhost, Caddy (HTTPS proxy) won't start on deploy.</span></span></label>
-                                <input type="url" id="public_url" class="input-field" placeholder="e.g. https://yourdomain.com">
+                                <input type="url" id="public_url" class="field" placeholder="e.g. https://yourdomain.com">
                             </div>
                         </div>
                     </fieldset>
@@ -160,7 +142,7 @@
                         <div class="mt-2 mb-4">
                             <label for="default_character" class="label-tt">Default Character <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Character used for DMs and @mentions when no trigger word is matched.</span></span></label>
                             <div class="relative">
-                                <input type="text" id="default_character" autocomplete="off" class="input-field pr-8" required placeholder="Select character…">
+                                <input type="text" id="default_character" autocomplete="off" class="field pr-8" required placeholder="Select character…">
                                 <div id="default-character-dd" class="autocomplete-dd hidden"></div>
                             </div>
                         </div>
@@ -176,7 +158,7 @@
                         </div>
                         <div id="dm-fields" class="hidden mt-4">
                             <label for="dm_list" class="label-tt">Allowed Discord Usernames <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">One username per line. Only these users can DM the bot.</span></span></label>
-                            <textarea id="dm_list" rows="5" class="input-field font-mono" placeholder="username1&#10;username2"></textarea>
+                            <textarea id="dm_list" rows="5" class="field font-mono" placeholder="username1&#10;username2"></textarea>
                         </div>
                     </fieldset>
 
@@ -197,28 +179,28 @@
                             <div class="divider"></div>
                             <div class="flex-between">
                                 <div>
-                                    <label for="multimodal_enable" class="label-inline">Enable Vision (Image Description)</label>
+                                    <label for="multi_model_enable" class="label-inline">Enable Vision (Image Description)</label>
                                     <p class="text-hint">Allows the bot to describe images attached to Discord messages. Requires a vision-capable model and endpoint.</p>
                                 </div>
                                 <label class="toggle-wrap">
-                                    <input id="multimodal_enable" type="checkbox" class="sr-only peer">
+                                    <input id="multi_model_enable" type="checkbox" class="sr-only peer">
                                     <div class="toggle-track"></div>
                                 </label>
                             </div>
-                            <div id="multimodal-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
+                            <div id="multi-model-options" class="hidden pl-6 space-y-4 border-l-2 border-gray-700">
                                 <div>
-                                    <label for="multimodal_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured Multimodal Provider below.</span></span></label>
+                                    <label for="multi_model_ai_model" class="label-tt">Vision Model <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Model used for image description. Pick from a configured multi provider below.</span></span></label>
                                     <div class="relative">
-                                        <input type="text" id="multimodal_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
-                                        <div id="multimodal-ai-model-dd" class="autocomplete-dd hidden"></div>
+                                        <input type="text" id="multi_model_ai_model" autocomplete="off" class="input-field" placeholder="Select from providers below…">
+                                        <div id="multi-model-ai-model-dd" class="autocomplete-dd hidden"></div>
                                     </div>
-                                    <input type="hidden" id="multimodal_ai_provider">
+                                    <input type="hidden" id="multi_model_ai_provider">
                                 </div>
                             </div>
                             <div class="divider"></div>
                             <div>
-                                <p class="label-inline">Multimodal Providers</p>
-                                <p class="text-hint">Pool of AI providers available for character and channel overrides.</p>
+                                <p class="label-inline">Multi Providers</p>
+                                <p class="text-hint">Additional API endpoints and models (e.g. another host for fallback, vision, or character overrides). Each provider has its own URL, key, and allowed models.</p>
                                 <div id="providers-list" class="mt-3 space-y-3"></div>
                                 <button type="button" id="add-provider-btn" class="btn-primary text-sm px-4 mt-3">
                                     <i class="fas fa-plus mr-1"></i>Add Provider
@@ -240,7 +222,7 @@
                     <legend class="legend-section">Prompt Template Editor (Default)</legend>
                     <div class="mt-4">
                         <label for="prompt_template" class="label-tt">Prompt Template <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Defines the structure sent to the AI. </span></span></label>
-                        <textarea id="prompt_template" rows="12" class="input-field font-mono" placeholder="Loading prompt template..."></textarea>
+                        <textarea id="prompt_template" rows="12" class="field font-mono" placeholder="Loading prompt template..."></textarea>
                     </div>
                     <div class="flex justify-end pt-4">
                         <button id="save-prompt-btn" class="btn-primary px-6">
@@ -284,12 +266,12 @@
                             <p class="text-hint">Current super admin: <span id="current-super-admin-username">Not set</span></p>
                             <div>
                                 <label for="super_admin_username" class="label-tt">Username</label>
-                                <input type="text" id="super_admin_username" class="input-field" placeholder="e.g. admin">
+                                <input type="text" id="super_admin_username" class="field" placeholder="e.g. admin">
                             </div>
                             <div>
                                 <label for="panel_password" class="label-tt">Password</label>
                                 <div class="relative">
-                                    <input type="password" id="panel_password" autocomplete="off" minlength="8" class="input-field pr-10" placeholder="Minimum 8 characters">
+                                    <input type="password" id="panel_password" autocomplete="off" minlength="8" class="field pr-10" placeholder="Minimum 8 characters">
                                     <button type="button" onclick="toggleVisibility('panel_password', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -321,12 +303,12 @@
                             <p class="text-xs text-gray-500">These values come from your app on the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" class="link-indigo-sm">Discord Developer Portal</a>.</p>
                             <div>
                                 <label for="discord_oauth_client_id" class="label-tt">Client ID <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found on the General Information page of your app on the Discord Developer Portal.</span></span></label>
-                                <input type="text" id="discord_oauth_client_id" class="input-field" placeholder="Discord app client ID">
+                                <input type="text" id="discord_oauth_client_id" class="field" placeholder="Discord app client ID">
                             </div>
                             <div>
                                 <label for="discord_oauth_client_secret" class="label-tt">Client Secret <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">Found under OAuth2 on the Developer Portal. If lost, reset it there. Never share this value.</span></span></label>
                                 <div class="relative">
-                                    <input type="password" id="discord_oauth_client_secret" autocomplete="off" class="input-field pr-10" placeholder="Leave blank to keep existing">
+                                    <input type="password" id="discord_oauth_client_secret" autocomplete="off" class="field pr-10" placeholder="Leave blank to keep existing">
                                     <button type="button" onclick="toggleVisibility('discord_oauth_client_secret', this)" class="btn-eye">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -340,7 +322,7 @@
                             </div>
                             <div>
                                 <label for="discord_allowed_usernames" class="label-tt">Trusted Discord usernames <span class="text-hint font-normal">(--> super admins – one username per line)</span> <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body">With Discord login enabled you must list at least one username. Each listed account becomes super admin on first sign-in. Users who are not on the list can still sign in with Discord and request access.</span></span></label>
-                                <textarea id="discord_allowed_usernames" rows="3" class="input-field font-mono" placeholder="e.g. johndoe&#10;janedoe"></textarea>
+                                <textarea id="discord_allowed_usernames" rows="3" class="field font-mono" placeholder="e.g. johndoe&#10;janedoe"></textarea>
                             </div>
                         </div>
                     </div>
@@ -357,10 +339,10 @@
     <!-- Confirm disable Discord OAuth modal -->
     <div id="confirm-disable-discord-modal" class="modal-backdrop hidden">
         <div class="modal-box modal-sm">
-            <div class="modal-header p-5">
+            <div class="modal-header">
                 <h3 class="modal-heading">Disable Discord login?</h3>
             </div>
-            <div class="p-5">
+            <div class="modal-body">
                 <p class="text-hint" id="confirm-disable-discord-msg">Discord OAuth login will be disabled.</p>
             </div>
             <div class="modal-footer">
@@ -373,10 +355,10 @@
     <!-- Confirm disable unique login modal -->
     <div id="confirm-disable-local-modal" class="modal-backdrop hidden">
         <div class="modal-box modal-sm">
-            <div class="modal-header p-5">
+            <div class="modal-header">
                 <h3 class="modal-heading">Disable password login?</h3>
             </div>
-            <div class="p-5">
+            <div class="modal-body">
                 <p class="text-hint">Unique account login will be disabled. You will only be able to log in via Discord OAuth. Make sure Discord is configured before continuing.</p>
             </div>
             <div class="modal-footer">

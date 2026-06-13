@@ -7,7 +7,9 @@
     <title>zahul-ai - Characters</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 <body class="bg-darker text-light flex flex-col min-h-screen" data-page="characters">
     <div id="toast-container" class="toast z-50"></div>
@@ -18,11 +20,14 @@
     <script src="/static/js/pages/characters.js" defer></script>
 
     <!-- Main Content -->
-    <main class="flex-grow p-6">
-        <div class="max-w-4xl mx-auto">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <h1 class="heading-page">Character Management</h1>
-                <div class="flex items-center gap-3">
+    <main class="page">
+        <div class="main-content">
+            <div class="flex flex-wrap items-center justify-between">
+                <div class="page-heading">
+                    <h1 class="page-title">Character Management</h1>
+                    <p class="page-subtitle">Manage your characters and their settings.</p>
+                </div>
+                <div class="flex items-center gap-3 mb-6">
                     <button id="import-card-btn" class="btn-dashed">
                         <i class="fas fa-upload"></i> Import Card
                     </button>
@@ -31,6 +36,7 @@
                     </button>
                 </div>
             </div>
+            
 
             <!-- Filters -->
             <div id="characters-filters" class="filter-panel mb-6">
@@ -52,6 +58,7 @@
                 </div>
                 <button id="clear-filters-btn" class="btn-clear-filter">Clear filters</button>
             </div>
+                
             <div id="character-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 <div class="panel-loader is-full-width" role="status" aria-live="polite">
                     <span class="loader-spinner" aria-hidden="true"></span>
@@ -65,13 +72,13 @@
     <input type="file" id="import-file-input" class="hidden" accept=".json,.jsonc,.png" aria-label="Import character card file">
 
     <!-- Import Info Modal -->
-    <div id="import-info-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+    <div id="import-info-modal" class="modal character-modal-shell character-modal-shell-top opacity-0 pointer-events-none">
         <div class="modal-box modal-md">
-            <div class="modal-header p-5">
+            <div class="modal-header">
                 <h2 class="heading-section"><i class="fas fa-upload mr-2 text-indigo-400"></i>Import Character Card</h2>
                 <button id="import-info-close" class="btn-icon"><i class="fas fa-times fa-lg"></i></button>
             </div>
-            <div class="p-5 space-y-4 text-sm">
+            <div class="modal-body modal-body--sm">
                 <div>
                     <p class="label-muted">Supported formats</p>
                     <div class="space-y-1">
@@ -106,9 +113,9 @@
     </div>
 
     <!-- Character Edit/Create Modal -->
-    <div id="character-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-40 opacity-0 pointer-events-none">
+    <div id="character-modal" class="modal character-modal-shell character-modal-shell-main opacity-0 pointer-events-none">
         <div class="modal-content modal-box modal-lg overflow-y-auto">
-            <div class="modal-header p-6 sticky top-0 bg-gray-900 z-10">
+            <div class="modal-header modal-header--sticky">
                 <h2 id="form-title" class="heading-card">Select or Create a Character</h2>
                 <button id="modal-close-btn" class="btn-icon"><i class="fas fa-times fa-lg"></i></button>
             </div>
@@ -131,7 +138,7 @@
                 <div>
                     <div class="flex items-center gap-2 mb-5">
                         <label for="avatar-url" class="label-inline">Avatar</label>
-                        <div class="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
+                        <div class="mode-tab-group">
                             <button type="button" id="avatar-mode-url" class="mode-tab mode-tab-on">External URL</button>
                             <button type="button" id="avatar-mode-upload" class="mode-tab mode-tab-off">Upload (static)</button>
                         </div>
@@ -178,7 +185,7 @@
                             <span class="label-inline">Per-Server Override</span>
                             <span class="toggle-wrap">
                                 <input type="checkbox" id="model-rules-enabled" class="sr-only peer">
-                                <span class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></span>
+                                <div class="toggle-track"></div>
                             </span>
                         </label>
                         <span id="model-rules-toggle-hint" class="text-hint">toggle off = server/global default</span>

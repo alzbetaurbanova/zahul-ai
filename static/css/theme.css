@@ -1,0 +1,506 @@
+/**
+ * Theme tokens (dark + light) and theme-specific overrides.
+ * Components in styles.css consume var(--*). Active: html[data-theme="dark|light"].
+ * :root defaults to dark for pages without theme.js.
+ */
+
+:root,
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Brand */
+    --primary: #6366f1;
+    --primary-dark: #666fc4;
+    --primary-hover: #5a62b0;
+    --primary-light: #818cf8;
+    --primary-lighter: #a5b4fc;
+    --primary-tint-04: rgba(99, 102, 241, 0.04);
+    --primary-tint-10: rgba(99, 102, 241, 0.1);
+    --primary-tint-14: rgba(99, 102, 241, 0.14);
+    --primary-tint-15: rgba(99, 102, 241, 0.15);
+    --primary-tint-20: rgba(99, 102, 241, 0.2);
+    --primary-tint-35: rgba(99, 102, 241, 0.35);
+    --primary-focus-ring: rgba(99, 102, 241, 0.3);
+    --primary-glow: rgba(79, 70, 229, 0.7);
+
+    /* Surfaces */
+    --darker: #0f172a;
+    --dark: #1e293b;
+    --surface-deep: #111827;
+    --surface: #1f2937;
+    --surface-raised: #374151;
+    --surface-mid: #4b5563;
+    --surface-readonly: #334155;
+
+    /* Text */
+    --light: #f8fafc;
+    --text-soft: #d1d5db;
+    --text-dim: #9ca3af;
+    --text-muted: #6b7280;
+    --text-on-accent: #ffffff;
+    --text-slate: #94a3b8;
+    --text-code: #e2e8f0;
+    --text-tooltip: #cbd5e1;
+
+    /* Success */
+    --success: #10b981;
+    --success-solid: #16a34a;
+    --success-hover: #15803d;
+    --success-glow: #10b981;
+
+    /* Warning */
+    --warning: #f59e0b;
+    --warning-hover: #d97706;
+    --warning-dark: #b45309;
+    --warning-glow: rgba(245, 158, 11, 0.5);
+
+    /* Danger / error */
+    --danger: #dc2626;
+    --danger-dark: #b91c1c;
+    --danger-darker: #991b1b;
+    --danger-bright: #ef4444;
+    --danger-text: #f87171;
+    --danger-text-light: #fca5a5;
+    --danger-border: #7f1d1d;
+    --danger-bg-soft: rgba(127, 29, 29, 0.25);
+    --danger-log-bg: #1c0a0a;
+    --danger-log-border: #450a0a;
+
+    /* Role badges (navbar solid) */
+    --role-super-admin: #eab308;
+    --role-admin: #047857;
+    --role-mod: #2563eb;
+    --role-on-dark: #1f2937;
+
+    /* Role badges (list soft) */
+    --role-super-admin-tint: rgba(234, 179, 8, 0.15);
+    --role-super-admin-text: #fbbf24;
+    --role-admin-tint: rgba(5, 150, 105, 0.2);
+    --role-admin-text: #6ee7b7;
+    --role-mod-tint: rgba(37, 99, 235, 0.22);
+    --role-mod-text: #93c5fd;
+    --role-guest-tint: rgba(107, 114, 128, 0.15);
+    --role-pending-tint: rgba(245, 158, 11, 0.18);
+    --role-rejected-tint: rgba(220, 38, 38, 0.18);
+
+    /* Scheduler */
+    --scheduler-failed-bg: #7c2d12;
+    --scheduler-failed-text: #fdba74;
+
+    /* Discord */
+    --discord: #5865f2;
+    --discord-hover: #4752c4;
+
+    /* Accent */
+    --accent-orange: #fb923c;
+
+    /* Overlays */
+    --overlay-backdrop: rgba(0, 0, 0, 0.75);
+    --overlay-scrim: rgba(0, 0, 0, 0.6);
+    --overlay-dark: rgba(15, 23, 42, 0.8);
+    --log-stream-bg: #181b24;
+
+    /* Shadows */
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-dropdown: 0 10px 25px rgba(0, 0, 0, 0.5);
+    --shadow-dropdown-soft: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-menu: 0 10px 25px rgba(0, 0, 0, 0.45);
+    --shadow-card: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -2px rgb(0 0 0 / 0.08);
+    --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    --shadow-ring-dark: 0 0 0 1px rgba(0, 0, 0, 0.35);
+
+    /* Gradients */
+    --gradient-card-footer: linear-gradient(to top, rgb(7 11 21 / 0.82), transparent 55%);
+    --gradient-editor-mask: radial-gradient(circle 178px at center, transparent 176px, var(--overlay-scrim) 178px);
+
+    /* Toggle */
+    --toggle-knob: #ffffff;
+    --toggle-knob-border: #d1d5db;
+    --toggle-track: var(--surface-mid);
+    --toggle-track-on: #666fc4;
+
+    /* Tooltips */
+    --tooltip-bg: var(--dark);
+    --tooltip-border: var(--surface-raised);
+
+    /* Log blocks */
+    --log-pre-text: #e5e7eb;
+
+    /* Error page icon backgrounds */
+    --icon-tint-primary: rgba(99, 102, 241, 0.12);
+    --icon-tint-danger: rgba(220, 38, 38, 0.12);
+    --icon-tint-warning: rgba(245, 158, 11, 0.12);
+    --icon-tint-orange: rgba(234, 88, 12, 0.12);
+
+    /* Misc shadows */
+    --shadow-panel: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+    /* Scrollbars */
+    --scrollbar-size: 10px;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: var(--surface-mid);
+    --scrollbar-thumb-hover: var(--primary-light);
+}
+
+:root input[type="date"],
+:root input[type="datetime-local"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="datetime-local"] {
+    color-scheme: dark;
+}
+
+:root input[type="date"]::-webkit-calendar-picker-indicator,
+:root input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+[data-theme="light"] {
+    color-scheme: light;
+
+    /* Brand */
+    --primary: #2e58c4;
+    --primary-dark: #666fc4;
+    --primary-hover: #5a62b0;
+    --primary-light: #5078d4;
+    --primary-lighter: #6b8fd4;
+    --primary-tint-04: color-mix(in srgb, var(--primary) 4%, transparent);
+    --primary-tint-10: color-mix(in srgb, var(--primary) 10%, transparent);
+    --primary-tint-12: color-mix(in srgb, var(--primary) 12%, transparent);
+    --primary-tint-14: color-mix(in srgb, var(--primary) 14%, transparent);
+    --primary-tint-15: color-mix(in srgb, var(--primary) 15%, transparent);
+    --primary-tint-20: color-mix(in srgb, var(--primary) 20%, transparent);
+    --primary-tint-35: color-mix(in srgb, var(--primary) 35%, transparent);
+    --primary-focus-ring: color-mix(in srgb, var(--primary) 30%, transparent);
+    --primary-glow: color-mix(in srgb, var(--primary) 70%, transparent);
+    --icon-tint-primary: color-mix(in srgb, var(--primary) 12%, transparent);
+
+    /* Surfaces */
+    --darker: #dbe2eb;
+    --dark: #dce8f3;
+    --surface-deep: #ecf2f9;
+    --surface: #e1ebf4;
+    --surface-raised: #c8cfea;
+    --surface-mid: #9aacc1;
+    --surface-readonly: #c5d3e0;
+
+    /* Text */
+    --light: #1b2734;
+    --text-soft: #4f5d6e;
+    --text-dim: #697889;
+    --text-muted: #8492a3;
+
+    /* Overlays & shadows (lighter UI) */
+    --overlay-backdrop: rgba(27, 39, 52, 0.45);
+    --overlay-scrim: rgba(27, 39, 52, 0.35);
+    --overlay-dark: rgba(236, 242, 249, 0.92);
+    --log-stream-bg: #ecf2f9;
+    --shadow-dropdown: 0 10px 25px rgba(27, 39, 52, 0.15);
+    --shadow-dropdown-soft: 0 4px 12px rgba(27, 39, 52, 0.1);
+    --shadow-menu: 0 10px 25px rgba(27, 39, 52, 0.12);
+    --shadow-modal: 0 25px 50px -12px rgba(27, 39, 52, 0.2);
+    --shadow-panel: 0 10px 15px -3px rgba(27, 39, 52, 0.08), 0 4px 6px -2px rgba(27, 39, 52, 0.04);
+    --shadow-card: 0 10px 15px -3px rgba(27, 39, 52, 0.08), 0 4px 6px -2px rgba(27, 39, 52, 0.04);
+    --shadow-sm: 0 4px 6px -1px rgba(27, 39, 52, 0.06), 0 2px 4px -1px rgba(27, 39, 52, 0.04);
+    --gradient-card-footer: linear-gradient(to top, rgb(7 11 21 / 0.82), transparent 55%);
+
+    /* Toggle */
+    --toggle-track: #9aacc1;
+    --toggle-track-on: #666fc4;
+    --toggle-knob: #ffffff;
+    --toggle-knob-border: var(--surface-raised);
+
+    /* Tooltips */
+    --tooltip-bg: color-mix(in srgb, var(--darker) 50%, var(--surface-deep) 50%);
+    --tooltip-border: var(--surface-raised);
+
+    /* Danger / validation */
+    --danger-text: #b05a6a;
+    --danger-text-light: #c47a87;
+
+    /* Scrollbars */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: var(--surface-mid);
+    --scrollbar-thumb-hover: var(--primary);
+}
+
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="datetime-local"] {
+    color-scheme: light;
+}
+
+/* Tailwind border-gray overrides */
+[data-theme="light"] .border-gray-700 { border-color: #c8cfea !important; }
+
+/* Log source badges */
+[data-theme="light"] .log-source-chat      { background: #86efac; color: #14532d; opacity: 0.6; }
+[data-theme="light"] .log-source-test      { background: #d1d5db; color: #1f2937; }
+[data-theme="light"] .log-source-scheduler { background: #a5b4fc; color: #312e81; }
+
+/* Admin log action badges — swap bg/text in light mode */
+[data-theme="light"] .admin-action-badge.bg-emerald-900,
+[data-theme="light"] .admin-action-badge.bg-emerald-950 { background: #6ee7b7 !important; color: #064e3b !important; }
+[data-theme="light"] .admin-action-badge.bg-purple-900  { background: #d8b4fe !important; color: #4c1d95 !important; }
+[data-theme="light"] .admin-action-badge.bg-red-900     { background: #fca5a5 !important; color: #7f1d1d !important; }
+[data-theme="light"] .admin-action-badge.bg-slate-800   { background: #cbd5e1 !important; color: #1e293b !important; }
+[data-theme="light"] .admin-action-badge.bg-amber-900,
+[data-theme="light"] .admin-action-badge.bg-amber-950   { background: #fcd34d !important; color: #78350f !important; }
+[data-theme="light"] .admin-action-badge.bg-gray-800    { background: #d1d5db !important; color: #1f2937 !important; }
+[data-theme="light"] .admin-action-badge.bg-gray-700    { background: #e5e7eb !important; color: #374151 !important; }
+[data-theme="light"] .admin-action-badge.bg-blue-900    { background: #93c5fd !important; color: #1e3a5f !important; }
+[data-theme="light"] .admin-action-badge.bg-teal-900    { background: #5eead4 !important; color: #134e4a !important; }
+[data-theme="light"] .admin-action-badge.bg-green-900,
+[data-theme="light"] .admin-action-badge.bg-green-800   { background: #86efac !important; color: #14532d !important; }
+[data-theme="light"] .admin-action-badge.bg-yellow-900  { background: #fde047 !important; color: #713f12 !important; }
+[data-theme="light"] .admin-action-badge.bg-violet-900,
+[data-theme="light"] .admin-action-badge.bg-violet-800  { background: #c4b5fd !important; color: #4c1d95 !important; }
+[data-theme="light"] .admin-action-badge.bg-orange-900  { background: #fdba74 !important; color: #7c2d12 !important; }
+[data-theme="light"] .admin-action-badge.bg-indigo-900,
+[data-theme="light"] .admin-action-badge.bg-indigo-950  { background: #a5b4fc !important; color: #312e81 !important; }
+
+/* Scheduler badges */
+[data-theme="light"] .sched-badge-reminder  { background: #fef3c7; color: #92400e; }
+
+/* Tailwind utilities compiled to literals */
+[data-theme="light"] .bg-darker { background-color: var(--darker) !important; }
+[data-theme="light"] .text-light { color: var(--light) !important; }
+
+[data-theme="light"] .text-white,
+[data-theme="light"] .text-gray-100,
+[data-theme="light"] .text-gray-200 { color: var(--light) !important; }
+
+[data-theme="light"] .text-gray-300 { color: var(--text-soft) !important; }
+[data-theme="light"] .text-gray-400 { color: var(--text-dim) !important; }
+[data-theme="light"] .text-gray-500 { color: var(--text-muted) !important; }
+
+[data-theme="light"] .text-red-400 { color: var(--danger-text) !important; }
+
+/* Headings / inputs that use --text-on-accent in dark */
+[data-theme="light"] :is(
+    .heading-card,
+    .heading-section,
+    .heading-page,
+    .page-title,
+    #control-status-text,
+    .cb-dd-item,
+    .tooltip-title,
+    .modal-heading,
+    .brand-header span,
+    .login-brand-name
+) { color: var(--light); }
+
+[data-theme="light"] :is(.input-field, .input-joined, .select-sm, .cb-dd-btn, .field, .select-inline, .btn-joined) {
+    color: var(--light);
+}
+
+[data-theme="light"] .list-card,
+[data-theme="light"] .scheduler-task-card {
+    background-color: var(--surface-deep);
+    border-color: var(--surface-raised);
+}
+
+[data-theme="light"] :is(.list-card:hover, .scheduler-task-card:hover) {
+    border-color: var(--surface-mid);
+}
+
+[data-theme="light"] :is(
+    .hamburger-btn,
+    .nav-mobile-link,
+    .nav-user-logout,
+    .btn-icon,
+    .btn-ghost,
+    .btn-clear-filter,
+    .btn-copy,
+    .btn-eye,
+    .file-label,
+    .mode-tab-off,
+    .tab-off
+):hover,
+[data-theme="light"] .nav-mobile-link.active {
+    color: var(--primary);
+}
+
+[data-theme="light"] :is(
+    .btn-primary, .btn-primary-sm, .btn-gray, .btn-gray-sm, .btn-green, .btn-red,
+    .btn-discord, .btn-danger:hover, .servers-invite-link,
+    .tab-indigo-on, .tab-amber-on, .mode-tab-on, .range-btn-active
+),
+[data-theme="light"] :is(
+    .btn-primary, .btn-primary-sm, .btn-gray, .btn-gray-sm, .btn-green, .btn-red,
+    .btn-discord
+) * {
+    color: var(--text-on-accent) !important;
+}
+
+/* Scheduler badges (Tailwind 900 classes — keep explicit light palette) */
+[data-theme="light"] .scheduler-badge.bg-indigo-900 { background-color: #a5b4fc !important; color: #312e81 !important; }
+[data-theme="light"] .scheduler-badge.bg-amber-900 { background-color: #fcd34d !important; color: #78350f !important; }
+[data-theme="light"] .scheduler-badge.bg-green-900 { background-color: #91d4a5 !important; color: #1a5235 !important; }
+[data-theme="light"] .scheduler-badge.bg-blue-900 { background-color: #93c5fd !important; color: #1e3a8a !important; }
+[data-theme="light"] .scheduler-badge.bg-red-900 { background-color: #fca5a5 !important; color: #7f1d1d !important; }
+[data-theme="light"] .scheduler-badge.bg-purple-900 { background-color: #d8b4fe !important; color: #581c87 !important; }
+
+[data-theme="light"] :is(.scheduler-badge--status-done, .scheduler-badge--mode-neutral) {
+    background-color: var(--surface);
+    color: var(--text-soft);
+    border: 1px solid var(--surface-raised);
+}
+
+[data-theme="light"] .scheduler-badge--status-failed {
+    background-color: var(--danger-text-light);
+    color: var(--danger-border);
+}
+
+[data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
+[data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
+[data-theme="light"] .power-btn { color: var(--light); }
+
+/* Console log stream */
+[data-theme="light"] .log-stream             { background-color: #2d3748; border-color: rgba(99, 102, 241, 0.2); }
+[data-theme="light"] .console-log-time       { color: #9ca3af; }
+[data-theme="light"] .console-log-message    { color: #f1f5f9; }
+
+/* Nav user badge — identical to dark mode */
+[data-theme="light"] .nav-user-badge                  { border-color: #0f172a; background: #4b5563; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-super_admin { background: #eab308; color: #1f2937; }
+[data-theme="light"] .nav-user-badge.role-admin       { background: #047857; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-mod         { background: #2563eb; color: #ffffff; }
+[data-theme="light"] .nav-user-badge.role-guest       { background: #4b5563; color: #ffffff; }
+
+/* Role badges — solid in light mode */
+[data-theme="light"] .role-badge.role-super_admin { background-color: var(--role-super-admin); color: var(--light); }
+[data-theme="light"] .role-badge.role-admin       { background-color: #a7f3d0; color: var(--light); }
+[data-theme="light"] .role-badge.role-mod         { background-color: #bfdbfe; color: var(--light); }
+[data-theme="light"] .role-badge.role-guest       { background-color: #e2e8f0; color: var(--text-soft); }
+[data-theme="light"] .role-badge.role-pending,
+[data-theme="light"] .role-badge.role-user        { background-color: #fde68a; color: var(--text-soft); }
+[data-theme="light"] .role-badge.role-rejected    { background-color: #fecaca; color: var(--text-soft); }
+
+[data-theme="light"] .mode-tab-group--segmented {
+    background-color: var(--surface);
+    border-color: var(--surface-raised);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-off {
+    background-color: transparent;
+    color: var(--text-soft);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-off:hover {
+    background-color: var(--primary-tint-10);
+    color: var(--primary);
+}
+
+[data-theme="light"] .mode-tab-group--segmented .mode-tab-on {
+    background-color: var(--primary);
+    color: var(--text-on-accent);
+}
+
+[data-theme="light"] #avatar-upload::file-selector-button:hover {
+    background-color: var(--primary-tint-10);
+    color: var(--primary);
+    border-color: var(--surface-mid);
+}
+
+[data-theme="light"] :is(.combobox-item, .scheduler-combobox-item):hover,
+[data-theme="light"] .custom-select-option:hover:not(.is-disabled) {
+    background-color: var(--primary-tint-10);
+}
+
+[data-theme="light"] .scheduler-combobox-label { color: var(--light); }
+[data-theme="light"] .scheduler-combobox-sub { color: var(--text-dim); }
+
+[data-theme="light"] .tt .tt-body,
+[data-theme="light"] .tooltip-popup {
+    box-shadow: 0 4px 14px rgba(27, 39, 52, 0.12);
+}
+
+[data-theme="light"] .tt .tt-body,
+[data-theme="light"] .tooltip-text { color: var(--light); }
+
+[data-theme="light"] .tooltip-popup { color: var(--text-soft); }
+
+/* Chat simulator — light: whole panel uses opaque primary hover tint; dark: styles.css Discord palette */
+[data-theme="light"] .sim-chat-wrap {
+    background-color: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-raised));
+    box-shadow: var(--shadow-panel);
+}
+
+[data-theme="light"] .sim-chat-header {
+    background-color: color-mix(in srgb, var(--primary) 14%, var(--surface-deep));
+    border-bottom-color: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-chat-header-icon {
+    background-color: color-mix(in srgb, var(--primary) 18%, var(--surface));
+    color: var(--primary);
+}
+
+[data-theme="light"] .sim-chat-header-title {
+    color: var(--light);
+}
+
+[data-theme="light"] :is(
+    .sim-chat-header-sub,
+    .sim-chat-empty,
+    .sim-chat-meta,
+    .sim-msg-time,
+    .sim-msg-meta
+) {
+    color: var(--text-dim);
+}
+
+[data-theme="light"] .sim-msg-author {
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-msg--bot .sim-msg-author {
+    color: var(--primary);
+}
+
+[data-theme="light"] .sim-msg-content {
+    color: var(--text-soft);
+}
+
+[data-theme="light"] .sim-msg:hover {
+    background-color: color-mix(in srgb, var(--primary) 16%, var(--surface-deep));
+}
+
+[data-theme="light"] .sim-inline-code {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-chat-meta {
+    background-color: color-mix(in srgb, var(--primary) 14%, var(--surface-deep));
+    border-top-color: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-chat-compose {
+    background-color: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+}
+
+[data-theme="light"] .sim-compose-inner {
+    background-color: color-mix(in srgb, var(--primary) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--surface-raised));
+}
+
+[data-theme="light"] .sim-compose-input {
+    color: var(--light);
+}
+
+[data-theme="light"] .sim-compose-input::placeholder {
+    color: var(--text-muted);
+}
+
+[data-theme="light"] .sim-typing-dots span {
+    background-color: var(--text-dim);
+}
+
+[data-theme="light"] .sim-readonly-banner {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-deep));
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--surface-raised));
+    color: var(--primary-dark);
+}

@@ -75,8 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     copyInviteBtn.addEventListener('click', function() {
+        if (!inviteLink.value) return;
         navigator.clipboard.writeText(inviteLink.value)
             .then(() => {
+                if (typeof logInviteCopied === 'function') logInviteCopied();
                 const originalIcon = copyInviteBtn.innerHTML;
                 copyInviteBtn.innerHTML = '<i class="fas fa-check"></i>';
                 setTimeout(() => { copyInviteBtn.innerHTML = originalIcon; }, 2000);
@@ -173,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset all classes
         const allStatusClasses = ['status-active', 'status-inactive', 'status-starting', 'status-stopping', 'status-crashed'];
         controlStatusIndicator.classList.remove(...allStatusClasses);
-        powerBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-gray-800', 'hover:bg-gray-700', 'bg-yellow-600');
+        powerBtn.classList.remove('power-btn--active', 'power-btn--inactive', 'power-btn--crashed');
 
         powerBtn.disabled = !canControlBot();
 
@@ -182,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 controlStatusIndicator.classList.add('status-active');
                 controlStatusText.textContent = 'Active';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Deactivate';
-                powerBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                powerBtn.classList.add('power-btn--active');
                 break;
             case 'starting':
                 controlStatusIndicator.classList.add('status-starting');
@@ -200,13 +202,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 controlStatusIndicator.classList.add('status-crashed');
                 controlStatusText.textContent = 'Crashed';
                 powerBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Restart';
-                powerBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                powerBtn.classList.add('power-btn--crashed');
                 break;
             default: // 'inactive'
                 controlStatusIndicator.classList.add('status-inactive');
                 controlStatusText.textContent = 'Inactive';
                 powerBtn.innerHTML = '<i class="fas fa-power-off mr-2"></i> Activate';
-                powerBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                powerBtn.classList.add('power-btn--inactive');
                 break;
         }
         if (!canControlBot()) {
@@ -255,14 +257,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const timeString = now.toLocaleTimeString();
 
         const logEntry = document.createElement('div');
-        logEntry.className = 'log-entry py-2 text-sm';
+        logEntry.className = 'console-log-entry';
 
         const timeSpan = document.createElement('span');
-        timeSpan.className = 'text-gray-500 mr-2';
+        timeSpan.className = 'console-log-time';
         timeSpan.textContent = `[${timeString}]`;
 
         const messageSpan = document.createElement('span');
-        messageSpan.className = 'text-gray-300';
+        messageSpan.className = 'console-log-message';
         messageSpan.textContent = message;
 
         logEntry.appendChild(timeSpan);

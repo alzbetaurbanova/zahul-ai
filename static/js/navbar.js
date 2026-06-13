@@ -232,16 +232,8 @@
 
     const themeBtnLight = container.querySelector('#theme-btn-light');
     const themeBtnDark = container.querySelector('#theme-btn-dark');
-    if (themeBtnLight && themeBtnDark) {
-        function applyThemeToggleUI(light) {
-            themeBtnLight.classList.toggle('mode-tab-on', light);
-            themeBtnLight.classList.toggle('mode-tab-off', !light);
-            themeBtnDark.classList.toggle('mode-tab-on', !light);
-            themeBtnDark.classList.toggle('mode-tab-off', light);
-        }
-        applyThemeToggleUI(localStorage.getItem('theme') === 'light');
-        themeBtnLight.addEventListener('click', () => { localStorage.setItem('theme', 'light'); applyThemeToggleUI(true); });
-        themeBtnDark.addEventListener('click', () => { localStorage.setItem('theme', 'dark'); applyThemeToggleUI(false); });
+    if (themeBtnLight && themeBtnDark && window.ZahulTheme) {
+        ZahulTheme.wireToggle(themeBtnLight, themeBtnDark);
     }
 
     if (userMenuBtn && userMenu) {
@@ -320,6 +312,7 @@
         localStorage.setItem('auth-enabled', authEnabled ? '1' : '0');
         localStorage.setItem('user-role', role);
         applyNavVisibility(authEnabled, role);
+        if (window.ZahulTheme) ZahulTheme.applyUserTheme(currentUser);
     }).catch(() => {
         fetch('/api/auth-enabled').then(r => r.json()).then(d => {
             const authEnabled = !!d.enabled;

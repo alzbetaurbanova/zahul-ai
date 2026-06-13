@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let availableCharacters = [];
     let globalDefaultCharacter = '';
     let serverAllowedModels = [];
+    let serverAllowedModelsPromise = Promise.resolve();
     // DOM Elements
     const serverList = document.getElementById('server-list');
     const channelPanel = document.getElementById('channel-panel');
@@ -52,13 +53,33 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadServerAllowedModels() {
         try {
             const res = await fetch('/api/config/models');
-            if (res.ok) serverAllowedModels = await res.json();
+            if (res.ok) serverAllowedModels = normalizeAllowedModels(await res.json());
         } catch (_) {}
     }
 
+    function setScModelField(displayId, model, source) {
+        const displayEl = document.getElementById(displayId);
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const sourceEl = document.getElementById(`${displayId}-source`);
+        const m = (model || '').trim();
+        const src = source || (displayId === 'sc-fallback-llm' ? 'fallback' : 'primary');
+        if (modelEl) modelEl.value = m;
+        if (sourceEl) sourceEl.value = m ? src : src;
+        if (displayEl) displayEl.value = m ? displayForModel(m, src, serverAllowedModels) : '';
+        if (displayEl && typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(displayEl);
+    }
+
+    function getScModelValue(displayId, preferredSource) {
+        const modelEl = document.getElementById(`${displayId}-model`);
+        const fromHidden = (modelEl?.value || '').trim();
+        if (fromHidden) return fromHidden;
+        const display = (document.getElementById(displayId)?.value || '').trim();
+        return resolveModelFromDisplay(display, serverAllowedModels, preferredSource) || null;
+    }
+
     function fillScFields(cfg) {
-        document.getElementById('sc-base-llm').value = cfg.base_llm ?? '';
-        document.getElementById('sc-fallback-llm').value = cfg.fallback_llm ?? '';
+        setScModelField('sc-base-llm', cfg.base_llm, 'primary');
+        setScModelField('sc-fallback-llm', cfg.fallback_llm, cfg.fallback_llm_source || 'primary');
         document.getElementById('sc-temperature').value = cfg.temperature ?? '';
         document.getElementById('sc-max-tokens').value = cfg.max_tokens ?? '';
         document.getElementById('sc-history-limit').value = cfg.history_limit ?? '';
@@ -69,9 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function clearScFields() {
-        ['sc-base-llm','sc-fallback-llm','sc-temperature',
-            'sc-max-tokens','sc-history-limit','sc-auto-cap',
-            'sc-token-limit-tpm','sc-token-limit-tpd'].forEach(id => {
+        setScModelField('sc-base-llm', '', 'primary');
+        setScModelField('sc-fallback-llm', '', 'fallback');
+        ['sc-temperature', 'sc-max-tokens', 'sc-history-limit', 'sc-auto-cap',
+            'sc-token-limit-tpm', 'sc-token-limit-tpd'].forEach(id => {
             document.getElementById(id).value = '';
         });
         document.getElementById('sc-use-prefill').checked = false;
@@ -177,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentServer.defaultCharacter = serverDefault;
         populateSrvDefaultCharacterSelector(serverDefault);
         updateSrvDefaultCharacterStatus();
+        await serverAllowedModelsPromise;
         await loadServerConfig(server.server_id);
         applyModRestrictions();
     }
@@ -193,8 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const num = (id) => { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; };
         const str = (id) => document.getElementById(id).value.trim() || null;
         const aiOverrides = scToggle.checked ? Object.fromEntries(Object.entries({
-            base_llm: str('sc-base-llm'),
-            fallback_llm: str('sc-fallback-llm'),
+            base_llm: getScModelValue('sc-base-llm', 'primary'),
+            fallback_llm: getScModelValue('sc-fallback-llm', 'fallback'),
             temperature: num('sc-temperature'),
             max_tokens: num('sc-max-tokens'),
             history_limit: num('sc-history-limit'),
@@ -259,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 fillScFields({
                     base_llm: globalCfg.base_llm,
                     fallback_llm: globalCfg.fallback_llm,
+                    fallback_llm_source: globalCfg.fallback_llm_source,
                     temperature: globalCfg.temperature,
                     max_tokens: globalCfg.max_tokens,
                     history_limit: globalCfg.history_limit,
@@ -273,10 +297,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 scToggle.checked = false;
             }
         } else {
-            if (!confirm('Remove all overrides for this server?')) {
-                scToggle.checked = true;
-                return;
-            }
             try {
                 const resp = await fetch(`${API_BASE}/${currentServer.id}/config`, { method: 'DELETE' });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -334,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             servers.forEach(server => {
                 const li = document.createElement('li');
-                li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
+                li.className = 'list-item relative flex items-center w-full group';
                 li.dataset.serverId = server.server_id;
 
                 const nameSpan = document.createElement('span');
@@ -387,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             channels.forEach(channel => {
                 const li = document.createElement('li');
-                li.className = 'list-item relative flex items-center w-full px-4 py-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 group';
+                li.className = 'list-item relative flex items-center w-full group';
                 li.dataset.channelId = channel.channel_id;
 
                 const nameSpan = document.createElement('span');
@@ -518,11 +538,25 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const data = await res.json();
             if (data.invite) {
+                const invite = data.invite;
                 inviteLinkContainer.innerHTML = `
-                    <a href="${data.invite}" target="_blank" rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg mt-8">
-                        <i class="fas fa-external-link-alt"></i> Open Invite Link
-                    </a>`;
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <a href="${escapeHtml(invite)}" target="_blank" rel="noopener noreferrer"
+                            class="servers-invite-link">
+                            <i class="fas fa-external-link-alt"></i> Open Invite Link
+                        </a>
+                        <button type="button" id="servers-copy-invite" class="btn-gray text-sm py-2 px-3">
+                            <i class="fas fa-copy mr-1"></i> Copy
+                        </button>
+                    </div>`;
+                document.getElementById('servers-copy-invite')?.addEventListener('click', () => {
+                    navigator.clipboard.writeText(invite)
+                        .then(() => {
+                            if (typeof logInviteCopied === 'function') logInviteCopied();
+                            showToast('Invite link copied.');
+                        })
+                        .catch(() => showToast('Failed to copy invite link.', 'error'));
+                });
             } else {
                 inviteLinkContainer.innerHTML = `<p class="text-red-400 text-sm">${data.message || 'Bot is not running yet.'}</p>`;
             }
@@ -551,15 +585,26 @@ document.addEventListener('DOMContentLoaded', function() {
             () => updateSrvDefaultCharacterStatus(),
             'hover:bg-gray-700'
         );
-        const allServerModels = () => [...new Set(serverAllowedModels.map(m => m.model))];
-        setupFilterCombobox(
-            'sc-base-llm', 'sc-base-llm-dd',
-            allServerModels, null, null, 'hover:bg-gray-700'
-        );
-        setupFilterCombobox(
-            'sc-fallback-llm', 'sc-fallback-llm-dd',
-            allServerModels, null, null, 'hover:bg-gray-700'
-        );
+        const allServerModelDisplays = () => serverAllowedModels.map(m => m.display);
+        function wireScModelCombobox(displayId, ddId, defaultSource) {
+            setupFilterCombobox(displayId, ddId, allServerModelDisplays, (selected) => {
+                const entry = serverAllowedModels.find(m => m.display === selected);
+                if (!entry) return;
+                const displayEl = document.getElementById(displayId);
+                const modelEl = document.getElementById(`${displayId}-model`);
+                const sourceEl = document.getElementById(`${displayId}-source`);
+                if (displayEl) displayEl.value = entry.display;
+                if (modelEl) modelEl.value = entry.model;
+                if (sourceEl) sourceEl.value = entry.source;
+            }, (value) => {
+                if (!value.trim()) {
+                    document.getElementById(`${displayId}-model`).value = '';
+                    document.getElementById(`${displayId}-source`).value = defaultSource;
+                }
+            }, 'hover:bg-gray-700');
+        }
+        wireScModelCombobox('sc-base-llm', 'sc-base-llm-dd', 'primary');
+        wireScModelCombobox('sc-fallback-llm', 'sc-fallback-llm-dd', 'fallback');
     }
 
     // Form listener
@@ -575,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(() => {})
         .finally(() => {
-            loadServerAllowedModels();
+            serverAllowedModelsPromise = loadServerAllowedModels();
             fetchServers();
         });
 });

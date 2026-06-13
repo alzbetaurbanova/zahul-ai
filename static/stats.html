@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
 </head>
 <body class="bg-darker text-light flex flex-col min-h-screen" data-page="stats">
     <div id="toast-container" class="toast z-50"></div>
@@ -16,12 +18,13 @@
     <script src="/static/js/navbar.js" defer></script>
     <script src="/static/js/pages/stats.js" defer></script>
 
-    <main class="flex-grow p-6">
-        <div class="max-w-4xl mx-auto">
-
-            <!-- Header -->
-            <div class="flex-between mb-6 flex-wrap gap-3">
-                <h1 class="heading-page">Stats</h1>
+    <main class="page">
+        <div class="main-content">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="page-heading">
+                    <h1 class="page-title">Stats</h1>
+                    <p class="page-subtitle">View message volume, errors, tokens, and usage over time.</p>
+                </div>
                 <div class="flex gap-1" id="range-btns">
                     <button class="range-btn" data-days="1">24h</button>
                     <button class="range-btn range-btn-active" data-days="7">7d</button>

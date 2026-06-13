@@ -12,6 +12,8 @@ def _get_trash_db():
     return TrashDB()
 
 DB_PATH = os.getenv("DATABASE_URL", "data/bot.db")
+MULTI_MODEL_PROVIDERS_KEY = "multi_model_providers"
+LEGACY_MULTI_MODEL_PROVIDERS_KEY = "multimodal_providers"
 
 
 def _ensure_db_directory(path: str) -> None:
@@ -358,7 +360,7 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, encrypt, encrypt_providers
         if key in SENSITIVE_KEYS and isinstance(value, str):
             return encrypt(value)
-        if key == "multimodal_providers" and isinstance(value, list):
+        if key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(value, list):
             return encrypt_providers(value)
         return value
 
@@ -366,7 +368,7 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, decrypt, decrypt_providers
         if key in SENSITIVE_KEYS and isinstance(value, str):
             return decrypt(value)
-        if key == "multimodal_providers" and isinstance(value, list):
+        if key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(value, list):
             return decrypt_providers(value)
         return value
 
@@ -417,19 +419,27 @@ class Database:
         from api.utils.crypto import SENSITIVE_KEYS, is_encrypted, encrypt, encrypt_providers
         with self._get_connection() as conn:
             rows = conn.execute("SELECT key, value FROM config").fetchall()
+            parsed = {row["key"]: self._parse_json_value(row["value"]) for row in rows}
+            new_raw = parsed.get(MULTI_MODEL_PROVIDERS_KEY)
             for row in rows:
                 key = row["key"]
-                if key not in SENSITIVE_KEYS and key != "multimodal_providers":
+                if key not in SENSITIVE_KEYS and key not in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY):
                     continue
-                raw = self._parse_json_value(row["value"])
+                raw = parsed.get(key)
                 if key in SENSITIVE_KEYS and isinstance(raw, str) and raw and not is_encrypted(raw):
                     conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
                                  (key, json.dumps(encrypt(raw))))
-                elif key == "multimodal_providers" and isinstance(raw, list):
+                elif key in (MULTI_MODEL_PROVIDERS_KEY, LEGACY_MULTI_MODEL_PROVIDERS_KEY) and isinstance(raw, list):
                     needs_enc = any(p.get("api_key") and not is_encrypted(p["api_key"]) for p in raw)
+                    payload = encrypt_providers(raw) if needs_enc else raw
                     if needs_enc:
                         conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
-                                     (key, json.dumps(encrypt_providers(raw))))
+                                     (key, json.dumps(payload)))
+                    if key == LEGACY_MULTI_MODEL_PROVIDERS_KEY:
+                        if not isinstance(new_raw, list) or (len(new_raw) == 0 and len(raw) > 0):
+                            conn.execute("REPLACE INTO config (key, value) VALUES (?, ?)",
+                                         (MULTI_MODEL_PROVIDERS_KEY, json.dumps(payload)))
+                        conn.execute("DELETE FROM config WHERE key = ?", (LEGACY_MULTI_MODEL_PROVIDERS_KEY,))
             conn.commit()
         db_cache.invalidate_config()
 
@@ -1034,6 +1044,56 @@ class Database:
                   temperature, history_count, task_id, endpoint))
             conn.commit()
 
+    def get_test_tokens_used_today(self, panel_username: str) -> int:
+        from datetime import date
+        day_start = f"{date.today().isoformat()}T00:00:00"
+        with self._get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)), 0)
+                FROM discord_logs
+                WHERE source = 'test' AND user = ? AND timestamp >= ?
+                """,
+                (panel_username, day_start),
+            ).fetchone()
+        return int(row[0] if row else 0)
+
+    def get_server_tokens_used_today(self, server_id: str) -> int:
+        """All discord log tokens billed to a server today (live chat + simulator)."""
+        from datetime import date
+        day_start = f"{date.today().isoformat()}T00:00:00"
+        legacy_sim_channel = f"simulation:{server_id}"
+        with self._get_connection() as conn:
+            test_row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(dl.input_tokens, 0) + COALESCE(dl.output_tokens, 0)), 0)
+                FROM discord_logs dl
+                LEFT JOIN channels c ON (
+                    dl.channel_id = c.channel_id
+                    OR dl.channel_id = 'channel:' || c.channel_id
+                )
+                WHERE dl.source = 'test'
+                  AND dl.timestamp >= ?
+                  AND (c.server_id = ? OR dl.channel_id = ?)
+                """,
+                (day_start, server_id, legacy_sim_channel),
+            ).fetchone()
+            chat_row = conn.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(dl.input_tokens, 0) + COALESCE(dl.output_tokens, 0)), 0)
+                FROM discord_logs dl
+                INNER JOIN channels c ON (
+                    dl.channel_id = c.channel_id
+                    OR dl.channel_id = 'channel:' || c.channel_id
+                )
+                WHERE c.server_id = ?
+                  AND (dl.source IS NULL OR dl.source != 'test')
+                  AND dl.timestamp >= ?
+                """,
+                (server_id, day_start),
+            ).fetchone()
+        return int(test_row[0] if test_row else 0) + int(chat_row[0] if chat_row else 0)
+
     def log_admin(
         self,
         action: str,
@@ -1085,12 +1145,24 @@ class Database:
         if filters.get('task_id'): conditions.append("task_id = ?"); params.append(int(filters['task_id']))
         if filters.get('server_ids') is not None:
             sids = filters['server_ids']
+            panel_user = filters.get('panel_username')
             if not sids:
-                conditions.append("1=0")
+                if panel_user:
+                    conditions.append("(dl.source = 'test' AND dl.user = ?)")
+                    params.append(panel_user)
+                else:
+                    conditions.append("1=0")
             else:
                 clause, clause_params = self._discord_log_on_servers_sql(sids, table_alias="dl")
-                conditions.append(clause)
-                params.extend(clause_params)
+                legacy_sim = [f"simulation:{sid}" for sid in sids]
+                if legacy_sim:
+                    sim_ph = ",".join("?" * len(legacy_sim))
+                    conditions.append(f"({clause} OR dl.channel_id IN ({sim_ph}))")
+                    params.extend(clause_params)
+                    params.extend(legacy_sim)
+                else:
+                    conditions.append(clause)
+                    params.extend(clause_params)
         elif filters.get('channel_ids') is not None:
             vals = filters['channel_ids']
             if not vals:
@@ -1211,18 +1283,18 @@ class Database:
             if server_ids is not None:
                 ch_ph = ",".join("?" * len(server_ids))
                 channel_rows = conn.execute(
-                    f"SELECT channel_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
+                    f"SELECT channel_id, server_id, server_name, data FROM channels WHERE server_id IN ({ch_ph})",
                     server_ids,
                 ).fetchall()
             elif channel_ids is not None:
                 ch_ph = ",".join("?" * len(channel_ids))
                 channel_rows = conn.execute(
-                    f"SELECT channel_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
+                    f"SELECT channel_id, server_id, server_name, data FROM channels WHERE channel_id IN ({ch_ph})",
                     channel_ids,
                 ).fetchall()
             else:
                 channel_rows = conn.execute(
-                    "SELECT channel_id, server_name, data FROM channels"
+                    "SELECT channel_id, server_id, server_name, data FROM channels"
                 ).fetchall()
         channels = {}
         for row in channel_rows:
@@ -1230,6 +1302,7 @@ class Database:
             data = self._parse_json_value(d['data']) if isinstance(d['data'], str) else d['data']
             if isinstance(data, dict):
                 channels[d['channel_id']] = {
+                    'server_id': d.get('server_id'),
                     'server_name': d['server_name'],
                     'channel_name': data.get('name', d['channel_id'])
                 }

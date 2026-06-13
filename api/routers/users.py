@@ -130,6 +130,29 @@ async def _try_dm_or_queue(discord_id: str, message: str, kind: str, log_detail:
     )
 
 
+def _usable_public_url(public_url: Optional[str]) -> Optional[str]:
+    base = (public_url or "").strip().rstrip("/")
+    if base and "localhost" not in base.lower():
+        return base
+    return None
+
+
+def _access_request_review_line(public_url: Optional[str]) -> str:
+    """Discord DM footer: link when public_url is a real host, else local UI hint."""
+    base = _usable_public_url(public_url)
+    if base:
+        return f"[Review it here]({base}/users?tab=requests)"
+    return "Review it under Users → Requests in your zahul-ai ui"
+
+
+def _panel_access_line(public_url: Optional[str]) -> Optional[str]:
+    """Discord DM link to panel root; omitted when public_url is empty or localhost."""
+    base = _usable_public_url(public_url)
+    if base:
+        return f"[Access it here]({base})"
+    return None
+
+
 async def _notify_super_admins_new_access_request(requester_username: str):
     """
     DM all Discord-linked super admins when a new access request is submitted.
@@ -139,10 +162,11 @@ async def _notify_super_admins_new_access_request(requester_username: str):
     admins = db.list_discord_super_admins()
     if not admins:
         return
+    review_line = _access_request_review_line(db.get_config("public_url"))
     message = (
         "New zahul-ai panel access request.\n"
         f"Discord user: {requester_username}\n"
-        "Review it under Users → Requests."
+        f"{review_line}"
     )
     for admin in admins:
         discord_id = str(admin.get("discord_id") or "").strip()
@@ -168,10 +192,14 @@ async def _notify_access_request_resolution(user: dict, approved: bool, assigned
         return
     if approved:
         role_text = assigned_role or "guest"
-        message = (
-            "Your access request to zahul-ai panel was approved.\n"
-            f"Assigned role: {role_text}"
-        )
+        lines = [
+            "Your access request to zahul-ai panel was approved.",
+            f"Assigned role: {role_text}",
+        ]
+        access_line = _panel_access_line(Database().get_config("public_url"))
+        if access_line:
+            lines.append(access_line)
+        message = "\n".join(lines)
     else:
         message = "Your access request to zahul-ai panel was denied."
     uid = user.get("id")
@@ -374,10 +402,18 @@ async def update_password(user_id: int, body: UpdatePasswordRequest, current_use
     user = db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
-    if user.get("role") == "super_admin":
-        raise HTTPException(status_code=400, detail="Password change for super admin is disabled here.")
     if user.get("auth_provider") == "discord":
         raise HTTPException(status_code=400, detail="Discord account password cannot be changed.")
+    caller_level = ROLE_LEVEL.get(current_user.get("role", ""), 0)
+    target_level = ROLE_LEVEL.get(user.get("role", ""), 0)
+    if caller_level < target_level:
+        raise HTTPException(status_code=403, detail="Cannot change password for a user with higher role.")
+    if (
+        caller_level == target_level
+        and current_user.get("role") != "super_admin"
+        and current_user.get("id") != user_id
+    ):
+        raise HTTPException(status_code=403, detail="Cannot change password for a user with equal role.")
     pw_hash = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
     db.update_user(user_id, password_hash=pw_hash)
     db.log_admin("user.password_update", detail=f"user_id={user_id}", actor=current_user)

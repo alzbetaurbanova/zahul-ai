@@ -316,6 +316,8 @@ async def think(zahul, db: Database, queue: asyncio.Queue) -> None:
 
             background_tasks.add(task)
     except asyncio.CancelledError:
+        # Bot is shutting down — cancel in-flight message tasks so they don't
+        # hit a closed HTTP session and spam ❌ reactions.
         for task in background_tasks:
             if not task.done():
                 task.cancel()

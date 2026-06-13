@@ -14,7 +14,7 @@ def _parse_iso_datetime(value: str) -> datetime:
 # Config (maps to the 'config' table)
 # ------------------------------------------------------
 
-class MultimodalProvider(BaseModel):
+class MultiModelProvider(BaseModel):
     name: str = Field(..., min_length=1)
     endpoint: str = ""
     api_key: str = ""
@@ -33,17 +33,19 @@ class BotConfig(BaseModel):
     history_limit: int = Field(10, ge=1, le=50)
     max_tokens: int = Field(256, ge=64, le=4096)
     use_prefill: bool = False
-    multimodal_enable: bool = False
-    multimodal_ai_model: str = ""
-    multimodal_ai_provider: str = ""
-    multimodal_ai_endpoint: str = ""
-    multimodal_ai_api: str = ""
-    multimodal_providers: List[MultimodalProvider] = Field(default_factory=list)
+    multi_model_enable: bool = False
+    multi_model_ai_model: str = ""
+    multi_model_ai_provider: str = ""
+    multi_model_ai_endpoint: str = ""
+    multi_model_ai_api: str = ""
+    multi_model_providers: List[MultiModelProvider] = Field(default_factory=list)
     dm_list : Optional[List[str]] = None # List of discord username that the bot is allowed to DM to
     concurrency : Optional[int] = Field(1, ge=1)
     fallback_llm: str = "llama-3.1-8b-instant"
+    fallback_llm_source: str = ""
     fallback_duration: int = Field(7200, ge=0)
     fallback_use_different_endpoint: bool = False
+    fallback_provider: str = ""
     fallback_ai_endpoint: str = ""
     fallback_ai_key: str = ""
     fallback_allowed_models: List[str] = Field(default_factory=list)

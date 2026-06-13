@@ -26,6 +26,11 @@
         return currentTab === 'admin' ? 'admin' : 'discord';
     }
 
+    function resetPageAndFetch() {
+        currentPage = 1;
+        fetchLogs();
+    }
+
     function adminPermissionHtml() {
         return `<div class="text-gray-500 text-center py-12">
             <i class="fas fa-lock text-3xl mb-3 block opacity-40"></i>
@@ -80,8 +85,8 @@
                 'df-character',
                 'df-character-dd',
                 data.characters || [],
-                () => { currentPage = 1; fetchLogs(); },
-                () => { currentPage = 1; fetchLogs(); }
+                resetPageAndFetch,
+                resetPageAndFetch
             );
             setupFilterCombobox(
                 'df-user',
@@ -100,8 +105,38 @@
         } catch (e) {}
     }
 
+    function parseSimulatorServerId(channel_id) {
+        if (!channel_id) return null;
+        if (channel_id.startsWith('simulator:')) return channel_id.slice('simulator:'.length) || null;
+        if (channel_id.startsWith('simulation:')) return channel_id.slice('simulation:'.length) || null;
+        return null;
+    }
+
+    function simulatorServerName(serverId) {
+        if (!serverId) return '';
+        if (serverNames[serverId]) return serverNames[serverId];
+        const info = channelMap[`simulator:${serverId}`];
+        if (info?.server_name && info.server_name !== serverId) return info.server_name;
+        for (const info of Object.values(channelMap)) {
+            if (info.server_id === serverId && info.server_name && info.server_name !== serverId) {
+                return info.server_name;
+            }
+        }
+        return '';
+    }
+
+    function resolveSimulatorLocation(channel_id) {
+        const serverId = parseSimulatorServerId(channel_id);
+        const serverName = simulatorServerName(serverId);
+        if (serverName) return `${serverName} / simulator`;
+        return 'simulator';
+    }
+
     function resolveChannel(channel_id) {
         if (!channel_id) return '';
+        if (channel_id.startsWith('simulation:') || channel_id.startsWith('simulator:') || channel_id === 'simulation') {
+            return resolveSimulatorLocation(channel_id);
+        }
         if (channel_id === 'dm') return 'Direct Message';
         if (channel_id.startsWith('dm:')) return `DM: ${channel_id.slice(3)}`;
         const rawId = channel_id.startsWith('channel:') ? channel_id.slice(8) : channel_id;
@@ -213,18 +248,16 @@
     }
 
     if (typeof wireCbDdClear === 'function') {
-        wireCbDdClear('dd-source-clear', 'dd-source', () => {
-            currentPage = 1;
-            fetchLogs();
-        });
-        wireCbDdClear('dd-status-clear', 'dd-status', () => {
-            currentPage = 1;
-            fetchLogs();
-        });
-        wireCbDdClear('dd-action-clear', 'dd-action', () => {
-            adminActionSearch?.reset();
-            currentPage = 1;
-            fetchLogs();
+        [
+            { clear: 'dd-source-clear', dd: 'dd-source' },
+            { clear: 'dd-status-clear', dd: 'dd-status' },
+            { clear: 'dd-action-clear', dd: 'dd-action', before: () => adminActionSearch?.reset() },
+        ].forEach(({ clear, dd, before }) => {
+            wireCbDdClear(clear, dd, () => {
+                before?.();
+                currentPage = 1;
+                fetchLogs();
+            });
         });
     }
 
@@ -243,20 +276,31 @@
         });
     });
 
-    // --- Filter auto-fire ---
-    ['df-from','df-to'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
-    });
-    ['af-from','af-to'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchLogs(); });
+    // --- Filter auto-fire (date fields: same native input + custom popup as scheduler) ---
+    [
+        { input: 'df-from', clear: 'clear-df-from-btn' },
+        { input: 'df-to', clear: 'clear-df-to-btn' },
+        { input: 'af-from', clear: 'clear-af-from-btn' },
+        { input: 'af-to', clear: 'clear-af-to-btn' },
+    ].forEach(({ input, clear }) => {
+        const el = document.getElementById(input);
+        if (!el) return;
+        el.addEventListener('change', resetPageAndFetch);
+        if (typeof setupDatePickerPopupOnly === 'function') {
+            setupDatePickerPopupOnly(el, { onChange: resetPageAndFetch });
+        }
+        const clearBtn = document.getElementById(clear);
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                el.value = '';
+                currentPage = 1;
+                fetchLogs();
+            });
+        }
     });
 
-    document.getElementById('df-from-clear').addEventListener('click', () => { document.getElementById('df-from').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('df-to-clear').addEventListener('click', () => { document.getElementById('df-to').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('af-from-clear').addEventListener('click', () => { document.getElementById('af-from').value = ''; currentPage = 1; fetchLogs(); });
-    document.getElementById('af-to-clear').addEventListener('click', () => { document.getElementById('af-to').value = ''; currentPage = 1; fetchLogs(); });
     document.getElementById('discord-clear-btn').addEventListener('click', () => {
-        ['df-from','df-to','df-server','df-character','df-user'].forEach(id => {
+        ['df-from', 'df-to', 'df-server', 'df-character', 'df-user'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.value = '';
@@ -269,7 +313,7 @@
         currentPage = 1; fetchLogs();
     });
     document.getElementById('admin-clear-btn').addEventListener('click', () => {
-        ['af-from','af-to', 'af-user'].forEach(id => {
+        ['af-from', 'af-to', 'af-user'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.value = '';
@@ -409,8 +453,12 @@
 
     function discordRow(item) {
         const statusColor = item.status === 'error' ? 'text-red-400' : 'text-green-400';
-        const sourceColor = item.source === 'scheduler' ? 'bg-indigo-900 text-indigo-300' : 'bg-gray-800 text-gray-300';
-        return `<div data-log-id="${item.id}" class="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-lg p-4 cursor-pointer transition-colors">
+        const sourceColor = item.source === 'scheduler'
+            ? 'log-source-scheduler'
+            : item.source === 'test'
+                ? 'log-source-test'
+                : 'log-source-chat';
+        return `<div data-log-id="${item.id}" class="card-dark card-dark--row card-dark--clickable">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs px-2 py-0.5 rounded ${sourceColor}">${item.source || 'chat'}</span>
@@ -421,6 +469,7 @@
                 <div class="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
                     <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                     <span>${fmt(item.timestamp)}</span>
+                    <span class="${statusColor}">${item.status === 'error' ? 'error' : 'ok'}</span>
                 </div>
             </div>
             <p class="text-xs text-gray-400 truncate">${esc(item.trigger || '')}</p>
@@ -465,6 +514,7 @@
             'task.create': 'bg-green-900 text-green-300',
             'task.delete': 'bg-red-900 text-red-300',
             'task.update': 'bg-blue-900 text-blue-300',
+            'test.chatbot': 'bg-indigo-950 text-indigo-200',
             'trash.restore': 'bg-orange-900 text-orange-300',
             'user.create': 'bg-indigo-900 text-indigo-300',
             'user.delete': 'bg-red-900 text-red-300',
@@ -473,6 +523,7 @@
         };
         const labels = {
             'config.security_update': 'config.security.update',
+            'test.chatbot': 'test.chatbot',
         };
         const overrideOn  = ['servers.override.on'];
         const overrideOff = ['servers.override.off'];
@@ -486,10 +537,10 @@
         const targetDisplay = isServerOverride
             ? (serverNames[item.target] || item.target || '')
             : (item.target || '');
-        return `<div class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+        return `<div class="card-dark card-dark--row card-dark--row-admin">
             <div class="flex items-center gap-2 min-w-0">
                 <span class="text-muted flex-shrink-0" title="Log ID">#${item.id}</span>
-                <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${color}">${esc(label)}</span>
+                <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 admin-action-badge ${color}">${esc(label)}</span>
                 ${overrideLabel ? `<span class="text-xs text-gray-400 flex-shrink-0">${overrideLabel}</span>` : ''}
                 ${targetDisplay ? `<span class="text-xs text-gray-400 flex-shrink-0">${esc(targetDisplay)}</span>` : ''}
                 ${item.detail ? `<span class="text-xs text-gray-500 truncate">${esc(item.detail)}</span>` : ''}
@@ -504,6 +555,7 @@
     function updatePagination() {
         const start = (currentPage - 1) * LIMIT + 1;
         const end = Math.min(currentPage * LIMIT, totalItems);
+        document.getElementById('pagination').classList.toggle('hidden', totalItems <= LIMIT);
         document.getElementById('pagination-info').textContent = totalItems ? `${start}–${end} of ${totalItems}` : '';
         document.getElementById('prev-btn').disabled = currentPage <= 1;
         document.getElementById('next-btn').disabled = currentPage * LIMIT >= totalItems;
@@ -524,11 +576,19 @@
         const item = await res.json();
         const body = document.getElementById('detail-body');
         const isDM = !item.channel_id || item.channel_id === 'dm' || item.channel_id.startsWith('dm:');
-        const chResolved = resolveChannel(item.channel_id || '');
-        const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
-        const chServer = isDM ? 'DM' : chParts[0];
-        const dmRecipient = item.channel_id && item.channel_id.startsWith('dm:') ? item.channel_id.slice(3) : null;
-        const chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
+        const simServerId = parseSimulatorServerId(item.channel_id || '');
+        let chServer;
+        let chChannel;
+        if (simServerId) {
+            chServer = simulatorServerName(simServerId) || '—';
+            chChannel = 'simulator';
+        } else {
+            const chResolved = resolveChannel(item.channel_id || '');
+            const chParts = (!isDM && chResolved.includes(' / ')) ? chResolved.split(' / ') : [chResolved, ''];
+            chServer = isDM ? 'DM' : chParts[0];
+            const dmRecipient = item.channel_id && item.channel_id.startsWith('dm:') ? item.channel_id.slice(3) : null;
+            chChannel = isDM ? (dmRecipient ? `DM - ${dmRecipient}` : 'DM') : (chParts.slice(1).join(' / ') || chParts[0]);
+        }
         const statusCls = item.status === 'error' ? 'text-red-400' : 'text-green-400';
 
         const row = (label, value, cls='') =>
@@ -537,9 +597,8 @@
         body.innerHTML = `
             <div class="detail-content">
 
-                <div class="flex items-center justify-between log-ts">
+                <div class="log-ts">
                     <span>${fmt(item.timestamp)}</span>
-                    <span class="${statusCls} mr-4">${item.status === 'error' ? 'error' : 'ok'}</span>
                 </div>
 
                 <div class="metadata-grid">
@@ -572,7 +631,7 @@
                         <div class="log-json-controls">
                             <button id="copy-response-btn" class="btn-copy"><i class="fas fa-copy"></i> Copy</button>
                             <label class="log-prettier-label">
-                                <input type="checkbox" id="req-prettier" class="accent-indigo-500">
+                                <input type="checkbox" id="req-prettier" class="custom-cb">
                                 <span>Prettier</span>
                             </label>
                         </div>

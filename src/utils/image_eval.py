@@ -17,18 +17,18 @@ async def describe_image(image_path: str, db: Database) -> str:
     """
     bot_config = get_bot_config(db)
 
-    if not bot_config.multimodal_enable:
+    if not bot_config.multi_model_enable:
         return "<ERROR> Image description is disabled in the bot's configuration."
 
-    if not bot_config.multimodal_ai_model:
+    if not bot_config.multi_model_ai_model:
         return "<ERROR> The vision model is not configured in the bot's settings."
 
     # Resolve endpoint/key: prefer named provider, fall back to legacy flat fields
-    endpoint = bot_config.multimodal_ai_endpoint
-    api_key = bot_config.multimodal_ai_api or "none"
-    prov_name = bot_config.multimodal_ai_provider
+    endpoint = bot_config.multi_model_ai_endpoint
+    api_key = bot_config.multi_model_ai_api or "none"
+    prov_name = bot_config.multi_model_ai_provider
     if prov_name:
-        for p in (bot_config.multimodal_providers or []):
+        for p in (bot_config.multi_model_providers or []):
             if p.name == prov_name:
                 endpoint = p.endpoint
                 api_key = p.api_key or "none"
@@ -44,7 +44,7 @@ async def describe_image(image_path: str, db: Database) -> str:
         client = AsyncOpenAI(base_url=endpoint, api_key=api_key)
 
         response = await client.chat.completions.create(
-            model=bot_config.multimodal_ai_model,
+            model=bot_config.multi_model_ai_model,
             messages=[
                 {
                     "role": "user",

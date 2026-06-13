@@ -150,7 +150,7 @@ Full index: [`docs/00-guide.md`](docs/00-guide.md).
 | [Discord OAuth](docs/08-discord-oauth.md) | Discord app and OAuth setup |
 | [Users](docs/09-users.md) | Panel accounts, access requests, permissions |
 | [Dashboard, logs & tools](docs/10-panel-tools.md) | Home console, activity logs, avatar editor, prompt presets |
-| [Multimodal](docs/11-multimodal.md) | Image description (vision model) |
+| [Multi-Model](docs/11-multi-model.md) | Image description (vision model) + multi-model providers |
 
 ---
 

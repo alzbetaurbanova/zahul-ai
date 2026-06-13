@@ -20,6 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
         user: 'no access',
     };
     const ROLE_SORT_ORDER = { super_admin: 1, admin: 2, mod: 3, guest: 4, pending: 5, rejected: 6, user: 5 };
+    const ROLE_LEVEL = { super_admin: 4, admin: 3, mod: 2, guest: 1 };
+
+    function canSetUserPassword(targetUser) {
+        if (targetUser.auth_provider === 'discord') return false;
+        const callerLevel = ROLE_LEVEL[_currentUserRole] || 0;
+        const targetLevel = ROLE_LEVEL[targetUser.role] || 0;
+        if (callerLevel < targetLevel) return false;
+        if (callerLevel === targetLevel && _currentUserRole !== 'super_admin' && targetUser.id !== _currentUserId) {
+            return false;
+        }
+        return true;
+    }
     const EDIT_ROLE_LONG = {
         super_admin: 'Super admin – full panel control',
         guest: 'Guest – read only',
@@ -155,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fixed === 'pending' || fixed === 'rejected') sel.value = fixed;
         else if (assignable.includes(u.role)) sel.value = u.role;
         else sel.value = u.role;
+        if (typeof refreshCustomSelect === 'function') refreshCustomSelect(sel);
     }
     function syncSuperAdminRoleOptions() {
         const allowSuperAdminRole = _currentUserRole === 'super_admin';
@@ -166,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!allowSuperAdminRole && select.value === 'super_admin') {
                 select.value = 'admin';
             }
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(select);
         });
     }
 
@@ -229,8 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fu.value = '';
             if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu);
         }
-        document.getElementById('filter-role').value = '';
-        document.getElementById('filter-auth').value = '';
+        ['filter-role', 'filter-auth'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = '';
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(el);
+        });
         document.getElementById('filter-user-dd').classList.add('hidden');
         document.querySelectorAll('#users-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
         document.querySelectorAll('#users-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
@@ -302,15 +320,19 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('text-white', active);
         });
         document.getElementById('users-filters').classList.toggle('hidden', resolvedTab === 'sessions');
-        document.getElementById('users-filter-role')?.classList.toggle('hidden', resolvedTab !== 'users');
-        document.getElementById('users-filter-type')?.classList.toggle('hidden', resolvedTab !== 'users');
+        document.getElementById('users-filters').classList.toggle('filter-panel--requests', resolvedTab === 'requests');
+        document.getElementById('users-filter-role')?.classList.toggle('hidden', resolvedTab !== 'users' && resolvedTab !== 'requests');
+        document.getElementById('users-filter-type')?.classList.toggle('hidden', resolvedTab !== 'users' && resolvedTab !== 'requests');
         document.getElementById('sessions-filters').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('user-list').classList.toggle('hidden', resolvedTab !== 'users');
-        document.getElementById('users-pagination').classList.toggle('hidden', resolvedTab !== 'users');
+        if (resolvedTab !== 'users') document.getElementById('users-pagination').classList.add('hidden');
         document.getElementById('request-list').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('requests-pagination').classList.toggle('hidden', resolvedTab !== 'requests');
         document.getElementById('session-list').classList.toggle('hidden', resolvedTab !== 'sessions');
         document.getElementById('session-list-footer').classList.toggle('hidden', resolvedTab !== 'sessions');
+        if (resolvedTab === 'users' && _allUsers.length > 0) {
+            renderUsers();
+        }
         if (resolvedTab === 'requests') {
             if (_requestsLoaded) {
                 renderRequests();
@@ -320,6 +342,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (resolvedTab === 'sessions') {
+            const sessionsFilters = document.getElementById('sessions-filters');
+            if (typeof initCustomSelects === 'function' && sessionsFilters) {
+                initCustomSelects(sessionsFilters);
+            }
+            ['filter-session-browser', 'filter-session-os'].forEach((id) => {
+                const sel = document.getElementById(id);
+                if (sel && typeof refreshCustomSelect === 'function') refreshCustomSelect(sel);
+            });
             if (_sessionsLoaded) {
                 renderFilteredSessions();
                 loadSessions({ silent: true });
@@ -460,6 +490,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initSessionFilters() {
         initSessionCombobox();
+        const sessionsFilters = document.getElementById('sessions-filters');
+        if (typeof initCustomSelects === 'function' && sessionsFilters) {
+            initCustomSelects(sessionsFilters);
+        }
+        if (typeof initFilterClear === 'function' && sessionsFilters) {
+            initFilterClear(() => {
+                document.getElementById('filter-session-user-dd')?.classList.add('hidden');
+                _sessionPage = 1;
+                renderFilteredSessions();
+            }, sessionsFilters);
+        }
         document.getElementById('filter-session-browser')?.addEventListener('change', () => {
             _sessionPage = 1;
             renderFilteredSessions();
@@ -496,35 +537,38 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('clear-session-filters-btn')?.addEventListener('click', () => {
             const fu = document.getElementById('filter-session-user');
             if (fu) { fu.value = ''; if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fu); }
-            document.getElementById('filter-session-browser').value = '';
-            document.getElementById('filter-session-os').value = '';
+            ['filter-session-browser', 'filter-session-os'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.value = '';
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
             document.getElementById('filter-session-user-dd')?.classList.add('hidden');
             document.querySelectorAll('#sessions-filters [data-clear]').forEach(btn => btn.classList.add('hidden'));
             document.querySelectorAll('#sessions-filters .select-wrap').forEach(w => w.classList.remove('has-value'));
             _sessionPage = 1;
             renderFilteredSessions();
         });
-        if (typeof initFilterClear === 'function') initFilterClear(() => {
-            document.getElementById('filter-session-user-dd')?.classList.add('hidden');
-            _sessionPage = 1;
-            renderFilteredSessions();
-        }, document.getElementById('sessions-filters'));
     }
 
-    function updateSessionFooter(totalItems) {
-        const footer = document.getElementById('session-list-footer');
-        const info = document.getElementById('session-pagination-info');
-        const prev = document.getElementById('session-prev-btn');
-        const next = document.getElementById('session-next-btn');
+    function updatePaginationFooter(totalItems, { footerId, infoId, prevId, nextId, tabName, page }) {
+        const footer = document.getElementById(footerId);
+        const info = document.getElementById(infoId);
+        const prev = document.getElementById(prevId);
+        const next = document.getElementById(nextId);
         if (!footer || !info || !prev || !next) return;
         const nd = '\u2013';
-        const start = totalItems ? ((_sessionPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_sessionPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'sessions');
+        const start = totalItems ? ((page - 1) * PAGE_SIZE) + 1 : 0;
+        const end = totalItems ? Math.min(page * PAGE_SIZE, totalItems) : 0;
+        footer.classList.toggle('hidden', _activeTab !== tabName || totalItems <= PAGE_SIZE);
         info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _sessionPage <= 1;
-        next.disabled = totalItems <= 0 || _sessionPage * PAGE_SIZE >= totalItems;
+        prev.disabled = totalItems <= 0 || page <= 1;
+        next.disabled = totalItems <= 0 || page * PAGE_SIZE >= totalItems;
         syncUsersUrl();
+    }
+
+    function updateSessionFooter(n) {
+        updatePaginationFooter(n, { footerId: 'session-list-footer', infoId: 'session-pagination-info', prevId: 'session-prev-btn', nextId: 'session-next-btn', tabName: 'sessions', page: _sessionPage });
     }
 
     function initUsersPagination() {
@@ -540,20 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateUsersFooter(totalItems) {
-        const footer = document.getElementById('users-pagination');
-        const info = document.getElementById('users-pagination-info');
-        const prev = document.getElementById('users-prev-btn');
-        const next = document.getElementById('users-next-btn');
-        if (!footer || !info || !prev || !next) return;
-        const nd = '\u2013';
-        const start = totalItems ? ((_usersPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_usersPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'users');
-        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _usersPage <= 1;
-        next.disabled = totalItems <= 0 || _usersPage * PAGE_SIZE >= totalItems;
-        syncUsersUrl();
+    function updateUsersFooter(n) {
+        updatePaginationFooter(n, { footerId: 'users-pagination', infoId: 'users-pagination-info', prevId: 'users-prev-btn', nextId: 'users-next-btn', tabName: 'users', page: _usersPage });
     }
 
     function initRequestsPagination() {
@@ -569,20 +601,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateRequestsFooter(totalItems) {
-        const footer = document.getElementById('requests-pagination');
-        const info = document.getElementById('requests-pagination-info');
-        const prev = document.getElementById('requests-prev-btn');
-        const next = document.getElementById('requests-next-btn');
-        if (!footer || !info || !prev || !next) return;
-        const nd = '\u2013';
-        const start = totalItems ? ((_requestsPage - 1) * PAGE_SIZE) + 1 : 0;
-        const end = totalItems ? Math.min(_requestsPage * PAGE_SIZE, totalItems) : 0;
-        footer.classList.toggle('hidden', _activeTab !== 'requests');
-        info.textContent = totalItems ? `${start}${nd}${end} of ${totalItems}` : '';
-        prev.disabled = totalItems <= 0 || _requestsPage <= 1;
-        next.disabled = totalItems <= 0 || _requestsPage * PAGE_SIZE >= totalItems;
-        syncUsersUrl();
+    function updateRequestsFooter(n) {
+        updatePaginationFooter(n, { footerId: 'requests-pagination', infoId: 'requests-pagination-info', prevId: 'requests-prev-btn', nextId: 'requests-next-btn', tabName: 'requests', page: _requestsPage });
     }
 
     function renderSessions(sessions) {
@@ -752,6 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
         }).join('');
+        if (typeof initCustomSelects === 'function') initCustomSelects(list);
         list.querySelectorAll('[data-request-id]').forEach(row => {
             const requestId = row.getAttribute('data-request-id');
             const approveBtn = row.querySelector('.request-approve-btn');
@@ -833,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dd.innerHTML = _availableServers.length
             ? _availableServers.map(s => `
                 <label class="cb-dd-item">
-                    <input type="checkbox" value="${esc(s.server_id)}" class="accent-indigo-500"${selected.has(String(s.server_id)) ? ' checked' : ''}>
+                    <input type="checkbox" value="${esc(s.server_id)}" class="custom-cb"${selected.has(String(s.server_id)) ? ' checked' : ''}>
                     ${esc(s.server_name)}
                 </label>`).join('')
             : '<span class="cb-dd-item text-dim">No servers found</span>';
@@ -868,6 +889,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wire clear buttons for server dropdowns
     wireCbDdClear('dd-new-servers-clear', 'dd-new-servers', () => updateServerDdLabel('dd-new-servers'));
     wireCbDdClear('dd-edit-servers-clear', 'dd-edit-servers', () => updateServerDdLabel('dd-edit-servers'));
+
+    document.getElementById('edit-avatar-file')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        const label = document.getElementById('edit-avatar-file-label');
+        const preview = document.getElementById('edit-avatar-preview');
+        if (!file) {
+            label.textContent = 'Choose image…';
+            return;
+        }
+        label.textContent = file.name;
+        const url = URL.createObjectURL(file);
+        preview.src = url;
+        preview.onload = () => URL.revokeObjectURL(url);
+    });
 
     // --- New User Modal ---
 
@@ -953,9 +988,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function openEditModal(u) {
         _editUser = u;
         const name = u.auth_provider === 'discord' ? (u.discord_username || u.username) : u.username;
-        const isOwner = u.role === 'super_admin';
         const isDiscord = u.auth_provider === 'discord';
-        const canChangePassword = !isOwner && !isDiscord;
+        const canChangePassword = canSetUserPassword(u);
         const canUploadAvatar = !isDiscord;
 
         document.getElementById('edit-modal-title').innerHTML =
@@ -980,8 +1014,9 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarField.classList.toggle('hidden', !canUploadAvatar);
         avatarPreview.src = u.avatar_url || DEFAULT_USER_AVATAR;
         avatarFileInput.value = '';
+        document.getElementById('edit-avatar-file-label').textContent = 'Choose image…';
 
-        // Password field — hidden for super admin and discord accounts
+        // Password field — role-gated (admin cannot set peer/admin+ passwords)
         document.getElementById('edit-pw-field').classList.toggle('hidden', !canChangePassword);
         document.getElementById('edit-password').value = '';
 
@@ -1004,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const errEl = document.getElementById('edit-modal-error');
         errEl.classList.add('hidden');
         const u = _editUser;
-        const canChangePassword = u.role !== 'super_admin' && u.auth_provider !== 'discord';
+        const canChangePassword = canSetUserPassword(u);
         const canUploadAvatar = u.auth_provider === 'local';
 
         try {
@@ -1030,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!res.ok) throw new Error(parseApiError(await res.json(), 'Server update failed'));
             }
 
-            // Update password (only local non-super-admin accounts)
+            // Update password (local accounts; admin blocked for admin/super_admin peers)
             const pw = document.getElementById('edit-password').value;
             if (canChangePassword && pw) {
                 if (pw.length < 8) return showErr(errEl, 'Password must be at least 8 characters.');

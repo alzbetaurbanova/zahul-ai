@@ -16,11 +16,23 @@
         const toastContainer = document.getElementById('toast-container');
         const dayCheckboxes = document.getElementById('day-checkboxes');
         const createBtn = document.getElementById('create-btn');
+        let modAssignedServerCount = 0;
+
+        function isMod() { return currentUserRole === 'mod'; }
 
         function canEditTasks() {
-            return typeof window.canMutate === 'function'
-                ? window.canMutate(currentUserRole)
-                : currentUserRole === 'admin' || currentUserRole === 'super_admin';
+            return typeof window.roleAtLeast === 'function'
+                ? window.roleAtLeast(currentUserRole, 'mod')
+                : currentUserRole === 'mod' || currentUserRole === 'admin' || currentUserRole === 'super_admin';
+        }
+
+        function applyModSchedulerUI() {
+            const dmBtn = document.getElementById('ttype-dm');
+            if (dmBtn) dmBtn.classList.toggle('hidden', isMod());
+            if (isMod()) setTargetType('channel');
+            if (createBtn) {
+                createBtn.classList.toggle('hidden', isMod() && modAssignedServerCount === 0);
+            }
         }
 
         // Build day pill buttons
@@ -83,6 +95,7 @@
             if (selectedValue && options.some(opt => opt.value === selectedValue)) {
                 statusSelect.value = selectedValue;
             }
+            if (typeof refreshCustomSelect === 'function') refreshCustomSelect(statusSelect);
         }
 
         // Type pill buttons
@@ -256,6 +269,8 @@
                     !s.server_name.toLowerCase().includes('direct message')
                 );
                 filtered.forEach(s => { serverNameMap[s.server_name] = s.server_id; });
+                modAssignedServerCount = filtered.length;
+                applyModSchedulerUI();
                 if (typeof setupFilterCombobox === 'function') {
                     setupFilterCombobox(
                         'filter-server', 'filter-server-dd',
@@ -265,7 +280,11 @@
                         'hover:bg-gray-700'
                     );
                 }
-            } catch { serverNameMap = {}; }
+            } catch {
+                serverNameMap = {};
+                modAssignedServerCount = 0;
+                applyModSchedulerUI();
+            }
         }
 
         // --- Target comboboxes ---
@@ -277,15 +296,17 @@
             if (_targetOptionsPromise) return _targetOptionsPromise;
             _targetOptionsPromise = (async () => {
                 try {
-                    const [channels, cfg] = await Promise.all([
-                        fetch('/api/servers/bulk/channel-options').then(r => r.json()),
-                        fetch('/api/config/').then(r => r.json()),
-                    ]);
+                    const channels = await fetch('/api/servers/bulk/channel-options').then(r => r.json());
                     _channelOptions = Array.isArray(channels) ? channels : [];
                     channelServerMap = {};
                     for (const ch of _channelOptions) {
                         channelServerMap[ch.id] = ch.server_id;
                     }
+                    if (isMod()) {
+                        _dmOptions = [];
+                        return;
+                    }
+                    const cfg = await fetch('/api/config/').then(r => r.json());
                     _dmOptions = (cfg.dm_list || []).map(u => ({ id: u, label: u, sub: '' }));
                 } catch {
                     _channelOptions = [];
@@ -328,12 +349,12 @@
                     : options;
                 if (!filtered.length) { dropdown.classList.add('hidden'); return; }
                 dropdown.innerHTML = filtered.map(o => `
-                    <div class="combobox-item px-3 py-2 cursor-pointer hover:bg-gray-700 text-sm flex justify-between items-center"
+                    <div class="scheduler-combobox-item"
                          data-id="${esc(o.id)}" data-label="${esc(o.label)}">
-                        <span class="text-white">${esc(o.label)}</span>
-                        <span class="text-gray-500 text-xs ml-2">${esc(o.sub)}</span>
+                        <span class="scheduler-combobox-label">${esc(o.label)}</span>
+                        <span class="scheduler-combobox-sub">${esc(o.sub)}</span>
                     </div>`).join('');
-                dropdown.querySelectorAll('.combobox-item').forEach(item => {
+                dropdown.querySelectorAll('.scheduler-combobox-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
                         input.dataset.comboboxClearTouched = '1';
@@ -436,23 +457,32 @@
         const _sqp = new URLSearchParams(location.search);
         let PAGE_SIZE = parseInt(_sqp.get('limit')) || 25;
         let currentPage = parseInt(_sqp.get('page')) || 1;
+        const resetPageAndFetch = () => { currentPage = 1; fetchTasks(); };
+        const SCHEDULER_BADGE_BASE = 'scheduler-badge';
+
+        const fEls = {
+            type:      document.getElementById('filter-type'),
+            from:      document.getElementById('filter-from'),
+            to:        document.getElementById('filter-to'),
+            character: document.getElementById('filter-character'),
+            server:    document.getElementById('filter-server'),
+            charDd:    document.getElementById('filter-character-dd'),
+            serverDd:  document.getElementById('filter-server-dd'),
+        };
 
         function buildTasksQueryParams() {
             const params = new URLSearchParams();
             params.set('page', String(currentPage));
             params.set('limit', String(PAGE_SIZE));
-            const type = document.getElementById('filter-type').value;
-            if (type) params.set('type', type);
+            if (fEls.type?.value) params.set('type', fEls.type.value);
             [...document.querySelectorAll('.filter-status-cb:checked')].forEach(el => {
                 params.append('status', el.value);
             });
-            const charFilter = (document.getElementById('filter-character').value || '').trim();
+            const charFilter = (fEls.character?.value || '').trim();
             if (charFilter) params.set('character', charFilter);
-            const from = document.getElementById('filter-from').value;
-            const to = document.getElementById('filter-to').value;
-            if (from) params.set('date_from', from);
-            if (to) params.set('date_to', to);
-            const serverName = (document.getElementById('filter-server')?.value || '').trim();
+            if (fEls.from?.value) params.set('date_from', fEls.from.value);
+            if (fEls.to?.value) params.set('date_to', fEls.to.value);
+            const serverName = (fEls.server?.value || '').trim();
             const selectedServerId = serverNameMap[serverName];
             if (selectedServerId) params.set('server_id', selectedServerId);
             return params;
@@ -499,7 +529,7 @@
 
         function renderTasksPage(items, total) {
             if (!items.length) {
-                taskList.innerHTML = '<div class="text-gray-500 text-center py-12"><i class="fas fa-calendar-xmark text-3xl mb-3 block"></i>No tasks found.</div>';
+                taskList.innerHTML = '<div class="scheduler-list-state"><i class="fas fa-calendar-xmark scheduler-list-state-icon"></i>No tasks found.</div>';
                 updatePagination(total);
                 return;
             }
@@ -520,6 +550,7 @@
             history.replaceState(null, '', '?' + p.toString());
             const start = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
             const end = Math.min(currentPage * PAGE_SIZE, total);
+            document.getElementById('pagination').classList.toggle('hidden', total <= PAGE_SIZE);
             document.getElementById('pagination-info').textContent = total ? `${start}–${end} of ${total}` : '';
             document.getElementById('prev-btn').disabled = currentPage <= 1;
             document.getElementById('next-btn').disabled = currentPage * PAGE_SIZE >= total;
@@ -527,29 +558,29 @@
 
         function typeBadge(type) {
             return type === 'schedule'
-                ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>'
-                : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900 text-amber-300"><i class="fas fa-bell mr-1"></i>Reminder</span>';
+                ? `<span class="${SCHEDULER_BADGE_BASE} bg-indigo-900 text-indigo-300"><i class="fas fa-rotate mr-1"></i>Schedule</span>`
+                : `<span class="${SCHEDULER_BADGE_BASE} sched-badge-reminder"><i class="fas fa-bell mr-1"></i>Reminder</span>`;
         }
 
         function statusBadge(status) {
             const map = {
                 active:    'bg-green-900 text-green-300',
                 upcoming:  'bg-blue-900 text-blue-300',
-                done:      'bg-gray-700 text-gray-400',
+                done:      'scheduler-badge--status-done',
                 disabled:  'bg-red-900 text-red-300',
-                failed:    'bg-orange-900 text-orange-300',
+                failed:    'scheduler-badge--status-failed',
             };
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || 'bg-gray-700 text-gray-400'}">${status}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[status] || 'scheduler-badge--status-done'}">${status}</span>`;
         }
 
         function modeBadge(mode) {
             const map = {
-                exact:        'bg-gray-800 text-gray-300',
-                instructions: 'bg-gray-800 text-gray-300',
+                exact:        'scheduler-badge--mode-neutral',
+                instructions: 'scheduler-badge--mode-neutral',
                 generate:     'bg-purple-900 text-purple-300',
             };
             const label = mode === 'instructions' ? 'Instructions' : mode === 'generate' ? 'Generate' : 'Exact';
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[mode] || 'bg-gray-800 text-gray-300'}">${label}</span>`;
+            return `<span class="${SCHEDULER_BADGE_BASE} ${map[mode] || 'scheduler-badge--mode-neutral'}">${label}</span>`;
         }
 
         function normalizeTaskName(name) {
@@ -596,7 +627,7 @@
                     </button>
             ` : '';
             return `
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-gray-600 transition-colors" data-action="detail" data-id="${t.id}">
+            <div class="scheduler-task-card" data-action="detail" data-id="${t.id}">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-3 mb-2">
@@ -763,6 +794,10 @@
         async function openModal(task = null) {
             if (task !== null && !canEditTasks()) {
                 showToast('You do not have permission to edit scheduler tasks.', 'error');
+                return;
+            }
+            if (task === null && isMod() && modAssignedServerCount === 0) {
+                showToast('No servers assigned — ask an admin to grant server access.', 'error');
                 return;
             }
             await loadTargetOptions();
@@ -981,32 +1016,36 @@
         document.getElementById('page-size-select').value = PAGE_SIZE;
 
         // --- Filters ---
-        document.getElementById('filter-type').addEventListener('change', () => {
+        fEls.type?.addEventListener('change', () => {
             updateStatusOptions();
-            currentPage = 1;
-            fetchTasks();
+            resetPageAndFetch();
         });
-        ['filter-from','filter-to'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchTasks(); });
+        [fEls.from, fEls.to].forEach((el) => {
+            if (!el) return;
+            el.addEventListener('change', resetPageAndFetch);
+            if (typeof setupDatePickerPopupOnly === 'function') {
+                setupDatePickerPopupOnly(el, { onChange: resetPageAndFetch });
+            }
         });
         document.getElementById('clear-filter-btn').addEventListener('click', () => {
-            document.getElementById('filter-type').value = '';
-            document.getElementById('filter-from').value = '';
-            document.getElementById('filter-to').value = '';
-            const fc = document.getElementById('filter-character');
-            if (fc) {
-                fc.value = '';
-                if ('dataset' in fc && 'value' in fc.dataset) fc.dataset.value = '';
-                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fc);
-                document.getElementById('filter-character-dd')?.classList.add('hidden');
-                fc.dispatchEvent(new Event('change', { bubbles: true }));
+            if (fEls.type) {
+                fEls.type.value = '';
+                if (typeof refreshCustomSelect === 'function') refreshCustomSelect(fEls.type);
             }
-            const fs = document.getElementById('filter-server');
-            if (fs) {
-                fs.value = '';
-                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fs);
-                document.getElementById('filter-server-dd')?.classList.add('hidden');
-                fs.dispatchEvent(new Event('change', { bubbles: true }));
+            if (fEls.from) fEls.from.value = '';
+            if (fEls.to) fEls.to.value = '';
+            if (fEls.character) {
+                fEls.character.value = '';
+                if ('dataset' in fEls.character && 'value' in fEls.character.dataset) fEls.character.dataset.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fEls.character);
+                fEls.charDd?.classList.add('hidden');
+                fEls.character.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (fEls.server) {
+                fEls.server.value = '';
+                if (typeof resetFilterComboboxTouch === 'function') resetFilterComboboxTouch(fEls.server);
+                fEls.serverDd?.classList.add('hidden');
+                fEls.server.dispatchEvent(new Event('change', { bubbles: true }));
             }
             if (typeof clearCheckboxDropdownPrefix === 'function') {
                 clearCheckboxDropdownPrefix('filter-status');
@@ -1029,12 +1068,12 @@
             }, document.getElementById('task-form'));
         }
         document.getElementById('clear-from-btn').addEventListener('click', () => {
-            document.getElementById('filter-from').value = '';
+            if (fEls.from) fEls.from.value = '';
             currentPage = 1;
             fetchTasks();
         });
         document.getElementById('clear-to-btn').addEventListener('click', () => {
-            document.getElementById('filter-to').value = '';
+            if (fEls.to) fEls.to.value = '';
             currentPage = 1;
             fetchTasks();
         });
@@ -1047,6 +1086,7 @@
             })
             .catch(() => {})
             .finally(() => {
+                applyModSchedulerUI();
                 loadCharacters();
                 loadServerFilter();
                 loadTargetOptions();

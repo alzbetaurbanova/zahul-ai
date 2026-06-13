@@ -94,11 +94,12 @@ async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
     if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
         raise HTTPException(status_code=400, detail="Bot is not running.")
     
+    loop = bot_state.bot_loop or bot_state.bot_instance.loop
+    if not loop or not loop.is_running():
+        raise HTTPException(status_code=500, detail="Bot event loop is not available.")
+
     try:
         logging.info("--- Sending shutdown signal to bot via API... ---")
-        loop = bot_state.bot_loop or bot_state.bot_instance.loop
-        if not loop or not loop.is_running():
-            raise HTTPException(status_code=500, detail="Bot event loop is not available.")
         future = asyncio.run_coroutine_threadsafe(bot_state.bot_instance.close(), loop)
         future.result(timeout=10)
         db = Database()
@@ -121,11 +122,18 @@ async def check_bot_status(_: dict = Depends(require_role("guest"))):
 
 
 @router.get("/invite")
-async def get_discord_invite(user: dict = Depends(require_role("mod"))):
+async def get_discord_invite(_: dict = Depends(require_role("mod"))):
     if bot_state.bot_instance and bot_state.bot_instance.invite_link:
         return {"status": "active", "invite": bot_state.bot_instance.invite_link}
     else:
         return {"status": "inactive", "message": "Bot is not running or invite link is not yet available."}
+
+
+@router.post("/invite/copied")
+async def log_invite_copied(user: dict = Depends(require_role("mod"))):
+    db = Database()
+    db.log_admin("invite.copied", target="discord_invite", actor=user)
+    return {"ok": True}
 
 
 @router.get("/guilds")
