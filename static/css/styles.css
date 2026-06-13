@@ -3814,7 +3814,21 @@ body[data-page="logs"] #detail-modal .modal-box {
 
 .page {
     display: flex;
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
+}
+
+@media (min-width: 640px) {
+    .page {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .page {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
 }
 
 .page-heading {
