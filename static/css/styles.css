@@ -604,6 +604,10 @@ textarea:disabled {
     background-color: var(--danger-bg-soft);
 }
 
+.group:hover .character-card-img {
+    transform: scale(1.1);
+}
+
 .relative-inline-block {
     position: relative;
     display: inline-block;
