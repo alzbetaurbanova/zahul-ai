@@ -102,7 +102,7 @@ site-footer {
 }
 
 .site-footer-inner {
-    max-width: 72rem;
+    max-width: 80rem;
     margin: 0 auto;
     padding: 0.75rem 1rem;
     display: flex;
@@ -470,6 +470,49 @@ site-footer {
     left: 50%;
     transform: translateX(-50%);
     z-index: 9999;
+}
+
+.offline-banner {
+    position: fixed;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    background: var(--surface);
+    border: 1px solid var(--surface-raised);
+    color: var(--text-soft);
+    font-size: 0.875rem;
+    padding: 0.55rem 1.25rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    transition: bottom 0.3s ease;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.offline-banner--visible {
+    bottom: 24px;
+}
+
+.offline-banner--back {
+    border-color: #166534;
+    background: #14532d;
+    color: #bbf7d0;
+}
+
+.offline-banner-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f59e0b;
+    flex-shrink: 0;
+}
+
+.offline-banner--back .offline-banner-dot {
+    background: #4ade80;
 }
 
 .status-indicator {
@@ -2584,7 +2627,8 @@ body[data-page="users"] #sessions-filters .custom-select-dd {
 /* ========================================================================== */
 body[data-page="logs"] .tabs-bar,
 body[data-page="users"] .tabs-bar,
-body[data-page="stats"] .tabs-bar {
+body[data-page="stats"] .tabs-bar,
+body[data-page="ai-config"] .tabs-bar {
     display: flex;
     align-items: center;
     gap: 1.25rem;
@@ -2594,7 +2638,8 @@ body[data-page="stats"] .tabs-bar {
 
 body[data-page="logs"] .tab-btn,
 body[data-page="users"] .tab-btn,
-body[data-page="stats"] .tab-btn {
+body[data-page="stats"] .tab-btn,
+body[data-page="ai-config"] .tab-btn {
     min-height: 2.5rem;
     padding: 0.625rem 0.125rem 0.7rem;
     font-size: 0.875rem;
@@ -2610,7 +2655,8 @@ body[data-page="stats"] .tab-btn {
 
 body[data-page="logs"] .tab-btn::after,
 body[data-page="users"] .tab-btn::after,
-body[data-page="stats"] .tab-btn::after {
+body[data-page="stats"] .tab-btn::after,
+body[data-page="ai-config"] .tab-btn::after {
     content: "";
     position: absolute;
     left: 0;
@@ -2626,19 +2672,22 @@ body[data-page="stats"] .tab-btn::after {
 
 body[data-page="logs"] .tab-btn:hover,
 body[data-page="users"] .tab-btn:hover,
-body[data-page="stats"] .tab-btn:hover {
+body[data-page="stats"] .tab-btn:hover,
+body[data-page="ai-config"] .tab-btn:hover {
     color: var(--text-soft);
 }
 
 body[data-page="logs"] .tab-btn.tab-active,
 body[data-page="users"] .tab-btn.tab-active,
-body[data-page="stats"] .tab-btn.tab-active {
+body[data-page="stats"] .tab-btn.tab-active,
+body[data-page="ai-config"] .tab-btn.tab-active {
     color: var(--light);
 }
 
 body[data-page="logs"] .tab-btn.tab-active::after,
 body[data-page="users"] .tab-btn.tab-active::after,
-body[data-page="stats"] .tab-btn.tab-active::after {
+body[data-page="stats"] .tab-btn.tab-active::after,
+body[data-page="ai-config"] .tab-btn.tab-active::after {
     transform: scaleX(1);
 }
 
@@ -2780,6 +2829,7 @@ body[data-page="logs"] .tab-lock-wrap {
     box-shadow: var(--shadow-modal);
     box-sizing: border-box;
     max-width: 100%;
+    overflow-x: hidden;
 }
 
 .btn-modal-close {
@@ -3812,7 +3862,7 @@ body[data-page="logs"] #detail-modal .modal-box {
 
 .main-content {
     width: 100%;
-    max-width: 72rem;
+    max-width: 80rem;
     margin: 0 auto;
 }
 

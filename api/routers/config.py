@@ -6,8 +6,9 @@ from typing import Any, List, Optional, Set
 from pydantic import BaseModel
 import bcrypt
 from api.db.database import Database
-from api.models.models import BotConfig
+from api.models.models import BotConfig, MultiModelProvider
 from api.auth import get_current_user, require_role, strip_sensitive, ROLE_LEVEL
+from api.notify_model_change import notify_model_change, MODEL_FIELDS_CONFIG, changed_model_fields
 
 
 class SecurityConfig(BaseModel):
@@ -108,13 +109,91 @@ async def get_allowed_models(current_user=Depends(require_role("admin"))):
 async def get_providers(current_user=Depends(require_role("mod"))):
     try:
         providers = db.list_configs().get("multi_model_providers") or []
-        return [
-            {"name": p["name"], "allowed_models": p.get("allowed_models", [])}
-            for p in providers
-            if isinstance(p, dict) and p.get("name")
-        ]
+        result = []
+        for p in providers:
+            if not isinstance(p, dict) or not p.get("name"):
+                continue
+            # Normalize: old data may have reserved_server_id (str) instead of reserved_server_ids (list)
+            ids = p.get("reserved_server_ids") or []
+            if not ids and p.get("reserved_server_id"):
+                ids = [p["reserved_server_id"]]
+            result.append({
+                "name": p["name"],
+                "endpoint": p.get("endpoint", ""),
+                "allowed_models": p.get("allowed_models", []),
+                "reserved_server_ids": ids,
+            })
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching providers: {e}")
+
+
+class ProvidersUpdate(BaseModel):
+    providers: List[MultiModelProvider]
+
+
+@router.patch("/providers")
+async def update_providers(body: ProvidersUpdate, current_user: dict = Depends(require_role("mod"))):
+    """
+    super_admin : full replace; api_key preserved for blank entries.
+    admin       : edit + add allowed; cannot delete existing providers; api_key preserved for blank entries.
+    mod         : append-only (new names only); reserved_server_ids stripped.
+    """
+    import asyncio
+    try:
+        existing_config = db.list_configs()
+        existing_providers: list = existing_config.get("multi_model_providers") or []
+        existing_by_name = {
+            p["name"]: p for p in existing_providers
+            if isinstance(p, dict) and p.get("name")
+        }
+        role = current_user.get("role", "")
+        is_super = ROLE_LEVEL.get(role, 0) >= ROLE_LEVEL["super_admin"]
+        is_admin = role == "admin"
+        incoming = [p.model_dump() for p in body.providers]
+
+        if is_super:
+            for p in incoming:
+                old = existing_by_name.get(p.get("name"), {})
+                if not p.get("api_key") and old.get("api_key"):
+                    p["api_key"] = old["api_key"]
+            merged = incoming
+
+        elif is_admin:
+            # Enforce: all existing provider names must still be present
+            incoming_names = {p.get("name") for p in incoming}
+            deleted = [n for n in existing_by_name if n not in incoming_names]
+            if deleted:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Admins cannot delete providers: {', '.join(deleted)}"
+                )
+            for p in incoming:
+                old = existing_by_name.get(p.get("name"), {})
+                if not p.get("api_key") and old.get("api_key"):
+                    p["api_key"] = old["api_key"]
+            merged = incoming
+
+        else:
+            # Mod: append-only, strip reserved_server_ids
+            for p in incoming:
+                p["reserved_server_ids"] = []
+            new_only = [p for p in incoming if p.get("name") not in existing_by_name]
+            merged = existing_providers + new_only
+
+        changed = str(merged) != str(existing_providers)
+        db.set_configs_bulk({"multi_model_providers": merged})
+        added = len(merged) - len(existing_providers)
+        db.log_admin("config.providers.update", detail=f"total={len(merged)} added={added}", actor=current_user)
+
+        if changed:
+            asyncio.create_task(notify_model_change(current_user, "provider configuration", ["multi_model_providers"]))
+
+        return {"ok": True, "total": len(merged)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating providers: {e}")
 
 
 @router.get("/", response_model=BotConfig)
@@ -181,6 +260,11 @@ async def update_config(config: BotConfig = Body(...), current_user: dict = Depe
         db.set_configs_bulk({k: v for k, v in new_config.items() if v is not None})
         if changed:
             db.log_admin('config.update', detail=', '.join(changed), actor=current_user)
+
+        model_changed = changed_model_fields(existing_config, new_config, MODEL_FIELDS_CONFIG)
+        if model_changed:
+            import asyncio
+            asyncio.create_task(notify_model_change(current_user, "global config", model_changed))
 
         return new_config
     except HTTPException:

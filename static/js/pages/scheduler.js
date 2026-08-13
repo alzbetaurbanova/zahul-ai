@@ -164,13 +164,13 @@
                 document.getElementById('history-limit-row').classList.remove('hidden');
                 document.getElementById('history-limit-row').classList.add('flex');
                 document.getElementById('char-col').classList.remove('w-full');
-                document.getElementById('char-col').classList.add('w-[70%]');
+                document.getElementById('char-col').classList.add('flex-1', 'min-w-0');
             } else {
                 label.textContent = 'Message Text';
                 textarea.placeholder = 'What the character will say...';
                 document.getElementById('history-limit-row').classList.add('hidden');
                 document.getElementById('history-limit-row').classList.remove('flex');
-                document.getElementById('char-col').classList.remove('w-[70%]');
+                document.getElementById('char-col').classList.remove('flex-1', 'min-w-0', 'w-[70%]');
                 document.getElementById('char-col').classList.add('w-full');
                 setHistoryToggle(false);
             }
@@ -432,7 +432,12 @@
                 return inp.dataset.value || inp.value.trim();
             }
             const inp = document.getElementById('f-channel-input');
-            return inp.dataset.value || inp.value.trim();
+            if (inp.dataset.value) return inp.dataset.value;
+            const text = inp.value.trim();
+            if (!text) return '';
+            const byLabel = _channelOptions.find(o => o.label.toLowerCase() === text.toLowerCase());
+            if (byLabel) return byLabel.id;
+            return text;
         }
 
         function isFutureLocalDatetime(value) {
@@ -889,6 +894,10 @@
                 ? `${character} - ${st ? st.slice(0, 16).replace('T', ' ') : 'reminder'}`
                 : document.getElementById('f-name').value.trim();
 
+            if (target_type === 'channel' && target_id && !_channelOptions.find(o => o.id === target_id)) {
+                showToast('Please select a channel from the dropdown.', 'error');
+                return;
+            }
             if (!character || !target_id || (type === 'schedule' && !name)) {
                 showToast('Character and target are required.', 'error');
                 return;

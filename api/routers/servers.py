@@ -3,12 +3,14 @@
 
 from fastapi import APIRouter, Body, Path, HTTPException, status, Depends
 from typing import List
+import asyncio
 
 # --- Model and Database Imports ---
 from api.models.models import Server, ServerConfig, Channel, ChannelData
 from api.db.database import Database
 from api.auth import require_role
 from pydantic import BaseModel
+from api.notify_model_change import notify_model_change, MODEL_FIELDS_SERVER, changed_model_fields
 
 # --- Initialize Database Client ---
 db = Database()
@@ -128,9 +130,12 @@ async def update_server_config(server_id: str = Path(...), body: ServerConfig = 
     updates = body.model_dump(exclude_none=True)
     if _is_limited_mod(current_user):
         updates.pop('ai_endpoint', None)
+    model_changed = changed_model_fields(current, updates, MODEL_FIELDS_SERVER)
     current.update(updates)
     db.set_server_config(server_id, current)
     db.log_admin('servers.override.on', target=server_id, detail=str(updates), actor=current_user)
+    if model_changed:
+        asyncio.create_task(notify_model_change(current_user, f'server override "{server_id}"', model_changed))
     return current
 
 @router.delete("/{server_id}/config", status_code=status.HTTP_204_NO_CONTENT)

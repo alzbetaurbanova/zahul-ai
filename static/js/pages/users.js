@@ -1020,8 +1020,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-pw-field').classList.toggle('hidden', !canChangePassword);
         document.getElementById('edit-password').value = '';
 
-        // Delete button — visible for all users
-        document.getElementById('edit-delete-btn').classList.remove('hidden');
+        // Delete button — hidden for super_admin accounts (cannot be deleted)
+        document.getElementById('edit-delete-btn').classList.toggle('hidden', u.role === 'super_admin');
 
         document.getElementById('edit-modal-error').classList.add('hidden');
 
