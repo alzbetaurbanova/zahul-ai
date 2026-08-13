@@ -470,6 +470,7 @@
                     <span title="in/out tokens"><i class="fas fa-coins mr-1"></i>${item.input_tokens || 0}/${item.output_tokens || 0}</span>
                     <span>${fmt(item.timestamp)}</span>
                     <span class="${statusColor}">${item.status === 'error' ? 'error' : 'ok'}</span>
+                    <span class="text-gray-600">#${item.id}</span>
                 </div>
             </div>
             <p class="text-xs text-gray-400 truncate">${esc(item.trigger || '')}</p>
@@ -612,7 +613,7 @@
                     ${row('Temperature', item.temperature != null ? item.temperature : '—')}
                     ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
                     ${row('Log ID', `#${item.id}`)}
-                    ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}</span>`)}
+                    ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}${item.status_code != null ? ' ' + item.status_code : ''}</span>`)}
                     ${item.model ? `<div class="metadata-label">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
                 </div>
 

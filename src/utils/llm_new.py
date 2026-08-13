@@ -1,7 +1,7 @@
 import traceback
 import re
 import time
-from openai import AsyncOpenAI, RateLimitError
+from openai import AsyncOpenAI, RateLimitError, NotFoundError, APIConnectionError
 
 # Adjust these import paths to match your project structure
 from src.models.queue import QueueItem
@@ -9,6 +9,17 @@ from src.utils.discord_utils import get_gif_content_description
 from api.db.database import Database
 from api.models.models import BotConfig # We need a Pydantic model for config
 from src.models.aicharacter import ActiveCharacter
+
+_THINKING_MODEL_KEYWORDS = ('qwen', 'deepseek-r1', 'deepseek-r2')
+
+def _is_thinking_model(model: str) -> bool:
+    m = model.lower()
+    return any(k in m for k in _THINKING_MODEL_KEYWORDS)
+
+_last_error: dict | None = None
+
+def get_last_error() -> dict | None:
+    return _last_error
 
 FALLBACK_MODEL = "llama-3.1-8b-instant"  # default fallback, overridden by DB config
 FALLBACK_DURATION = 7200  # default, overridden by DB config
@@ -272,15 +283,13 @@ async def generate_response(task: QueueItem, db: Database):
                 c, _ = _client_for_fallback()
             else:
                 c = primary_client
-            return await c.chat.completions.create(
-                model=model,
-                stop=task.stop,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                messages=messages
-            )
+            effective_max_tokens = max(max_tokens * 4, 2048) if _is_thinking_model(model) else max_tokens
+            kwargs = dict(model=model, stop=task.stop, max_tokens=effective_max_tokens, temperature=temperature, messages=messages)
+            if _is_thinking_model(model):
+                kwargs['extra_body'] = {'enable_thinking': False}
+            return await c.chat.completions.create(**kwargs)
 
-        global _fallback_active, _fallback_end
+        global _fallback_active, _fallback_end, _last_error
 
         fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
         fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
@@ -304,6 +313,7 @@ async def generate_response(task: QueueItem, db: Database):
                 print(f"Daily token budget exhausted — switching to fallback ({fallback_model}) until {back_at}")
 
         just_switched = False
+        fallback_status = None
         try:
             model = fallback_model if _fallback_active else effective_base_model
             completion = await _call(model, is_fallback=_fallback_active)
@@ -313,18 +323,82 @@ async def generate_response(task: QueueItem, db: Database):
                 _fallback_end = time.time() + fallback_duration
                 _save_fallback_state(_fallback_end)
                 just_switched = True
+                fallback_status = 429
                 from datetime import datetime
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Rate limit — switching to fallback ({fallback_model}) until {back_at}")
             completion = await _call(fallback_model, is_fallback=True)
+        except NotFoundError:
+            if not _fallback_active:
+                _fallback_active = True
+                _fallback_end = time.time() + fallback_duration
+                _save_fallback_state(_fallback_end)
+                just_switched = True
+                fallback_status = 404
+                from datetime import datetime
+                back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
+                print(f"Model not found (404) — switching to fallback ({fallback_model}) until {back_at}")
+            completion = await _call(fallback_model, is_fallback=True)
+        except APIConnectionError as e:
+            from datetime import datetime
+            _last_error = {'timestamp': datetime.now().isoformat(timespec='seconds'), 'type': 'APIConnectionError', 'message': str(e), 'model': effective_base_model}
+            if not _fallback_active:
+                _fallback_active = True
+                _fallback_end = time.time() + fallback_duration
+                _save_fallback_state(_fallback_end)
+                just_switched = True
+                back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
+                print(f"Connection error — switching to fallback ({fallback_model}) until {back_at}")
+            completion = await _call(fallback_model, is_fallback=True)
 
-        result = completion.choices[0].message.content if completion.choices else "//[OOC: AI returned no response.]"
-        result = result.replace("[Reply]", "").replace(f"{task.bot}:", "").strip()
+        raw_content = completion.choices[0].message.content if completion.choices else None
+        result = (raw_content or "").replace("[Reply]", "").replace(f"{task.bot}:", "").strip()
         result = clean_thonk(result)
+        # Thinking model retry — higher token budget
+        if not result and _is_thinking_model(model):
+            print(f"[llm] Empty response from thinking model {model}, retrying with higher max_tokens")
+            retry_completion = await primary_client.chat.completions.create(
+                model=model, stop=task.stop, max_tokens=max(max_tokens * 8, 8192),
+                temperature=temperature, messages=messages
+            )
+            retry_result = retry_completion.choices[0].message.content if retry_completion.choices else ""
+            result = clean_thonk(retry_result.replace("[Reply]", "").replace(f"{task.bot}:", "").strip())
+            if retry_completion.usage:
+                track_tokens(retry_completion.usage.total_tokens, is_fallback=(_fallback_active and not just_switched) or just_switched)
+                task.input_tokens += retry_completion.usage.prompt_tokens or 0
+                task.output_tokens += retry_completion.usage.completion_tokens or 0
+        # General retry (2x, 1s apart) then fallback
+        if not result:
+            import asyncio as _asyncio
+            _is_fb = (_fallback_active and not just_switched) or just_switched
+            for _r in range(2):
+                await _asyncio.sleep(1)
+                print(f"[llm] Empty response from {model}, retry {_r + 1}/2")
+                retry_comp = await _call(model, is_fallback=_fallback_active)
+                retry_raw = (retry_comp.choices[0].message.content if retry_comp.choices else "") or ""
+                result = clean_thonk(retry_raw.replace("[Reply]", "").replace(f"{task.bot}:", "").strip())
+                if retry_comp.usage:
+                    track_tokens(retry_comp.usage.total_tokens, is_fallback=_is_fb)
+                    task.input_tokens += retry_comp.usage.prompt_tokens or 0
+                    task.output_tokens += retry_comp.usage.completion_tokens or 0
+                if result:
+                    break
+            if not result:
+                print(f"[llm] Still empty after retries — using fallback {fallback_model}")
+                fb_comp = await _call(fallback_model, is_fallback=True)
+                fb_raw = (fb_comp.choices[0].message.content if fb_comp.choices else "") or ""
+                result = clean_thonk(fb_raw.replace("[Reply]", "").replace(f"{task.bot}:", "").strip())
+                if fb_comp.usage:
+                    track_tokens(fb_comp.usage.total_tokens, is_fallback=True)
+                    task.input_tokens += fb_comp.usage.prompt_tokens or 0
+                    task.output_tokens += fb_comp.usage.completion_tokens or 0
+        if not result:
+            result = "//[OOC: AI returned no response.]"
         if just_switched:
             from datetime import datetime
             back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
-            result = f"⚠️ FALLBACK (primary back at {back_at}): {result}"
+            status_tag = f" - {fallback_status}" if fallback_status else ""
+            result = f"⚠️ FALLBACK{status_tag} (primary back at {back_at}): {result}"
         if completion.usage:
             track_tokens(completion.usage.total_tokens, is_fallback=(_fallback_active and not just_switched) or just_switched)
             task.input_tokens = completion.usage.prompt_tokens or 0
@@ -347,7 +421,8 @@ async def generate_response(task: QueueItem, db: Database):
         error_type = type(e).__name__
         error_message = str(e)
         error_traceback = traceback.format_exc()
-        
+        from datetime import datetime
+        _last_error = {'timestamp': datetime.now().isoformat(timespec='seconds'), 'type': error_type, 'message': error_message, 'model': getattr(bot_config, 'base_llm', '?')}
         print(f"Error in generate_response: {error_type}: {error_message}\n{error_traceback}")
         
         detailed_error = f"//[OOC: AI Error - {error_type}]\n"
@@ -410,17 +485,35 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             {"role": "assistant", "content": assistant}
         ]
 
-        client = AsyncOpenAI(
-            base_url=bot_config.ai_endpoint,
-            api_key=bot_config.ai_key,
-        )
-        model = bot_config.base_llm
-        completion = await client.chat.completions.create(
-            model=model,
-            temperature=temperature,
-            max_tokens=8192,
-            messages=messages
-        )
+        global _fallback_active, _fallback_end
+        fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
+        fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
+
+        if _fallback_active:
+            client, _ = _client_for_fallback()
+            model = fallback_model
+        else:
+            client = AsyncOpenAI(base_url=bot_config.ai_endpoint, api_key=bot_config.ai_key)
+            model = bot_config.base_llm
+
+        try:
+            _extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(model) else {}
+            completion = await client.chat.completions.create(
+                model=model, temperature=temperature, max_tokens=8192, messages=messages, **_extra
+            )
+        except (NotFoundError, RateLimitError) as e:
+            if not _fallback_active:
+                _fallback_active = True
+                _fallback_end = time.time() + fallback_duration
+                _save_fallback_state(_fallback_end)
+                print(f"[Scheduler] {type(e).__name__} — switching to fallback ({fallback_model})")
+            fallback_client, _ = _client_for_fallback()
+            _fb_extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(fallback_model) else {}
+            completion = await fallback_client.chat.completions.create(
+                model=fallback_model, temperature=temperature, max_tokens=8192, messages=messages, **_fb_extra
+            )
+            model = fallback_model
+
         result = completion.choices[0].message.content if completion.choices else "//[Error: No response]"
         input_tokens = completion.usage.prompt_tokens if completion.usage else 0
         output_tokens = completion.usage.completion_tokens if completion.usage else 0
@@ -448,12 +541,14 @@ def clean_string(s: str) -> str:
     return re.sub(r'^[^\s:]+:\s*', '', s) if re.match(r'^[^\s:]+:\s*', s) else s
 
 def clean_thonk(s: str) -> str:
-    """Recursively removes <think>...</think> blocks from the AI's output."""
+    """Removes <think>...</think> blocks from the AI's output. Also strips unclosed blocks."""
     match = re.search(r'</think>', s, re.IGNORECASE)
     if match:
-        # Find the start tag that corresponds to this end tag
         start_match = re.search(r'<think>', s[:match.start()], re.IGNORECASE)
         if start_match:
-            # Remove the block and recurse on the rest of the string
             return clean_thonk(s[:start_match.start()] + s[match.end():])
+    # Strip unclosed <think> block (no closing tag — model truncated mid-thinking)
+    open_match = re.search(r'<think>', s, re.IGNORECASE)
+    if open_match:
+        return s[:open_match.start()].strip()
     return s

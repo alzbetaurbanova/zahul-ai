@@ -149,7 +149,7 @@ class Database:
             # Migrations for existing DBs
             try: conn.execute("ALTER TABLE characters ADD COLUMN created_by TEXT")
             except: pass
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT"), ("status_code", "INTEGER DEFAULT NULL")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -1027,22 +1027,23 @@ class Database:
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
                     temperature: float = None, history_count: int = 0, task_id: int = None,
-                    endpoint: str = None):
+                    endpoint: str = None, status_code: int = None) -> int:
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
         history_json = json.dumps(conversation_history) if conversation_history is not None else None
         with self._get_connection() as conn:
-            conn.execute("""
+            cur = conn.execute("""
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count, task_id, endpoint)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id, endpoint, status_code)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count, task_id, endpoint))
+                  temperature, history_count, task_id, endpoint, status_code))
             conn.commit()
+            return cur.lastrowid
 
     def get_test_tokens_used_today(self, panel_username: str) -> int:
         from datetime import date
@@ -1184,7 +1185,7 @@ class Database:
         with self._get_connection() as conn:
             total = conn.execute(f"SELECT COUNT(*) FROM {from_table} {where}", params).fetchone()[0]
             rows = conn.execute(
-                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id,dl.endpoint FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT dl.id,dl.timestamp,dl.character,dl.channel_id,dl.user,dl.trigger,dl.response,dl.model,dl.input_tokens,dl.output_tokens,dl.source,dl.status,dl.error_message,dl.temperature,dl.history_count,dl.task_id,dl.endpoint,dl.status_code FROM {from_table} {where} ORDER BY dl.timestamp DESC LIMIT ? OFFSET ?",
                 params + [limit, offset]
             ).fetchall()
         return {"total": total, "page": page, "limit": limit, "items": [dict(r) for r in rows]}

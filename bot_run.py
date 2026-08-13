@@ -98,6 +98,7 @@ class Zahul(discord.Client):
         self.tree.add_command(wheel_command)
         self.tree.add_command(search_slash_command)
         self.tree.add_command(image_slash_command)
+        self.tree.add_command(debug_command)
 
         # Sync commands globally. For development, you might sync to a specific guild.
         await self.tree.sync()
@@ -285,6 +286,27 @@ async def tokens_command(interaction: discord.Interaction):
         f"📅 **Tokens today:** {tpd_used}/{tpd_limit} (remaining: {max(0, tpd_limit - tpd_used)})"
     )
     await interaction.response.send_message(msg, ephemeral=True)
+
+
+@app_commands.command(name="debug", description="Show the last AI error.")
+@app_commands.default_permissions(administrator=True)
+async def debug_command(interaction: discord.Interaction):
+    from src.utils.llm_new import get_last_error
+    err = get_last_error()
+    if err is None:
+        await interaction.response.send_message("✅ No errors recorded since last restart.", ephemeral=True)
+        return
+    ts = err.get('timestamp', '?')
+    etype = err.get('type', '?')
+    msg = err.get('message', '?')
+    model = err.get('model', '?')
+    await interaction.response.send_message(
+        f"🐛 **Last error**\n"
+        f"🕐 `{ts}`\n"
+        f"⚙️ Model: `{model}`\n"
+        f"❌ `{etype}: {msg}`",
+        ephemeral=True
+    )
 
 
 class FallbackGroup(app_commands.Group):
@@ -522,6 +544,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         )
         if text_suffix.startswith('//[OOC:'):
             print(f"[Scheduler] generate_in_character error for task {task['id']}: {text_suffix}")
+            _sc_match = re.search(r'\b([1-5]\d{2})\b', text_suffix)
             bot.db.log_discord(
                 character=char_name, channel_id=_scheduler_log_channel_id(task, _pre_channel),
                 user='system', trigger=instructions or '', response='',
@@ -529,6 +552,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 conversation_history=request_messages, temperature=temperature,
                 source='scheduler', status='error', error_message=text_suffix,
                 history_count=history_count, task_id=task['id'],
+                status_code=int(_sc_match.group(1)) if _sc_match else None,
             )
             return
         text_suffix = text_suffix.strip()
@@ -592,7 +616,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                     model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
                     conversation_history=request_messages, temperature=temperature,
                     source='scheduler', status='error', error_message='DM target not found',
-                    history_count=history_count, task_id=task['id'],
+                    history_count=history_count, task_id=task['id'], status_code=None,
                 )
                 return
 
@@ -602,7 +626,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             model=model_used or '', input_tokens=input_tokens, output_tokens=output_tokens,
             conversation_history=request_messages, temperature=temperature,
             source='scheduler', status='ok', error_message=None,
-            history_count=history_count, task_id=task['id'],
+            history_count=history_count, task_id=task['id'], status_code=200,
         )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
@@ -633,7 +657,7 @@ async def _run_scheduler(bot: 'Zahul'):
                         user='system', trigger=task.get('instructions') or '', response='',
                         model='', input_tokens=0, output_tokens=0, conversation_history=None,
                         source='scheduler', status='error', error_message=err, history_count=0,
-                        task_id=task['id'],
+                        task_id=task['id'], status_code=getattr(e, 'status_code', None),
                     )
 
             # Fire active schedules whose time matches now
@@ -669,7 +693,7 @@ async def _run_scheduler(bot: 'Zahul'):
                             user='system', trigger=task.get('instructions') or '', response='',
                             model='', input_tokens=0, output_tokens=0, conversation_history=None,
                             source='scheduler', status='error', error_message=err, history_count=0,
-                            task_id=task['id'],
+                            task_id=task['id'], status_code=getattr(e, 'status_code', None),
                         )
                     _last_schedule_fire[task['id']] = today_str
         except Exception:
