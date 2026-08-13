@@ -19,6 +19,7 @@ class MultiModelProvider(BaseModel):
     endpoint: str = ""
     api_key: str = ""
     allowed_models: List[str] = Field(default_factory=list)
+    reserved_server_ids: List[str] = Field(default_factory=list)
 
 
 class BotConfig(BaseModel):
@@ -59,6 +60,8 @@ class BotConfig(BaseModel):
     panel_auth_enabled: bool = False
     discord_login_enabled: bool = False
     local_login_enabled: bool = True
+    notify_contacts: List[str] = Field(default_factory=list)
+    notify_channel_id: str = ""
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)

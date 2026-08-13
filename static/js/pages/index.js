@@ -246,10 +246,23 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         eventSource.onerror = function() {
+            if (!navigator.onLine) return; // offline handler will reconnect on app:online
             addLogEntry('Connection to log stream lost. Attempting to reconnect...');
             setTimeout(setupLogStream, 5000);
         };
     }
+
+    document.addEventListener('app:offline', () => {
+        clearInterval(statusInterval);
+        statusInterval = null;
+        if (eventSource) { eventSource.close(); eventSource = null; }
+    });
+
+    document.addEventListener('app:online', () => {
+        checkBotStatus();
+        if (canControlBot()) setupLogStream();
+        statusInterval = setInterval(checkBotStatus, DASHBOARD_STATUS_INTERVAL_MS);
+    });
 
     // Add log entry to the container
     function addLogEntry(message) {
