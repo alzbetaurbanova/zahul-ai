@@ -1,25 +1,32 @@
 document.addEventListener('DOMContentLoaded', () => {
-    (window.__authStatus || fetch('/api/auth-status').then(r => r.json())).then(d => {
-        const role = d.current_user?.role;
-        const allowed = role === 'super_admin';
-        if (d.panel_auth_enabled && !allowed) {
-            window.location.href = '/';
-        }
-    }).catch(() => {});
+    // Resolved with the role string once auth-status is known; used to gate loadConfig.
+    const _authReady = (window.__authStatus || fetch('/api/auth-status').then(r => r.json()))
+        .then(d => {
+            const role = d?.current_user?.role;
+            const allowed = role === 'super_admin' || role === 'admin' || role === 'mod';
+            if (d?.panel_auth_enabled && !allowed) {
+                window.location.href = '/';
+            }
+            if (role === 'admin' || role === 'mod') {
+                currentUserRole = role;
+                document.querySelectorAll('.ai-superadmin-tab').forEach(t => {
+                    t.disabled = true;
+                    t.classList.add('opacity-40', 'cursor-not-allowed');
+                    t.title = 'Super admin access only';
+                });
+                switchTab('providers');
+            }
+            return role;
+        })
+        .catch(() => null);
 
     const CONFIG_API_BASE = '/api/config';
-    const PRESET_API_BASE = '/api/presets';
 
     // --- DOM Elements ---
     const form = document.getElementById('config-form');
     const toastContainer = document.getElementById('toast-container');
     const multiModelToggle = document.getElementById('multi_model_enable');
     const multiModelOptions = document.getElementById('multi-model-options');
-
-    // Prompt Editor Elements
-    const promptTemplateInput = document.getElementById('prompt_template');
-    const savePromptBtn = document.getElementById('save-prompt-btn');
-    let currentPresetDescription = null;
 
     // Security Elements
     const panelAuthToggle = document.getElementById('panel_auth_enabled');
@@ -57,9 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'ai_key', 'discord_key', 'use_prefill', 'dm_list',
         'multi_model_enable', 'multi_model_ai_model', 'multi_model_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
-        'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled'
+        'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled',
+        'notify_contacts', 'notify_channel_id',
     ];
-    const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models']);
+    const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models', 'notify_contacts']);
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
     const MIN_PANEL_PASSWORD_LENGTH = 8;
 
@@ -67,6 +75,21 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadConfig() {
         try {
             const response = await fetch(CONFIG_API_BASE);
+            if (response.status === 403) {
+                // non-super_admin: load providers from the open endpoint so existing cards render read-only
+                try {
+                    const provRes = await fetch(`${CONFIG_API_BASE}/providers`);
+                    if (provRes.ok) {
+                        const providers = await provRes.json();
+                        renderProviders(providers);
+                    }
+                } catch (_) {}
+                document.getElementById('setup-loader')?.classList.add('hidden');
+                // Ensure providers form shows even if the fetch above failed
+                document.getElementById('providers-tab-loader')?.classList.add('hidden');
+                document.getElementById('providers-form')?.classList.remove('hidden');
+                return;
+            }
             if (!response.ok) throw new Error('Failed to fetch config.');
             const config = await response.json();
 
@@ -91,8 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
             dmToggle.checked = dmVal.length > 0;
             toggleDmFields();
             updateRedirectUriHint();
+            document.getElementById('setup-loader')?.classList.add('hidden');
+            document.getElementById('setup-content')?.classList.remove('hidden');
         } catch (error) {
             showToast(error.message, 'error');
+            document.getElementById('setup-loader')?.classList.add('hidden');
+            document.getElementById('setup-content')?.classList.remove('hidden');
         }
     }
 
@@ -134,12 +161,14 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         const temperatureValue = parseFloat(elements['temperature'].value);
         if (!Number.isNaN(temperatureValue) && (temperatureValue < 0 || temperatureValue > 2)) {
+            switchToTabForField('temperature');
             showToast('Temperature must be between 0 and 2.', 'error');
             return;
         }
         for (const urlField of ['ai_endpoint', 'public_url', 'discord_oauth_redirect_uri']) {
             const raw = elements[urlField]?.value?.trim() || '';
             if (raw && !isValidHttpUrl(raw)) {
+                switchToTabForField(urlField);
                 showToast(`${urlField.replaceAll('_', ' ')} must be a valid http/https URL.`, 'error');
                 return;
             }
@@ -351,50 +380,46 @@ document.addEventListener('DOMContentLoaded', () => {
         multiModelOptions.classList.toggle('hidden', !multiModelToggle.checked);
     }
 
-    // --- Prompt Preset Functions ---
-    async function loadPrompt() {
-        try {
-            const response = await fetch(`${PRESET_API_BASE}/Default`);
-            if (!response.ok) throw new Error('Failed to load default prompt template.');
-            const preset = await response.json();
+    // --- Tabs ---
+    const TABS = ['setup', 'providers', 'discord', 'security'];
+    const FIELD_TAB = {
+        ai_endpoint: 'setup', base_llm: 'setup', primary_allowed_models: 'setup',
+        ai_key: 'setup', history_limit: 'setup', max_tokens: 'setup',
+        temperature: 'setup', auto_cap: 'setup',
+        fallback_llm: 'setup', fallback_duration: 'setup', token_limit_tpm: 'setup',
+        token_limit_tpd: 'setup', use_prefill: 'setup', multi_model_enable: 'setup',
+        multi_model_ai_model: 'setup',
+        discord_key: 'discord', public_url: 'discord', default_character: 'discord', dm_list: 'discord',
+    };
+    let activeTab = 'setup';
 
-            promptTemplateInput.value = preset.prompt_template || '';
-            currentPresetDescription = preset.description;
-        } catch (error) {
-            showToast(error.message, 'error');
-            promptTemplateInput.disabled = true;
-            promptTemplateInput.value = "Error: Could not load the 'Default' prompt preset.";
-        }
+    function switchTab(tabId) {
+        if (!TABS.includes(tabId)) return;
+        const btn = document.querySelector(`[data-tab="${tabId}"]`);
+        if (btn && btn.disabled) return;
+        activeTab = tabId;
+        TABS.forEach(t => {
+            document.getElementById(`tab-${t}`)?.classList.toggle('hidden', t !== tabId);
+            document.querySelector(`[data-tab="${t}"]`)?.classList.toggle('tab-active', t === tabId);
+        });
+        if (history.replaceState) history.replaceState(null, '', `#${tabId}`);
     }
 
-    async function savePrompt() {
-        const presetData = {
-            name: 'Default',
-            description: currentPresetDescription,
-            prompt_template: promptTemplateInput.value
-        };
-
-        try {
-            const response = await fetch(`${PRESET_API_BASE}/Default`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(presetData)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to save prompt.');
-            }
-            showToast('Default prompt template saved successfully!');
-        } catch (error) {
-            showToast(error.message, 'error');
-        }
+    function switchToTabForField(fieldId) {
+        const tab = FIELD_TAB[fieldId];
+        if (tab && tab !== activeTab) switchTab(tab);
     }
+
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    const hash = location.hash.replace('#', '');
+    if (TABS.includes(hash)) switchTab(hash);
 
     // --- Event Listeners ---
     form.addEventListener('submit', handleConfigSubmit);
     multiModelToggle.addEventListener('change', toggleMultiModelOptions);
-    savePromptBtn.addEventListener('click', savePrompt);
     saveSecurityBtn.addEventListener('click', handleSecuritySave);
     saveAdminBtn.addEventListener('click', handleAdminSave);
     discordLoginToggle.addEventListener('change', () => {
@@ -462,19 +487,134 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     elements.public_url.addEventListener('input', updateRedirectUriHint);
     dmToggle.addEventListener('change', toggleDmFields);
-    document.getElementById('add-provider-btn').addEventListener('click', () => addProviderCard());
+    document.getElementById('add-provider-btn').addEventListener('click', () => {
+        addProviderCard();
+        updateProvidersVisibility();
+        applyProviderReadonly();
+    });
+    document.getElementById('providers-form').addEventListener('submit', handleProvidersSave);
 
-    // --- Multi Providers ---
-    function renderProviders(providers) {
-        document.getElementById('providers-list').innerHTML = '';
-        (providers || []).forEach(p => addProviderCard(p));
+    async function handleProvidersSave(event) {
+        event.preventDefault();
+        for (const card of document.querySelectorAll('.provider-card')) {
+            const ep = card.querySelector('.provider-endpoint')?.value?.trim() || '';
+            if (ep && !isValidHttpUrl(ep)) {
+                showToast('Each provider endpoint must be a valid http/https URL.', 'error');
+                return;
+            }
+        }
+        try {
+            const saveRes = await fetch(`${CONFIG_API_BASE}/providers`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ providers: getProvidersFromDOM() })
+            });
+            if (!saveRes.ok) {
+                const error = await saveRes.json();
+                throw new Error(error.detail || 'Failed to save providers.');
+            }
+            showToast('Providers saved successfully!');
+            // Reload provider list so newly added cards get data-existing=true and proper readonly state
+            if (currentUserRole === 'mod' || currentUserRole === 'admin') {
+                const provRes = await fetch(`${CONFIG_API_BASE}/providers`);
+                if (provRes.ok) {
+                    const providers = await provRes.json();
+                    renderProviders(providers);
+                }
+            } else {
+                document.querySelectorAll('.provider-apikey').forEach(el => { el.value = ''; });
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
     }
 
-    function addProviderCard(provider = {}) {
+    // --- Multi Providers ---
+    function applyProviderReadonly() {
+        const isMod = currentUserRole === 'mod';
+        const isAdmin = currentUserRole === 'admin';
+        if (!isMod && !isAdmin) return;
+
+        document.querySelectorAll('.provider-card').forEach(card => {
+            const isExisting = card.dataset.existing === 'true';
+
+            // No one below super_admin can delete
+            const removeBtn = card.querySelector('.provider-remove');
+            if (removeBtn && isExisting) {
+                removeBtn.disabled = true;
+                removeBtn.classList.add('opacity-40', 'cursor-not-allowed');
+                removeBtn.title = 'Only super admins can remove providers';
+            }
+
+            // Mod can't edit existing cards at all
+            if (isMod && isExisting) {
+                card.querySelectorAll('input, textarea').forEach(el => { el.disabled = true; });
+                card.querySelectorAll('.cb-dd-btn, .provider-key-toggle').forEach(el => {
+                    el.disabled = true;
+                    el.classList.add('opacity-40', 'cursor-not-allowed');
+                });
+            }
+        });
+    }
+
+    function updateProvidersVisibility() {
+        const hasCards = document.querySelectorAll('.provider-card').length > 0;
+        document.getElementById('providers-fieldset').classList.toggle('hidden', !hasCards);
+        document.getElementById('providers-save-row').classList.toggle('hidden', !hasCards);
+    }
+
+    function renderProviders(providers) {
+        document.getElementById('providers-tab-loader')?.classList.add('hidden');
+        document.getElementById('providers-form')?.classList.remove('hidden');
+        document.getElementById('providers-list').innerHTML = '';
+        (providers || []).forEach(p => addProviderCard(p, true));
+        updateProvidersVisibility();
+        applyProviderReadonly();
+    }
+
+    let _serverOptions = [];
+    let _providerCardCounter = 0;
+
+    async function loadServerOptions() {
+        try {
+            const res = await fetch('/api/servers');
+            if (!res.ok) return;
+            const servers = await res.json();
+            _serverOptions = (servers || [])
+                .filter(s => s.server_id && s.server_name)
+                .map(s => ({ id: s.server_id, name: s.server_name }));
+        } catch (_) {}
+    }
+
+    function _updateProviderSrvDdLabel(card, ddId) {
+        const btn = card.querySelector(`.cb-dd-btn[data-dd="${ddId}"]`);
+        if (!btn) return;
+        const checked = [...card.querySelectorAll(`#${ddId} .provider-server-cb:checked`)];
+        const label = btn.querySelector('.cb-dd-label');
+        const clearIc = btn.querySelector('.cb-dd-clear');
+        if (label) {
+            if (checked.length === 0) {
+                label.textContent = 'None';
+            } else if (checked.length === 1) {
+                const srv = _serverOptions.find(s => s.id === checked[0].dataset.serverId);
+                label.textContent = srv ? srv.name : checked[0].dataset.serverId;
+            } else {
+                label.textContent = `${checked.length} servers`;
+            }
+        }
+        if (clearIc) clearIc.classList.toggle('hidden', checked.length === 0);
+    }
+
+    function addProviderCard(provider = {}, isExisting = false) {
         const list = document.getElementById('providers-list');
         const models = Array.isArray(provider.allowed_models) ? provider.allowed_models.join('\n') : '';
+        const reservedIds = Array.isArray(provider.reserved_server_ids) ? provider.reserved_server_ids : [];
+        const isReserved = reservedIds.length > 0;
+        const cardId = ++_providerCardCounter;
+        const ddId = `provider-srv-dd-${cardId}`;
         const card = document.createElement('div');
         card.className = 'provider-card space-y-3';
+        if (isExisting) card.dataset.existing = 'true';
         const headerName = provider.name ? escapeHtml(provider.name) : 'New Provider';
         card.innerHTML = `
             <div class="flex justify-between items-center">
@@ -486,17 +626,17 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-grid">
                 <div>
                     <label class="label-tt">Name</label>
-                    <input type="text" class="provider-name input-field" placeholder="e.g. openrouter-vision" value="${escapeHtml(provider.name || '')}">
+                    <input type="text" class="provider-name input-field" placeholder="e.g. openrouter-vision" autocomplete="off" value="${escapeHtml(provider.name || '')}">
                 </div>
                 <div>
                     <label class="label-tt">Endpoint URL</label>
-                    <input type="url" class="provider-endpoint input-field" placeholder="e.g. https://openrouter.ai/api/v1" value="${escapeHtml(provider.endpoint || '')}">
+                    <input type="url" class="provider-endpoint input-field" placeholder="e.g. https://openrouter.ai/api/v1" autocomplete="off" value="${escapeHtml(provider.endpoint || '')}">
                 </div>
             </div>
             <div>
                 <label class="label-tt">API Key <span class="text-hint font-normal">(leave blank to keep existing)</span></label>
                 <div class="relative">
-                    <input type="password" class="provider-apikey input-field pr-10" autocomplete="off" placeholder="Leave blank to keep existing key">
+                    <input type="password" class="provider-apikey input-field pr-10" autocomplete="new-password" placeholder="Leave blank to keep existing key">
                     <button type="button" class="btn-eye provider-key-toggle"><i class="fas fa-eye"></i></button>
                 </div>
             </div>
@@ -504,8 +644,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 <label class="label-tt">Allowed Models <span class="text-hint font-normal">(one per line - first is default)</span></label>
                 <textarea class="provider-models input-field allowed-models-textarea" rows="3" placeholder="e.g. google/gemini-2.0-flash">${escapeHtml(models)}</textarea>
             </div>
+            <div class="border-t border-gray-700 pt-3">
+                <div class="flex-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-300">Reserved for server</p>
+                        <p class="text-hint">When enabled, only selected servers can use this provider. Super admins can override.</p>
+                    </div>
+                    <label class="toggle-wrap">
+                        <input type="checkbox" class="provider-reserved sr-only peer" ${isReserved ? 'checked' : ''}>
+                        <div class="toggle-track"></div>
+                    </label>
+                </div>
+                <div class="provider-reserved-server mt-3 ${isReserved ? '' : 'hidden'}">
+                    <label class="text-xs font-medium text-gray-400 mb-1 block">Servers</label>
+                    <div class="relative">
+                        <button type="button" class="cb-dd-btn w-full" data-dd="${ddId}">
+                            <span class="cb-dd-label flex-1 min-w-0 text-left truncate">None</span>
+                            <span class="flex items-center gap-1.5 shrink-0 ml-auto">
+                                <i class="fas fa-times cb-dd-clear hidden" title="Clear"></i>
+                                <i class="fas fa-chevron-down cb-dd-chevron cb-dd-chevron--btn"></i>
+                            </span>
+                        </button>
+                        <div id="${ddId}" class="cb-dd cb-dd-scrollable hidden w-full"></div>
+                    </div>
+                </div>
+            </div>
         `;
-        card.querySelector('.provider-remove').addEventListener('click', () => card.remove());
+
+        card.querySelector('.provider-remove').addEventListener('click', () => {
+            card.remove();
+            updateProvidersVisibility();
+        });
         card.querySelector('.provider-name').addEventListener('input', function () {
             card.querySelector('.provider-header').textContent = this.value.trim() || 'New Provider';
         });
@@ -520,17 +689,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 icon.classList.replace('fa-eye-slash', 'fa-eye');
             }
         });
+
+        // Reserved toggle shows/hides the server dropdown
+        const reservedToggle = card.querySelector('.provider-reserved');
+        const reservedServerDiv = card.querySelector('.provider-reserved-server');
+        reservedToggle.addEventListener('change', function () {
+            reservedServerDiv.classList.toggle('hidden', !this.checked);
+            if (!this.checked) {
+                card.querySelectorAll(`#${ddId} .provider-server-cb`).forEach(cb => { cb.checked = false; });
+                _updateProviderSrvDdLabel(card, ddId);
+            }
+        });
+
+        // Populate checkbox dropdown with server options
+        const dd = card.querySelector(`#${ddId}`);
+        if (_serverOptions.length) {
+            dd.innerHTML = _serverOptions.map(s => `
+                <label class="cb-dd-item">
+                    <input type="checkbox" class="custom-cb provider-server-cb" data-server-id="${escapeHtml(s.id)}" value="${escapeHtml(s.name)}"${reservedIds.includes(s.id) ? ' checked' : ''}>
+                    ${escapeHtml(s.name)}
+                </label>`).join('');
+        } else {
+            dd.innerHTML = '<span class="cb-dd-item text-dim">No servers available</span>';
+        }
+
+        // Wire checkbox change → update label
+        dd.addEventListener('change', () => _updateProviderSrvDdLabel(card, ddId));
+
         list.appendChild(card);
+
+        // Wire the cb-dd toggle button manually (avoids label conflict with initCbDdInteractions)
+        const srvBtn = card.querySelector(`.cb-dd-btn[data-dd="${ddId}"]`);
+        if (srvBtn) {
+            srvBtn.addEventListener('click', (e) => {
+                if (e.target.closest('.cb-dd-clear')) return;
+                document.querySelectorAll('.cb-dd').forEach(d => { if (d !== dd) d.classList.add('hidden'); });
+                dd.classList.toggle('hidden');
+            });
+            const clearIc = srvBtn.querySelector('.cb-dd-clear');
+            if (clearIc) {
+                clearIc.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    card.querySelectorAll(`#${ddId} .provider-server-cb`).forEach(cb => { cb.checked = false; });
+                    dd.classList.add('hidden');
+                    _updateProviderSrvDdLabel(card, ddId);
+                });
+            }
+        }
+        // Ensure document outside-click close is registered (once only via initCbDdInteractions flag)
+        initCbDdInteractions({ containers: [] });
+        // Set initial label
+        _updateProviderSrvDdLabel(card, ddId);
     }
 
     function getProvidersFromDOM() {
-        return [...document.querySelectorAll('.provider-card')].map(card => ({
-            name: card.querySelector('.provider-name').value.trim(),
-            endpoint: card.querySelector('.provider-endpoint').value.trim(),
-            api_key: card.querySelector('.provider-apikey').value,
-            allowed_models: card.querySelector('.provider-models').value
-                .split('\n').map(s => s.trim()).filter(Boolean),
-        })).filter(p => p.name || p.endpoint);
+        return [...document.querySelectorAll('.provider-card')].map(card => {
+            const reservedToggle = card.querySelector('.provider-reserved');
+            const checkedServers = reservedToggle?.checked
+                ? [...card.querySelectorAll('.provider-server-cb:checked')].map(cb => cb.dataset.serverId).filter(Boolean)
+                : [];
+            return {
+                name: card.querySelector('.provider-name').value.trim(),
+                endpoint: card.querySelector('.provider-endpoint').value.trim(),
+                api_key: card.querySelector('.provider-apikey').value,
+                allowed_models: card.querySelector('.provider-models').value
+                    .split('\n').map(s => s.trim()).filter(Boolean),
+                reserved_server_ids: checkedServers,
+            };
+        }).filter(p => p.name || p.endpoint);
     }
 
     function getModelsFromTextarea(id) {
@@ -686,11 +913,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initial Load ---
-    loadConfig().then(() => {
+    // Both auth-status AND server options must be known before loadConfig so that
+    // applyProviderReadonly has the correct role when renderProviders runs.
+    Promise.all([_authReady, loadServerOptions()]).then(() => loadConfig()).then(() => {
         loadDefaultCharacterCombobox();
         setupModelComboboxes();
     });
-    loadPrompt();
     loadSecurityStatus();
     checkEncryptionStatus();
 });

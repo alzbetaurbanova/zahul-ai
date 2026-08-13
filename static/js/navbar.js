@@ -257,7 +257,7 @@
         const adminLink = container.querySelector('a.nav-admin-link');
         const adminMobileLink = container.querySelector('a.nav-admin-mobile-link');
         const showUsers = authEnabled && (role === 'super_admin' || role === 'admin');
-        const showAiConfig = !authEnabled || role === 'super_admin';
+        const showAiConfig = !authEnabled || role === 'super_admin' || role === 'admin' || role === 'mod';
         if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
         if (usersMobileLink) usersMobileLink.classList.toggle('hidden', !showUsers);
         if (adminLink) adminLink.classList.toggle('hidden', !showAiConfig);
@@ -375,7 +375,10 @@
             poll();
         });
         function startPolling() { clearInterval(_pollInterval); poll(); _pollInterval = setInterval(poll, NAVBAR_STATUS_POLL_MS); }
+        function stopPolling() { clearInterval(_pollInterval); _pollInterval = null; }
         startPolling();
         container.querySelectorAll('[data-page]').forEach(a => a.addEventListener('click', startPolling));
+        document.addEventListener('app:offline', stopPolling);
+        document.addEventListener('app:online', startPolling);
     }
 })();

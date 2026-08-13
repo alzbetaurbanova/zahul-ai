@@ -1610,3 +1610,69 @@ window.initDatePickers = initDatePickers;
 window.setupDateTimePicker = setupDateTimePicker;
 window.refreshDateTimePicker = refreshDateTimePicker;
 window.initDateTimePickers = initDateTimePickers;
+
+// ============================================================
+// Global offline detection
+// ============================================================
+(function () {
+    let _offline = false;
+    let _hideTimer = null;
+    const _origFetch = window.fetch;
+
+    function _getBanner() {
+        let el = document.getElementById('offline-banner');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'offline-banner';
+            el.className = 'offline-banner';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            el.innerHTML = '<span class="offline-banner-dot"></span><span id="offline-banner-text"></span>';
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function _goOffline() {
+        if (_offline) return;
+        _offline = true;
+        if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+        const b = _getBanner();
+        b.classList.remove('offline-banner--back');
+        b.classList.add('offline-banner--visible');
+        document.getElementById('offline-banner-text').textContent = 'You appear to be offline. Reconnecting…';
+        document.dispatchEvent(new CustomEvent('app:offline'));
+    }
+
+    function _goOnline() {
+        if (!_offline) return;
+        _offline = false;
+        const b = _getBanner();
+        document.getElementById('offline-banner-text').textContent = 'Back online!';
+        b.classList.add('offline-banner--back');
+        _hideTimer = setTimeout(() => {
+            b.classList.remove('offline-banner--visible', 'offline-banner--back');
+            _hideTimer = null;
+        }, 2500);
+        document.dispatchEvent(new CustomEvent('app:online'));
+    }
+
+    window.addEventListener('offline', _goOffline);
+    window.addEventListener('online', () => {
+        _origFetch('/api/discord/status', { method: 'HEAD', cache: 'no-store' })
+            .then(_goOnline)
+            .catch(() => {});
+    });
+
+    // Patch fetch to catch network failures not covered by browser events (e.g. mobile)
+    window.fetch = function (...args) {
+        return _origFetch.apply(this, args)
+            .then(r => { if (_offline) _goOnline(); return r; })
+            .catch(err => {
+                if (err instanceof TypeError && !navigator.onLine) _goOffline();
+                throw err;
+            });
+    };
+
+    if (!navigator.onLine) _goOffline();
+})();

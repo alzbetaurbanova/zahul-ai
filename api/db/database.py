@@ -568,7 +568,7 @@ class Database:
 
     def list_channel_options(self, allowed_server_ids: Optional[List[str]] = None) -> List[Dict[str, str]]:
         """Lightweight channel list for scheduler target combobox (one query)."""
-        conditions = ["server_id != ?"]
+        conditions = ["server_id != ?", "channel_id NOT LIKE 'simulator:%'", "channel_id NOT LIKE 'simulation:%'"]
         params: List[Any] = ["DM_VIRTUAL_SERVER"]
         if allowed_server_ids is not None:
             if not allowed_server_ids:
@@ -598,8 +598,10 @@ class Database:
     def list_channels_for_server(self, server_id: str) -> List[Dict[str, Any]]:
         """List all channels for a specific server by its ID."""
         with self._get_connection() as conn:
-            # Use a WHERE clause to filter by server_id
-            rows = conn.execute("SELECT * FROM channels WHERE server_id = ?", (server_id,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM channels WHERE server_id = ? AND channel_id NOT LIKE 'simulator:%' AND channel_id NOT LIKE 'simulation:%'",
+                (server_id,),
+            ).fetchall()
             channels = []
             for row in rows:
                 channel = dict(row)

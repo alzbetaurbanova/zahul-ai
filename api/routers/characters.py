@@ -177,6 +177,7 @@ from api.db import cache as db_cache
 # This is the global bot instance managed by your discord router
 from api.bot_state import bot_state
 from src.utils.image_uploader import upload_image_to_system_channel
+from api.notify_model_change import notify_model_change, MODEL_FIELDS_CHAR, changed_model_fields
 
 # --- Initialize Database Client ---
 # This creates a single instance of the Database class for the router to use.
@@ -430,6 +431,10 @@ async def update_character(
         if old_triggers != new_triggers:
             changed.append('triggers')
         db.log_admin('character.update', target=new_name, detail=', '.join(changed) if changed else None, actor=current_user)
+
+        model_changed = changed_model_fields(old_data, char_data, MODEL_FIELDS_CHAR)
+        if model_changed:
+            asyncio.create_task(notify_model_change(current_user, f'character "{new_name}"', model_changed))
 
         return db.get_character_by_id(character_id, fresh=True)
     except HTTPException:

@@ -155,19 +155,40 @@ def _panel_access_line(public_url: Optional[str]) -> Optional[str]:
 
 async def _notify_super_admins_new_access_request(requester_username: str):
     """
-    DM all Discord-linked super admins when a new access request is submitted.
-    Local-only super admins are not notified (no discord_id).
+    DM notify_contacts (from config) when a new access request is submitted.
+    Falls back to Discord-linked super admins if notify_contacts is not configured.
     """
     db = Database()
-    admins = db.list_discord_super_admins()
-    if not admins:
-        return
     review_line = _access_request_review_line(db.get_config("public_url"))
     message = (
         "New zahul-ai panel access request.\n"
         f"Discord user: {requester_username}\n"
         f"{review_line}"
     )
+
+    contacts: list = db.list_configs().get("notify_contacts") or []
+    if contacts:
+        all_users = db.list_users()
+        by_discord_username = {
+            str(u.get("discord_username") or "").strip().lower(): u
+            for u in all_users
+            if u.get("discord_username")
+        }
+        for username in contacts:
+            uname = str(username).strip()
+            if not uname:
+                continue
+            user_row = by_discord_username.get(uname.lower())
+            discord_id = str(user_row.get("discord_id") or "").strip() if user_row else ""
+            if not discord_id:
+                _log.warning("access request notify: no discord_id for '%s', skipping", uname)
+                continue
+            detail = f"requester={requester_username} target_discord_id={discord_id}"
+            await _try_dm_or_queue(discord_id, message, "access.request.admin", detail)
+        return
+
+    # fallback: notify Discord-linked super admins
+    admins = db.list_discord_super_admins()
     for admin in admins:
         discord_id = str(admin.get("discord_id") or "").strip()
         if not discord_id:
@@ -363,9 +384,12 @@ async def update_role(user_id: int, body: UpdateRoleRequest, current_user: dict 
     caller_level = ROLE_LEVEL.get(current_user.get("role", ""), 0)
     target_level = ROLE_LEVEL.get(user["role"], 0)
     new_level = ROLE_LEVEL.get(body.role, 0)
-    # Admin cannot modify users with equal or higher role (prevents peer demotion)
-    if caller_level <= target_level and current_user.get("id") != user_id:
-        raise HTTPException(status_code=403, detail="Cannot modify a user with equal or higher role.")
+    # Cannot modify users with higher role; peers can only be modified by super_admin
+    if current_user.get("id") != user_id:
+        if caller_level < target_level:
+            raise HTTPException(status_code=403, detail="Cannot modify a user with higher role.")
+        if caller_level == target_level and current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Cannot modify a user with equal role.")
     # Admin cannot promote above their own level
     if new_level > caller_level:
         raise HTTPException(status_code=403, detail="Cannot assign a role higher than your own.")
@@ -428,9 +452,9 @@ async def delete_user(user_id: int, current_user: dict = Depends(require_role("a
         raise HTTPException(status_code=404, detail="User not found.")
     if user.get("role") == "super_admin" and db.count_super_admins() <= 1:
         raise HTTPException(status_code=400, detail="At least one super admin account is required.")
-    if user.get("role") == "super_admin" and current_user.get("role") != "super_admin":
-        raise HTTPException(status_code=403, detail="Only super admin can delete a super admin account.")
-    if current_user.get("id") and current_user["id"] == user_id:
+    if user.get("role") == "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin accounts cannot be deleted.")
+    if current_user.get("id") and int(current_user["id"]) == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account.")
     try:
         db.delete_user(user_id)
