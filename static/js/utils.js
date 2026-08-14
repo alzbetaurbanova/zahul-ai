@@ -1402,7 +1402,15 @@ function getSelectDisplayLabel(select) {
 }
 
 function closeAllCustomSelectDropdowns() {
-    document.querySelectorAll('.custom-select-dd').forEach(dd => dd.classList.add('hidden'));
+    document.querySelectorAll('.custom-select-dd').forEach(dd => {
+        dd.classList.add('hidden');
+        dd.style.position = '';
+        dd.style.top = '';
+        dd.style.left = '';
+        dd.style.width = '';
+        dd.style.right = '';
+        dd.style.zIndex = '';
+    });
     document.querySelectorAll('.custom-select-btn').forEach(btn => btn.setAttribute('aria-expanded', 'false'));
 }
 
@@ -1555,6 +1563,15 @@ function setupCustomSelect(select) {
             buildOptions();
             dd.classList.remove('hidden');
             btn.setAttribute('aria-expanded', 'true');
+            if (btn.closest('.modal-box')) {
+                const rect = btn.getBoundingClientRect();
+                dd.style.position = 'fixed';
+                dd.style.top = (rect.bottom + 4) + 'px';
+                dd.style.left = rect.left + 'px';
+                dd.style.width = rect.width + 'px';
+                dd.style.right = 'auto';
+                dd.style.zIndex = '1000';
+            }
         }
     });
 

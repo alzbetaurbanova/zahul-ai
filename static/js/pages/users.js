@@ -967,6 +967,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('discord-fields').classList.toggle('hidden', tab !== 'discord');
         document.getElementById('auth-tab-local').className = tab === 'local' ? 'mode-tab mode-tab-on' : 'mode-tab mode-tab-off';
         document.getElementById('auth-tab-discord').className = tab === 'discord' ? 'mode-tab mode-tab-on' : 'mode-tab mode-tab-off';
+        const roleContainer = document.getElementById('new-role-container');
+        if (tab === 'local') {
+            document.getElementById('local-fields').appendChild(roleContainer);
+        } else {
+            document.getElementById('discord-fields').insertBefore(roleContainer, document.getElementById('discord-role-spacer'));
+        }
     }
 
     function resetNewForm() {

@@ -355,6 +355,8 @@
 [data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
 [data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
 [data-theme="light"] .power-btn { color: var(--light); }
+[data-theme="light"] .power-btn--active { background-color: var(--danger-bright); color: var(--text-on-accent) !important; }
+[data-theme="light"] .power-btn--active:hover { background-color: var(--danger); }
 
 /* Console log stream */
 [data-theme="light"] .log-stream             { background-color: #2d3748; border-color: rgba(99, 102, 241, 0.2); }

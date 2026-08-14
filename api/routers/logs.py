@@ -171,6 +171,96 @@ def get_discord_log(log_id: int, current_user: dict = Depends(require_role("gues
     return log
 
 
+@router.post("/discord/{log_id}/retry")
+async def retry_discord_log(log_id: int, current_user: dict = Depends(require_role("mod"))):
+    import asyncio
+    from src.simulate.chat import generate_simulated_response
+    from api.bot_state import bot_state
+    import discord as discord_lib
+
+    log = db.get_discord_log(log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    if not _log_in_scope(current_user, log):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if log.get("status") != "error":
+        raise HTTPException(status_code=400, detail="Only error logs can be retried")
+
+    result = await generate_simulated_response(
+        db,
+        character_name=log.get("character") or "",
+        user_message=log.get("trigger") or "",
+        user_name=log.get("user") or "User",
+        model=log.get("model") or None,
+        temperature=log.get("temperature"),
+    )
+
+    response_text = result.get("response", "")
+    is_error = result.get("error", False)
+    retry_status = "error" if is_error else "ok"
+    retry_error_msg = response_text if is_error else None
+    if is_error:
+        response_text = ""
+
+    channel_id = log.get("channel_id", "")
+    sent_to_discord = False
+
+    if channel_id and str(channel_id).isdigit() and not is_error:
+        bot = bot_state.bot_instance
+        bot_loop = bot_state.bot_loop
+        if bot and bot.is_ready() and bot_loop and bot_loop.is_running():
+            char_data = db.get_character(log.get("character") or "")
+            d = (char_data.get("data") or {}) if char_data else {}
+            char_name = log.get("character") or ""
+            avatar_url = d.get("avatar") or ""
+
+            async def _send_to_discord():
+                channel = bot.get_channel(int(channel_id))
+                if not channel:
+                    channel = await bot.fetch_channel(int(channel_id))
+                if not channel:
+                    return False
+                parent = channel.parent if isinstance(channel, discord_lib.Thread) else channel
+                webhooks = await parent.webhooks()
+                webhook = next((w for w in webhooks if w.user == bot.user), None)
+                if not webhook:
+                    webhook = await parent.create_webhook(name='zahul-ai')
+                kwargs: dict = {'content': response_text, 'username': char_name}
+                if avatar_url.startswith('http'):
+                    kwargs['avatar_url'] = avatar_url
+                if isinstance(channel, discord_lib.Thread):
+                    kwargs['thread'] = channel
+                await webhook.send(**kwargs)
+                return True
+
+            try:
+                fut = asyncio.run_coroutine_threadsafe(_send_to_discord(), bot_loop)
+                sent_to_discord = await asyncio.wait_for(asyncio.wrap_future(fut), timeout=15.0)
+            except Exception:
+                sent_to_discord = False
+
+    db.log_discord(
+        character=log.get("character") or "",
+        channel_id=channel_id,
+        user=log.get("user") or "system",
+        trigger=log.get("trigger") or "",
+        response=response_text,
+        model=result.get("model") or log.get("model") or "",
+        input_tokens=result.get("input_tokens", 0),
+        output_tokens=result.get("output_tokens", 0),
+        conversation_history=None,
+        source="retry",
+        status=retry_status,
+        error_message=retry_error_msg,
+        temperature=result.get("temperature"),
+        history_count=result.get("history_count", 0),
+        endpoint=result.get("endpoint") or log.get("endpoint"),
+        status_code=200 if not is_error else None,
+    )
+
+    return {"status": retry_status, "sent_to_discord": sent_to_discord}
+
+
 @router.delete("/discord/bulk", status_code=200)
 def bulk_delete_discord_logs(body: BulkDeleteRequest, current_user: dict = Depends(require_role("super_admin"))):
     if not body.ids:

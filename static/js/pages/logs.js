@@ -613,7 +613,7 @@
                     ${row('Temperature', item.temperature != null ? item.temperature : '—')}
                     ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
                     ${row('Log ID', `#${item.id}`)}
-                    ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}${item.status_code != null ? ' ' + item.status_code : ''}</span>`)}
+                    ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}${item.status_code != null ? ' ' + item.status_code : ''}</span>${item.status === 'error' ? ' <button id="retry-log-btn" class="btn-retry" title="Retry now"><i class="fas fa-redo"></i></button>' : ''}`)}
                     ${item.model ? `<div class="metadata-label">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
                 </div>
 
@@ -643,6 +643,38 @@
             </div>
         `;
         document.getElementById('detail-modal').classList.remove('hidden');
+
+        const retryBtn = document.getElementById('retry-log-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', async () => {
+                if (retryBtn.disabled) return;
+                retryBtn.disabled = true;
+                const icon = retryBtn.querySelector('i');
+                icon.className = 'fas fa-redo fa-spin';
+                try {
+                    const res = await fetch(`/api/logs/discord/${id}/retry`, { method: 'POST' });
+                    if (res.ok) {
+                        icon.className = 'fas fa-check';
+                        retryBtn.style.color = 'var(--success)';
+                        retryBtn.style.borderColor = 'var(--success)';
+                    } else {
+                        icon.className = 'fas fa-times';
+                        retryBtn.style.color = 'var(--danger)';
+                        retryBtn.style.borderColor = 'var(--danger)';
+                    }
+                } catch {
+                    icon.className = 'fas fa-times';
+                    retryBtn.style.color = 'var(--danger)';
+                    retryBtn.style.borderColor = 'var(--danger)';
+                }
+                setTimeout(() => {
+                    icon.className = 'fas fa-redo';
+                    retryBtn.style.color = '';
+                    retryBtn.style.borderColor = '';
+                    retryBtn.disabled = false;
+                }, 2000);
+            });
+        }
 
         const copyBtn = document.getElementById('copy-response-btn');
         if (copyBtn) {

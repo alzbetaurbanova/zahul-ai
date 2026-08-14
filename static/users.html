@@ -205,33 +205,36 @@
                         <button type="button" id="auth-tab-discord" class="mode-tab mode-tab-off">Discord</button>
                     </div>
                 </div>
-                <div id="local-fields">
-                    <div class="mb-3">
+                <div id="local-fields" class="flex flex-col gap-3">
+                    <div>
                         <label class="label-form">Username</label>
-                        <input type="text" id="new-username" class="field" autocomplete="off">
+                        <input type="text" id="new-username" class="field w-full" autocomplete="off">
                     </div>
                     <div>
                         <label class="label-form">Password</label>
                         <div class="relative">
-                            <input type="password" id="new-password" class="field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                            <input type="password" id="new-password" class="field w-full pr-10" placeholder="Min 8 characters" autocomplete="new-password">
                             <button type="button" id="new-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
+                    <div id="new-role-container">
+                        <label class="label-form">Role</label>
+                        <select id="new-role" class="field w-full">
+                            <option value="super_admin">Super admin - full panel control</option>
+                            <option value="guest">Guest – read only</option>
+                            <option value="mod" selected>Mod – assigned servers</option>
+                            <option value="admin">Admin – full control</option>
+                        </select>
+                    </div>
                 </div>
-                <div id="discord-fields" class="hidden">
-                    <label class="label-form">Discord username</label>
-                    <input type="text" id="new-discord-username" class="field" autocomplete="off">
-                </div>
-                <div>
-                    <label class="label-form">Role</label>
-                    <select id="new-role" class="field">
-                        <option value="super_admin">Super admin - full panel control</option>
-                        <option value="guest">Guest – read only</option>
-                        <option value="mod" selected>Mod – assigned servers</option>
-                        <option value="admin">Admin – full control</option>
-                    </select>
+                <div id="discord-fields" class="hidden flex flex-col gap-3">
+                    <div>
+                        <label class="label-form">Discord username</label>
+                        <input type="text" id="new-discord-username" class="field w-full" autocomplete="off">
+                    </div>
+                    <div id="discord-role-spacer" style="min-height: calc(4.3125rem + 2px)"></div>
                 </div>
                 <div id="new-servers-field" class="hidden">
                     <label class="label-form">Server Access</label>
@@ -279,7 +282,7 @@
                 </div>
                 <div id="edit-role-field">
                     <label class="label-form">Role</label>
-                    <select id="edit-role" class="field">
+                    <select id="edit-role" class="field w-full">
                         <option value="super_admin">Super admin - full panel control</option>
                         <option value="guest">Guest – read only</option>
                         <option value="mod">Mod – assigned servers</option>
@@ -302,7 +305,7 @@
                 <div id="edit-pw-field">
                     <label class="label-form">New password <span class="text-hint">(leave empty to keep)</span></label>
                     <div class="relative">
-                        <input type="password" id="edit-password" class="field pr-10" placeholder="Min 8 characters" autocomplete="new-password">
+                        <input type="password" id="edit-password" class="field w-full pr-10" placeholder="Min 8 characters" autocomplete="new-password">
                         <button type="button" id="edit-password-toggle" class="btn-eye" aria-label="Toggle password visibility">
                             <i class="fas fa-eye"></i>
                         </button>
