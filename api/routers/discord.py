@@ -91,12 +91,21 @@ async def activate_bot(current_user: dict = Depends(require_role("admin"))):
 
 @router.post("/deactivate")
 async def deactivate_bot(current_user: dict = Depends(require_role("admin"))):
-    if not bot_state.bot_instance or not bot_state.bot_instance.is_ready():
+    is_running = bot_state.bot_instance is not None
+    is_thread_alive = bot_state.bot_thread is not None and bot_state.bot_thread.is_alive()
+    if not is_running and not is_thread_alive:
         raise HTTPException(status_code=400, detail="Bot is not running.")
-    
-    loop = bot_state.bot_loop or bot_state.bot_instance.loop
+
+    loop = bot_state.bot_loop or getattr(bot_state.bot_instance, 'loop', None)
+
     if not loop or not loop.is_running():
-        raise HTTPException(status_code=500, detail="Bot event loop is not available.")
+        # Bot thread is alive but loop not ready yet — force reset state
+        logging.warning("--- Force-stopping bot during startup (no event loop yet) ---")
+        bot_state.bot_instance = None
+        bot_state.bot_loop = None
+        db = Database()
+        db.log_admin(action="server.deactivate", target="discord", detail="Bot force-stopped during startup.", actor=current_user)
+        return {"success": True, "message": "Bot force-stopped."}
 
     try:
         logging.info("--- Sending shutdown signal to bot via API... ---")

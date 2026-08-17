@@ -1068,6 +1068,15 @@ textarea:disabled {
     background-color: var(--warning-dark);
 }
 
+.power-btn--starting .power-btn-starting-content { display: inline-flex; align-items: center; }
+.power-btn--starting .power-btn-hover-content   { display: none; }
+.power-btn--starting:hover .power-btn-starting-content { display: none; }
+.power-btn--starting:hover .power-btn-hover-content   { display: inline-flex; align-items: center; }
+.power-btn--starting:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--danger-text);
+}
+
 /* ========================================================================== */
 /* Tabs                                                                       */
 /* ========================================================================== */
@@ -2884,7 +2893,10 @@ body[data-page="logs"] .tab-lock-wrap {
         grid-template-columns: max-content 1fr max-content 1fr;
     }
     .metadata-full-value {
-        grid-column: span 3;
+        grid-column: 2 / -1;
+    }
+    .metadata-label--full {
+        grid-column: 1;
     }
 }
 
@@ -2974,12 +2986,12 @@ body[data-page="logs"] #detail-modal .modal-box {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.1rem;
+    height: 1.1rem;
     border-radius: 50%;
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.6rem;
+    font-size: 0.5rem;
     border: 1px solid var(--surface-raised);
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
@@ -2988,8 +3000,8 @@ body[data-page="logs"] #detail-modal .modal-box {
 }
 
 .btn-retry:hover {
-    color: var(--primary);
-    border-color: var(--primary);
+    color: var(--danger-text);
+    border-color: var(--danger-text);
 }
 
 .btn-retry:disabled {
@@ -3883,6 +3895,7 @@ body[data-page="logs"] #detail-modal .modal-box {
 .log-source-chat      { background: #14532d; color: #86efac; }
 .log-source-test      { background: #1f2937; color: #d1d5db; }
 .log-source-scheduler { background: #312e81; color: #a5b4fc; }
+.log-source-retry     { background: #431407; color: #fb923c; }
 
 .sched-badge-reminder  { background: #78350f; color: #fcd34d; }
 

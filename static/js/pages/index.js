@@ -64,14 +64,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!canControlBot()) {
             return;
         }
-        if (powerBtn.dataset.status === 'active') {
+        if (powerBtn.dataset.status === 'active' || powerBtn.dataset.status === 'starting') {
             deactivateBot();
             burstPoll();
         } else if (powerBtn.dataset.status === 'inactive' || powerBtn.dataset.status === 'crashed') {
             activateBot();
             burstPoll();
         }
-        // Do nothing if it's starting or stopping
     });
 
     copyInviteBtn.addEventListener('click', function() {
@@ -175,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset all classes
         const allStatusClasses = ['status-active', 'status-inactive', 'status-starting', 'status-stopping', 'status-crashed'];
         controlStatusIndicator.classList.remove(...allStatusClasses);
-        powerBtn.classList.remove('power-btn--active', 'power-btn--inactive', 'power-btn--crashed');
+        powerBtn.classList.remove('power-btn--active', 'power-btn--inactive', 'power-btn--crashed', 'power-btn--starting');
 
         powerBtn.disabled = !canControlBot();
 
@@ -189,8 +188,8 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'starting':
                 controlStatusIndicator.classList.add('status-starting');
                 controlStatusText.textContent = 'Starting';
-                powerBtn.innerHTML = '<span class="loader-spinner-sm mr-2" aria-hidden="true"></span> Starting...';
-                powerBtn.disabled = true;
+                powerBtn.innerHTML = '<span class="power-btn-starting-content"><span class="loader-spinner-sm mr-2" aria-hidden="true"></span>Starting...</span><span class="power-btn-hover-content"><i class="fas fa-power-off mr-2"></i>Deactivate</span>';
+                powerBtn.classList.add('power-btn--starting');
                 break;
             case 'stopping':
                 controlStatusIndicator.classList.add('status-stopping');

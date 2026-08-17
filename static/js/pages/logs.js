@@ -457,7 +457,9 @@
             ? 'log-source-scheduler'
             : item.source === 'test'
                 ? 'log-source-test'
-                : 'log-source-chat';
+                : (item.source || '').startsWith('retry')
+                    ? 'log-source-retry'
+                    : 'log-source-chat';
         return `<div data-log-id="${item.id}" class="card-dark card-dark--row card-dark--clickable">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -563,10 +565,16 @@
     }
 
     // --- Detail modal ---
+    let _pendingRefresh = false;
+
     function closeDetailModal() {
         document.getElementById('detail-modal').classList.add('hidden');
         const p = new URLSearchParams(location.search);
         if (p.has('task_id')) { p.delete('task_id'); history.replaceState(null, '', `?${p.toString()}`); }
+        if (_pendingRefresh) {
+            _pendingRefresh = false;
+            fetchLogs();
+        }
     }
     document.getElementById('detail-close').addEventListener('click', closeDetailModal);
     document.getElementById('detail-modal').addEventListener('click', e => { if (e.target === document.getElementById('detail-modal')) closeDetailModal(); });
@@ -614,7 +622,8 @@
                     ${(item.source === 'scheduler' && item.task_id) ? row('Scheduler', `<a href="/scheduler?open=${item.task_id}&character=${encodeURIComponent(item.character || '')}" class="link-indigo-sm"><i class="fas fa-calendar-alt mr-1"></i>View task</a>`) : ''}
                     ${row('Log ID', `#${item.id}`)}
                     ${row('Status', `<span class="${statusCls}">${item.status === 'error' ? 'error' : 'ok'}${item.status_code != null ? ' ' + item.status_code : ''}</span>${item.status === 'error' ? ' <button id="retry-log-btn" class="btn-retry" title="Retry now"><i class="fas fa-redo"></i></button>' : ''}`)}
-                    ${item.model ? `<div class="metadata-label">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
+                    ${item.retry_of ? row('Retry of', `<a class="link-indigo-sm" href="#" data-open-log="${item.retry_of}">#${item.retry_of}</a>`) : ''}
+                    ${item.model ? `<div class="metadata-label metadata-label--full">Model</div><div class="metadata-full-value font-mono">${esc(item.model)}${item.endpoint ? ` <span class="text-gray-500">(${esc(item.endpoint)})</span>` : ''}</div>` : ''}
                 </div>
 
                 <div class="log-section">
@@ -644,6 +653,13 @@
         `;
         document.getElementById('detail-modal').classList.remove('hidden');
 
+        body.querySelectorAll('[data-open-log]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                openDetail(parseInt(a.dataset.openLog));
+            });
+        });
+
         const retryBtn = document.getElementById('retry-log-btn');
         if (retryBtn) {
             retryBtn.addEventListener('click', async () => {
@@ -653,6 +669,7 @@
                 icon.className = 'fas fa-redo fa-spin';
                 try {
                     const res = await fetch(`/api/logs/discord/${id}/retry`, { method: 'POST' });
+                    _pendingRefresh = true;
                     if (res.ok) {
                         icon.className = 'fas fa-check';
                         retryBtn.style.color = 'var(--success)';

@@ -213,6 +213,12 @@ async def retry_discord_log(log_id: int, current_user: dict = Depends(require_ro
             d = (char_data.get("data") or {}) if char_data else {}
             char_name = log.get("character") or ""
             avatar_url = d.get("avatar") or ""
+            if avatar_url and avatar_url.startswith('/'):
+                public_url = (db.list_configs().get("public_url") or "").rstrip('/')
+                if public_url:
+                    avatar_url = public_url + avatar_url
+            if avatar_url and not avatar_url.startswith(('http://', 'https://')):
+                avatar_url = ""
 
             async def _send_to_discord():
                 channel = bot.get_channel(int(channel_id))
@@ -226,7 +232,7 @@ async def retry_discord_log(log_id: int, current_user: dict = Depends(require_ro
                 if not webhook:
                     webhook = await parent.create_webhook(name='zahul-ai')
                 kwargs: dict = {'content': response_text, 'username': char_name}
-                if avatar_url.startswith('http'):
+                if avatar_url:
                     kwargs['avatar_url'] = avatar_url
                 if isinstance(channel, discord_lib.Thread):
                     kwargs['thread'] = channel
@@ -239,6 +245,12 @@ async def retry_discord_log(log_id: int, current_user: dict = Depends(require_ro
             except Exception:
                 sent_to_discord = False
 
+    original_source = log.get("source") or "chat"
+    # Unwrap any existing retry wrapper so retrying a retry still shows the root source
+    if original_source.startswith("retry (") and original_source.endswith(")"):
+        original_source = original_source[7:-1]
+    retry_source = f"retry ({original_source})"
+
     db.log_discord(
         character=log.get("character") or "",
         channel_id=channel_id,
@@ -249,13 +261,14 @@ async def retry_discord_log(log_id: int, current_user: dict = Depends(require_ro
         input_tokens=result.get("input_tokens", 0),
         output_tokens=result.get("output_tokens", 0),
         conversation_history=None,
-        source="retry",
+        source=retry_source,
         status=retry_status,
         error_message=retry_error_msg,
         temperature=result.get("temperature"),
         history_count=result.get("history_count", 0),
         endpoint=result.get("endpoint") or log.get("endpoint"),
         status_code=200 if not is_error else None,
+        retry_of=log_id,
     )
 
     return {"status": retry_status, "sent_to_discord": sent_to_discord}

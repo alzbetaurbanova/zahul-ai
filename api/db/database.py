@@ -149,7 +149,7 @@ class Database:
             # Migrations for existing DBs
             try: conn.execute("ALTER TABLE characters ADD COLUMN created_by TEXT")
             except: pass
-            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT"), ("status_code", "INTEGER DEFAULT NULL")]:
+            for col, typedef in [("temperature", "REAL"), ("history_count", "INTEGER DEFAULT 0"), ("task_id", "INTEGER DEFAULT NULL"), ("endpoint", "TEXT"), ("status_code", "INTEGER DEFAULT NULL"), ("retry_of", "INTEGER DEFAULT NULL")]:
                 try: conn.execute(f"ALTER TABLE discord_logs ADD COLUMN {col} {typedef}")
                 except: pass
             try: conn.execute("ALTER TABLE servers ADD COLUMN config JSON")
@@ -1029,7 +1029,7 @@ class Database:
                     model: str, input_tokens: int, output_tokens: int, conversation_history,
                     source: str = 'chat', status: str = 'ok', error_message: str = None,
                     temperature: float = None, history_count: int = 0, task_id: int = None,
-                    endpoint: str = None, status_code: int = None) -> int:
+                    endpoint: str = None, status_code: int = None, retry_of: int = None) -> int:
         from datetime import datetime
         from zoneinfo import ZoneInfo
         ts = datetime.now(ZoneInfo("Europe/Bratislava")).strftime("%Y-%m-%dT%H:%M:%S")
@@ -1039,11 +1039,11 @@ class Database:
                 INSERT INTO discord_logs
                 (timestamp, character, channel_id, user, trigger, response, model,
                  input_tokens, output_tokens, conversation_history, source, status, error_message,
-                 temperature, history_count, task_id, endpoint, status_code)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 temperature, history_count, task_id, endpoint, status_code, retry_of)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (ts, character, channel_id, user, trigger, response, model,
                   input_tokens, output_tokens, history_json, source, status, error_message,
-                  temperature, history_count, task_id, endpoint, status_code))
+                  temperature, history_count, task_id, endpoint, status_code, retry_of))
             conn.commit()
             return cur.lastrowid
 

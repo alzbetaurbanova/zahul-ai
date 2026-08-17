@@ -352,6 +352,13 @@
     color: var(--danger-border);
 }
 
+[data-theme="light"] .log-pre-error { background-color: #fff1f2; border-color: #fecdd3; color: #9f1239; }
+
+[data-theme="light"] .log-source-chat      { background: #dcfce7; color: #166534; }
+[data-theme="light"] .log-source-test      { background: #f1f5f9; color: #475569; }
+[data-theme="light"] .log-source-scheduler { background: #ede9fe; color: #4338ca; }
+[data-theme="light"] .log-source-retry     { background: #ffedd5; color: #c2410c; }
+
 [data-theme="light"] .power-btn--inactive { background-color: var(--surface-raised); }
 [data-theme="light"] .power-btn--inactive:hover { background-color: var(--surface-mid); }
 [data-theme="light"] .power-btn { color: var(--light); }
