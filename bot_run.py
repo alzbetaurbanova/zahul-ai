@@ -540,7 +540,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
                 history_count=history_count, task_id=task['id'],
                 status_code=int(_sc_match.group(1)) if _sc_match else None,
             )
-            return
+            raise RuntimeError(text_suffix)
         text_suffix = text_suffix.strip()
         text_suffix = re.sub(r'^(response|Response):\s*', '', text_suffix)
         text = text_suffix
@@ -613,6 +613,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
         )
     except Exception:
         print(f"[Scheduler] Error sending task {task['id']}:\n{traceback.format_exc()}")
+        raise
 
 
 async def _run_scheduler(bot: 'Zahul'):
