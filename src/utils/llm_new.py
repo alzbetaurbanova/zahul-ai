@@ -462,9 +462,10 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
         return f"//[OOC: Error in generate_blank: {e}]"
 
 
-async def generate_in_character(character_name: str, system_addon: str, user: str, assistant: str, db: Database, server_id: str = None, history: str = None) -> tuple:
+async def generate_in_character(character_name: str, system_addon: str, user: str, db: Database, server_id: str = None, history: str = None) -> tuple:
     """Generates a response 'in character'. Returns (text, input_tokens, output_tokens, model, messages, temperature)."""
     bot_config = get_effective_config(db, server_id)
+    messages = None
     try:
         char_data = db.get_character(character_name)
         if not char_data:
@@ -482,8 +483,19 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         messages = [
             {"role": "system", "content": final_system_prompt},
             {"role": "user", "content": user},
-            {"role": "assistant", "content": assistant}
         ]
+
+        # Token breakdown logging (approx. 4 chars per token)
+        _chars_char_prompt = len(character_prompt)
+        _chars_history = len(history_section)
+        _chars_addon = len(system_addon)
+        _chars_user = len(user)
+        _total_chars = len(final_system_prompt) + _chars_user
+        print(
+            f"[Scheduler][token-debug] character_prompt={_chars_char_prompt}ch "
+            f"history={_chars_history}ch addon={_chars_addon}ch user={_chars_user}ch "
+            f"total≈{_total_chars // 4}tok"
+        )
 
         global _fallback_active, _fallback_end
         fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
@@ -499,7 +511,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         try:
             _extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(model) else {}
             completion = await client.chat.completions.create(
-                model=model, temperature=temperature, max_tokens=8192, messages=messages, **_extra
+                model=model, temperature=temperature, max_tokens=bot_config.max_tokens, messages=messages, **_extra
             )
         except (NotFoundError, RateLimitError) as e:
             if not _fallback_active:
@@ -510,7 +522,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             fallback_client, _ = _client_for_fallback()
             _fb_extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(fallback_model) else {}
             completion = await fallback_client.chat.completions.create(
-                model=fallback_model, temperature=temperature, max_tokens=8192, messages=messages, **_fb_extra
+                model=fallback_model, temperature=temperature, max_tokens=bot_config.max_tokens, messages=messages, **_fb_extra
             )
             model = fallback_model
 
@@ -521,7 +533,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             track_tokens(completion.usage.total_tokens)
         return clean_thonk(result), input_tokens, output_tokens, model, messages, temperature
     except Exception as e:
-        return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None, None, None
+        return f"//[OOC: Error in generate_in_character: {e}]", 0, 0, None, messages, None
 
 def _endpoint_label(url: str) -> str:
     try:

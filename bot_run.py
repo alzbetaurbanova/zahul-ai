@@ -518,26 +518,12 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
 
     request_messages = None
     if task.get('message_mode') == 'generate':
-        if task.get('type') == 'reminder':
-            prefix = f"Reminder: {instructions}\nResponse:" if instructions else "Reminder\nResponse:"
-            system_addon = (
-                'The assistant should speak about the reminder content in character, not merely react to it. '
-                'If the reminder text describes a task or topic, mention that subject and expand on it with friendly, helpful commentary. '
-                'Use the word Response: only once, and output only the response text after it.'
-            )
-            user = '[talk about the reminder text]'
-        else:
-            prefix = f"{instructions}\nResponse:" if instructions else 'Response:'
-            system_addon = (
-                'The assistant should follow the instruction above in character and output only the response text. '
-                'Do not repeat the original input or instruction in the final message.'
-            )
-            user = '[follow the instruction]'
+        system_addon = 'Output only the response text, in character. Do not repeat the instruction.'
+        user = instructions or '[say something in character]'
         text_suffix, input_tokens, output_tokens, model_used, request_messages, temperature = await generate_in_character(
             character_name=char_name,
             system_addon=system_addon,
             user=user,
-            assistant=prefix,
             db=bot.db,
             server_id=_server_id,
             history=history_str,
@@ -557,10 +543,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
             return
         text_suffix = text_suffix.strip()
         text_suffix = re.sub(r'^(response|Response):\s*', '', text_suffix)
-        if task.get('type') == 'reminder':
-            text = (prefix + ' ' + text_suffix).strip()
-        else:
-            text = text_suffix
+        text = text_suffix
     else:
         input_tokens, output_tokens, model_used, temperature = 0, 0, 'exact', None
         if task.get('type') == 'reminder':
