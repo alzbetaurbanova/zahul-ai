@@ -338,5 +338,9 @@ def clean_up(queue_item: QueueItem) -> QueueItem:
     for artifact in artifacts:
         queue_item.result = queue_item.result.replace(artifact, "")
 
+    # Collapse blank-line paragraph breaks (common with Claude-style formatting)
+    # into single line breaks, so replies read as one chat message, not a blog post.
+    queue_item.result = re.sub(r'\n\s*\n+', '\n', queue_item.result)
+
     queue_item.result = queue_item.result.strip()
     return queue_item

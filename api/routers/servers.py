@@ -27,6 +27,30 @@ def _ensure_server_scope(user: dict, server_id: str):
     if server_id not in allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this server.")
 
+
+def _ensure_model_not_reserved(user: dict, server_id: str, updates: dict):
+    """
+    A model string that matches a reserved multi-provider's allowed_models routes
+    requests to that provider automatically. Block non-super-admins from pointing a
+    server override at a model reserved for other servers.
+    """
+    if (user or {}).get("role") == "super_admin":
+        return
+    models = {v for k, v in updates.items() if k in ("base_llm", "fallback_llm") and v}
+    if not models:
+        return
+    for p in (db.list_configs().get("multi_model_providers") or []):
+        if not isinstance(p, dict):
+            continue
+        reserved = p.get("reserved_server_ids") or []
+        if not reserved or server_id in reserved:
+            continue
+        if models & set(p.get("allowed_models") or []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Model belongs to provider '{p.get('name')}', which is reserved for other servers - only a super admin can assign it here.",
+            )
+
 router = APIRouter(
     prefix="/api/servers",
     tags=["Servers & Channels"]
@@ -130,6 +154,7 @@ async def update_server_config(server_id: str = Path(...), body: ServerConfig = 
     updates = body.model_dump(exclude_none=True)
     if _is_limited_mod(current_user):
         updates.pop('ai_endpoint', None)
+    _ensure_model_not_reserved(current_user, server_id, updates)
     model_changed = changed_model_fields(current, updates, MODEL_FIELDS_SERVER)
     current.update(updates)
     db.set_server_config(server_id, current)

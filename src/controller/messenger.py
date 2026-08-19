@@ -111,12 +111,12 @@ class DiscordMessenger:
         channel, thread = self._get_channel_and_thread(context)
         webhook = await self._get_or_create_webhook(channel)
         
-        # Use character data, fall back to default character's avatar if needed
+        # Use character data, fall back to the generic placeholder avatar if needed
+        # (not the default_character's own avatar — that made every avatar-less
+        # character visually impersonate whichever character is set as default).
         avatar_url = character.avatar
         if not avatar_url or str(avatar_url).lower() == "none":
-            default_char = self.db.get_character(self.bot_config.default_character)
-            if default_char:
-                avatar_url = default_char.get('data', {}).get('avatar')
+            avatar_url = "/static/avatars/default_character_avatar.png"
 
         # Build absolute URL for relative paths using public_url config (read fresh each time)
         if avatar_url and str(avatar_url).startswith('/'):

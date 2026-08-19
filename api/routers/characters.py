@@ -14,6 +14,7 @@ This file manages the full lifecycle of characters via RESTful endpoints:
 
 import asyncio
 import os
+import time
 import httpx
 from urllib.parse import quote, unquote, urlparse
 from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, File, status, Query, Depends
@@ -64,9 +65,12 @@ def _resolve_list_avatar(name: str, avatar: Optional[str]) -> str:
     """
     av = (avatar or "").strip()
     if av.startswith("/static/"):
-        rel = unquote(av.removeprefix("/static/avatars/").split("?", 1)[0])
+        path_part, _, query = av.removeprefix("/static/avatars/").partition("?")
+        rel = unquote(path_part)
         if rel and os.path.isfile(os.path.join(_AVATARS_DIR, rel)):
-            return f"/static/avatars/{rel}"
+            # Keep the cache-busting query string (if any) so re-uploads under the
+            # same filename don't keep serving a stale cached image.
+            return f"/static/avatars/{rel}" + (f"?{query}" if query else "")
     return av
 
 
@@ -102,8 +106,27 @@ def _rule_has_override(rule: dict) -> bool:
     return False
 
 
-def _validate_model_rules(data: dict) -> None:
-    """Require per-server rules with at least one override field when enabled."""
+def _validate_model_rules(data: dict, current_user: Optional[dict] = None) -> None:
+    """Require per-server rules with at least one override field when enabled, and
+    keep non-super-admins from routing to a provider reserved for other servers."""
+    is_super_admin = (current_user or {}).get("role") == "super_admin"
+    providers_by_name = {}
+    if not is_super_admin:
+        for p in (db.list_configs().get("multi_model_providers") or []):
+            if isinstance(p, dict) and p.get("name"):
+                providers_by_name[p["name"]] = p
+
+        prov_override = data.get("provider_override")
+        if prov_override:
+            p = providers_by_name.get(prov_override)
+            # provider_override applies to the character everywhere (not scoped to a
+            # server), so any reservation at all disqualifies non-super-admins.
+            if p and (p.get("reserved_server_ids") or []):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Provider '{prov_override}' is reserved for specific servers - only a super admin can set it as a character-wide override.",
+                )
+
     if not data.get("model_rules_enabled"):
         return
     rules = data.get("model_rules") or []
@@ -112,6 +135,7 @@ def _validate_model_rules(data: dict) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Per-server override is on - add at least one rule or turn it off.",
         )
+
     for rule in rules:
         servers = rule.get("servers") or []
         if not servers:
@@ -124,6 +148,22 @@ def _validate_model_rules(data: dict) -> None:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Set at least one override (model, triggers, temperature, etc.) for each rule.",
             )
+        if is_super_admin:
+            continue
+        source = rule.get("source") or "primary"
+        model = str(rule.get("model") or "").strip()
+        for p in providers_by_name.values():
+            reserved = p.get("reserved_server_ids") or []
+            if not reserved or all(sid in reserved for sid in servers):
+                continue
+            # Blocked whether the rule names the provider explicitly (source) or just
+            # happens to request a model that provider serves (auto-bind picks it up too).
+            matches = source == p.get("name") or (model and model in (p.get("allowed_models") or []))
+            if matches:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Provider '{p.get('name')}' is reserved for other servers - only a super admin can assign it here.",
+                )
 
 
 _AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024
@@ -157,7 +197,9 @@ async def _mirror_avatar(name: str, url: str) -> str:
         file_path = os.path.join(_AVATARS_DIR, f"{safe_name}.png")
         with open(file_path, "wb") as f:
             f.write(resp.content)
-        return f"/static/avatars/{safe_name}.png"
+        # Cache-bust: same filename every re-upload means browsers *and* Discord's
+        # CDN keep serving the old image at this URL without a changing query param.
+        return f"/static/avatars/{safe_name}.png?v={int(time.time())}"
     except Exception as e:
         print(f"[avatar mirror] Failed for '{name}': {e}")
         return url
@@ -266,7 +308,9 @@ async def save_avatar(
     with open(file_path, "wb") as f:
         f.write(contents)
     db.log_admin('character.avatar.upload', target=safe_name, actor=current_user)
-    return {"url": f"/static/avatars/{safe_name}.png"}
+    # Cache-bust: same filename every re-upload means browsers *and* Discord's CDN
+    # keep serving the old image at this URL without a changing query param.
+    return {"url": f"/static/avatars/{safe_name}.png?v={int(time.time())}"}
 
 
 @router.post("/mirror_avatar")
@@ -350,7 +394,7 @@ async def create_character(
         )
     try:
         char_data = character.data.model_dump()
-        _validate_model_rules(char_data)
+        _validate_model_rules(char_data, current_user)
         db.create_character(
             name=character.name,
             data=char_data,
@@ -358,6 +402,8 @@ async def create_character(
             created_by=current_user.get("username")
         )
         db.log_admin('character.create', target=character.name, actor=current_user)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -403,7 +449,7 @@ async def update_character(
             **(existing_char.get("data") or {}),
             **character_update.data.model_dump(exclude_unset=True),
         }
-        _validate_model_rules(char_data)
+        _validate_model_rules(char_data, current_user)
         new_name = character_update.name
 
         if new_name != existing_char['name']:
