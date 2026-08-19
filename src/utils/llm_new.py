@@ -153,6 +153,41 @@ def get_effective_config(db: Database, server_id: str = None) -> BotConfig:
         return base
     return base.model_copy(update={k: v for k, v in overrides.items() if v is not None})
 
+def _resolve_fallback_client(bot_config: BotConfig, primary_client: AsyncOpenAI):
+    """
+    Picks the client/endpoint used for fallback completions, per fallback_llm_source:
+    - "primary" (default): reuse the primary client/endpoint.
+    - "fallback": use the dedicated fallback endpoint/key (fallback_provider takes
+      precedence over fallback_ai_endpoint/fallback_ai_key when set), only if
+      fallback_use_different_endpoint is enabled and an endpoint is configured;
+      otherwise falls back to the primary client/endpoint.
+    - any other value: treated as a multi_model_providers entry name.
+    Shared by generate_response and generate_in_character so both honor the same config.
+    """
+    src = (getattr(bot_config, "fallback_llm_source", None) or "").strip() or "primary"
+
+    if src == "fallback":
+        fallback_endpoint = bot_config.fallback_ai_endpoint
+        fallback_key = bot_config.fallback_ai_key or bot_config.ai_key
+        if bot_config.fallback_provider:
+            for p in (bot_config.multi_model_providers or []):
+                if p.name == bot_config.fallback_provider:
+                    fallback_endpoint = p.endpoint or fallback_endpoint
+                    fallback_key = p.api_key or fallback_key
+                    break
+        if bot_config.fallback_use_different_endpoint and fallback_endpoint:
+            return AsyncOpenAI(base_url=fallback_endpoint, api_key=fallback_key), fallback_endpoint
+        return primary_client, bot_config.ai_endpoint
+
+    if src == "primary":
+        return primary_client, bot_config.ai_endpoint
+
+    for p in (bot_config.multi_model_providers or []):
+        if p.name == src and p.endpoint:
+            return AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key), p.endpoint
+
+    return primary_client, bot_config.ai_endpoint
+
 async def generate_response(task: QueueItem, db: Database):
     """
     Generates an AI response for a given task using configuration from the database.
@@ -190,19 +225,6 @@ async def generate_response(task: QueueItem, db: Database):
             base_url=bot_config.ai_endpoint,
             api_key=bot_config.ai_key,
         )
-        _fallback_endpoint = bot_config.fallback_ai_endpoint
-        _fallback_key = bot_config.fallback_ai_key or bot_config.ai_key
-        if bot_config.fallback_provider:
-            for p in (bot_config.multi_model_providers or []):
-                if p.name == bot_config.fallback_provider:
-                    _fallback_endpoint = p.endpoint or _fallback_endpoint
-                    _fallback_key = p.api_key or _fallback_key
-                    break
-        _diff_ep = bot_config.fallback_use_different_endpoint and bool(_fallback_endpoint)
-        fallback_client = AsyncOpenAI(
-            base_url=_fallback_endpoint,
-            api_key=_fallback_key,
-        ) if _diff_ep else primary_client
 
         _effective_endpoint = bot_config.ai_endpoint
         _effective_provider = None
@@ -251,6 +273,16 @@ async def generate_response(task: QueueItem, db: Database):
                             effective_base_model = p.allowed_models[0]
                         break
 
+        # Auto-bind to a multi-provider endpoint when the resolved model is listed in its
+        # allowed_models and no rule/override already picked a provider explicitly.
+        if _effective_provider is None:
+            for p in (bot_config.multi_model_providers or []):
+                if p.endpoint and effective_base_model in (p.allowed_models or []):
+                    primary_client = AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key)
+                    _effective_endpoint = p.endpoint
+                    _effective_provider = p.name
+                    break
+
         system_prompt = task.prompt
         content_description = get_gif_content_description(task.message)
         user_message = content_description if content_description is not None else clean_string(task.message.content)
@@ -263,24 +295,9 @@ async def generate_response(task: QueueItem, db: Database):
         if bot_config.use_prefill:
             messages.append({"role": "assistant", "content": f"[Reply] {task.bot}:"})
 
-        def _client_for_fallback():
-            src = (getattr(bot_config, "fallback_llm_source", None) or "").strip() or "primary"
-            if src in ("primary", "fallback"):
-                return primary_client, bot_config.ai_endpoint
-            for p in (bot_config.multi_model_providers or []):
-                if p.name == src and p.endpoint:
-                    return (
-                        AsyncOpenAI(
-                            base_url=p.endpoint,
-                            api_key=p.api_key or bot_config.ai_key,
-                        ),
-                        p.endpoint,
-                    )
-            return primary_client, bot_config.ai_endpoint
-
         async def _call(model, is_fallback=False):
             if is_fallback:
-                c, _ = _client_for_fallback()
+                c, _ = _resolve_fallback_client(bot_config, primary_client)
             else:
                 c = primary_client
             effective_max_tokens = max(max_tokens * 4, 2048) if _is_thinking_model(model) else max_tokens
@@ -328,6 +345,7 @@ async def generate_response(task: QueueItem, db: Database):
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Rate limit — switching to fallback ({fallback_model}) until {back_at}")
             completion = await _call(fallback_model, is_fallback=True)
+            model = fallback_model
         except NotFoundError:
             if not _fallback_active:
                 _fallback_active = True
@@ -339,6 +357,7 @@ async def generate_response(task: QueueItem, db: Database):
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Model not found (404) — switching to fallback ({fallback_model}) until {back_at}")
             completion = await _call(fallback_model, is_fallback=True)
+            model = fallback_model
         except APIConnectionError as e:
             from datetime import datetime
             _last_error = {'timestamp': datetime.now().isoformat(timespec='seconds'), 'type': 'APIConnectionError', 'message': str(e), 'model': effective_base_model}
@@ -350,6 +369,7 @@ async def generate_response(task: QueueItem, db: Database):
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Connection error — switching to fallback ({fallback_model}) until {back_at}")
             completion = await _call(fallback_model, is_fallback=True)
+            model = fallback_model
 
         raw_content = completion.choices[0].message.content if completion.choices else None
         result = (raw_content or "").replace("[Reply]", "").replace(f"{task.bot}:", "").strip()
@@ -409,7 +429,7 @@ async def generate_response(task: QueueItem, db: Database):
         _prov_tag = f" [{_effective_provider}]" if _effective_provider else ""
         _fb_tag = " fallback" if (_fallback_active and not just_switched) or just_switched else ""
         if (_fallback_active and not just_switched) or just_switched:
-            _, _ep = _client_for_fallback()
+            _, _ep = _resolve_fallback_client(bot_config, primary_client)
         else:
             _ep = _effective_endpoint
         _ep_label = _endpoint_label(_ep)
@@ -421,16 +441,17 @@ async def generate_response(task: QueueItem, db: Database):
         error_type = type(e).__name__
         error_message = str(e)
         error_traceback = traceback.format_exc()
+        attempted_model = locals().get('model') or getattr(bot_config, 'base_llm', '?')
         from datetime import datetime
-        _last_error = {'timestamp': datetime.now().isoformat(timespec='seconds'), 'type': error_type, 'message': error_message, 'model': getattr(bot_config, 'base_llm', '?')}
+        _last_error = {'timestamp': datetime.now().isoformat(timespec='seconds'), 'type': error_type, 'message': error_message, 'model': attempted_model}
         print(f"Error in generate_response: {error_type}: {error_message}\n{error_traceback}")
-        
+
         detailed_error = f"//[OOC: AI Error - {error_type}]\n"
         if hasattr(e, 'status_code'):
             detailed_error += f"Status Code: {e.status_code}\n"
-        
+
         detailed_error += f"Task ID: {getattr(task, 'id', 'Unknown')}\n"
-        detailed_error += f"Model: {bot_config.base_llm}\n"
+        detailed_error += f"Model: {attempted_model}\n"
         detailed_error += f"Message Length: {len(getattr(task.message, 'content', ''))}\n"
         detailed_error += f"Error Details: {error_message}"
         
@@ -501,12 +522,19 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
         fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
 
+        primary_client = AsyncOpenAI(base_url=bot_config.ai_endpoint, api_key=bot_config.ai_key)
+
         if _fallback_active:
-            client, _ = _client_for_fallback()
+            client, _ = _resolve_fallback_client(bot_config, primary_client)
             model = fallback_model
         else:
-            client = AsyncOpenAI(base_url=bot_config.ai_endpoint, api_key=bot_config.ai_key)
+            client = primary_client
             model = bot_config.base_llm
+            # Auto-bind to a multi-provider endpoint when the model is listed in its allowed_models.
+            for p in (bot_config.multi_model_providers or []):
+                if p.endpoint and model in (p.allowed_models or []):
+                    client = AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key)
+                    break
 
         try:
             _extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(model) else {}
@@ -519,7 +547,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
                 _fallback_end = time.time() + fallback_duration
                 _save_fallback_state(_fallback_end)
                 print(f"[Scheduler] {type(e).__name__} — switching to fallback ({fallback_model})")
-            fallback_client, _ = _client_for_fallback()
+            fallback_client, _ = _resolve_fallback_client(bot_config, primary_client)
             _fb_extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(fallback_model) else {}
             completion = await fallback_client.chat.completions.create(
                 model=fallback_model, temperature=temperature, max_tokens=bot_config.max_tokens, messages=messages, **_fb_extra

@@ -267,9 +267,10 @@ def about_command(db: Database):
 
 @app_commands.command(name="tokens", description="Show token usage and active model.")
 async def tokens_command(interaction: discord.Interaction):
-    from src.utils.llm_new import get_tokens_used_last_minute, get_daily_tokens_used, get_fallback_info
+    from src.utils.llm_new import get_tokens_used_last_minute, get_daily_tokens_used, get_fallback_info, get_effective_config
     bot: Zahul = interaction.client
-    cfg = get_bot_config(bot.db)
+    server_id = str(interaction.guild_id) if interaction.guild_id else None
+    cfg = get_effective_config(bot.db, server_id)
     tpm_used = get_tokens_used_last_minute()
     tpd_used, tpd_limit = get_daily_tokens_used(limit=cfg.token_limit_tpd)
     info = get_fallback_info()

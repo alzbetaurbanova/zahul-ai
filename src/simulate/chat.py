@@ -251,6 +251,16 @@ async def generate_simulated_response(
 
     client, endpoint, provider = _resolve_llm_client(bot_config, model_source or "primary")
 
+    # Auto-bind to a multi-provider endpoint when the resolved model is listed in its
+    # allowed_models and no rule/override already picked a provider explicitly.
+    if provider is None:
+        for p in bot_config.multi_model_providers or []:
+            if p.endpoint and effective_model in (p.allowed_models or []):
+                client = AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key)
+                endpoint = p.endpoint
+                provider = p.name
+                break
+
     if d.get("provider_override") and not model:
         prov_name = d["provider_override"]
         for p in bot_config.multi_model_providers or []:
