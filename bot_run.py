@@ -519,7 +519,7 @@ async def _send_scheduled_message(bot: 'Zahul', task: dict):
 
     request_messages = None
     if task.get('message_mode') == 'generate':
-        system_addon = 'Output only the response text, in character. Do not repeat the instruction.'
+        system_addon = 'Output only the response text, in character. Do not repeat the instruction. Keep it to 1-2 sentences maximum, no line breaks.'
         user = instructions or '[say something in character]'
         text_suffix, input_tokens, output_tokens, model_used, request_messages, temperature = await generate_in_character(
             character_name=char_name,
