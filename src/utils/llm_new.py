@@ -284,6 +284,8 @@ async def generate_response(task: QueueItem, db: Database):
                     break
 
         system_prompt = task.prompt
+        if bot_config.system_addon:
+            system_prompt = f"{system_prompt}\n{bot_config.system_addon.strip()}"
         content_description = get_gif_content_description(task.message)
         user_message = content_description if content_description is not None else clean_string(task.message.content)
 
@@ -499,7 +501,9 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         active_char = ActiveCharacter(char_data, db)
         character_prompt = active_char.get_character_prompt()
         history_section = f"\n[History]\n{history}" if history else ""
-        final_system_prompt = f"{character_prompt}{history_section}\n{system_addon}"
+        global_addon = (bot_config.system_addon or "").strip()
+        combined_addon = f"{system_addon}\n{global_addon}" if global_addon else system_addon
+        final_system_prompt = f"{character_prompt}{history_section}\n{combined_addon}"
 
         messages = [
             {"role": "system", "content": final_system_prompt},

@@ -62,6 +62,7 @@ class BotConfig(BaseModel):
     local_login_enabled: bool = True
     notify_contacts: List[str] = Field(default_factory=list)
     notify_channel_id: str = ""
+    system_addon: str = ""
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)

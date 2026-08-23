@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'multi_model_enable', 'multi_model_ai_model', 'multi_model_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
         'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled',
-        'notify_contacts', 'notify_channel_id',
+        'notify_contacts', 'notify_channel_id', 'system_addon',
     ];
     const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models', 'notify_contacts']);
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ai_key: 'setup', history_limit: 'setup', max_tokens: 'setup',
         temperature: 'setup', auto_cap: 'setup',
         fallback_llm: 'setup', fallback_duration: 'setup', token_limit_tpm: 'setup',
-        token_limit_tpd: 'setup', use_prefill: 'setup', multi_model_enable: 'setup',
+        token_limit_tpd: 'setup', use_prefill: 'setup', multi_model_enable: 'setup', system_addon: 'setup',
         multi_model_ai_model: 'setup',
         discord_key: 'discord', public_url: 'discord', default_character: 'discord', dm_list: 'discord',
     };

@@ -118,6 +118,7 @@ async def initialize_database():
         "discord_login_enabled": False,
         "local_login_enabled": True,
         "discord_allowed_usernames": [],
+        "system_addon": "",
     }
     for key, value in default_config.items():
         db.set_config(key, value)
