@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import os
 import secrets
+import time
 from dotenv import load_dotenv
 load_dotenv()
 from contextlib import asynccontextmanager
@@ -465,27 +466,102 @@ async def get_login():
         return FileResponse("static/login.html")
     return RedirectResponse(url="/", status_code=302)
 
+# --- Login brute-force / enumeration hardening ---
+# Sliding-window throttle keyed on both client IP and username, plus a constant-time
+# password check so a missing account and a wrong password cost the same (no timing oracle).
+_LOGIN_WINDOW_SECONDS = 300
+_LOGIN_MAX_ATTEMPTS = 10
+_login_attempts: dict[str, list[float]] = {}
+# Valid bcrypt hash of an unguessable value; checked when no real hash exists to equalize timing.
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(secrets.token_bytes(16), bcrypt.gensalt()).decode("utf-8")
+
+
+def _login_client_ip(request: Request) -> str:
+    xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if xff:
+        return xff
+    return request.client.host if request.client else "unknown"
+
+
+def _login_rate_limited(key: str) -> bool:
+    now = time.monotonic()
+    window = _login_attempts.setdefault(key, [])
+    window[:] = [t for t in window if now - t < _LOGIN_WINDOW_SECONDS]
+    return len(window) >= _LOGIN_MAX_ATTEMPTS
+
+
+def _record_login_failure(*keys: str) -> None:
+    now = time.monotonic()
+    for key in keys:
+        _login_attempts.setdefault(key, []).append(now)
+
+
+def _clear_login_failures(*keys: str) -> None:
+    for key in keys:
+        _login_attempts.pop(key, None)
+
+
+def _evaluate_discord_allowlist(
+    allowed_handles_lower: set[str],
+    bindings: dict,
+    discord_id: str,
+    username_lower: str,
+):
+    """
+    Decide panel trust for a Discord OAuth login, binding placeholder handles to immutable IDs.
+
+    - Already bound to this ID  -> trusted while still listed under the bound OR current handle
+      (rename-proof: the account is verified by ID, not by its mutable handle).
+    - Unclaimed listed handle   -> trusted now, and returned for one-time binding to this ID.
+    - Listed handle already bound to a DIFFERENT ID -> NOT trusted (a recycled/freed handle
+      cannot be used to hijack an entry that a real account already claimed).
+
+    Returns (on_allowlist: bool, new_binding: tuple[str, str] | None).
+    """
+    bound_handle = next((h for h, bid in bindings.items() if str(bid) == discord_id), None)
+    if bound_handle is not None:
+        on = bound_handle in allowed_handles_lower or username_lower in allowed_handles_lower
+        return on, None
+    if allowed_handles_lower and username_lower in allowed_handles_lower and username_lower not in bindings:
+        return True, (username_lower, discord_id)
+    return False, None
+
+
 @app.post("/login", include_in_schema=False)
 async def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
     db = Database()
     if not bool(db.get_config("local_login_enabled")):
         return RedirectResponse(url="/login?error=method_disabled", status_code=302)
-    user = db.get_user_by_username(username.strip())
-    if user and user.get("password_hash"):
-        if bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
-            token = secrets.token_hex(32)
-            ua = request.headers.get("user-agent")
-            db.create_session(token, int(user["id"]), _make_session_expiry().isoformat(), user_agent=ua)
-            response = RedirectResponse(url="/", status_code=302)
-            response.set_cookie(
-                "zahul_session",
-                token,
-                httponly=True,
-                secure=_cookie_secure(request),
-                samesite="lax",
-                max_age=SESSION_MAX_AGE_SECONDS,
-            )
-            return response
+
+    uname = username.strip()
+    ip_key = "ip:" + _login_client_ip(request)
+    user_key = "user:" + uname.lower()
+    if _login_rate_limited(ip_key) or _login_rate_limited(user_key):
+        return RedirectResponse(url="/login?error=rate_limited", status_code=302)
+
+    user = db.get_user_by_username(uname)
+    # Always run bcrypt (against a dummy hash for missing accounts) so response time
+    # does not reveal whether the username exists.
+    stored_hash = (user or {}).get("password_hash") or _DUMMY_PASSWORD_HASH
+    password_ok = bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
+
+    if user and user.get("password_hash") and password_ok:
+        _clear_login_failures(ip_key, user_key)
+        token = secrets.token_hex(32)
+        ua = request.headers.get("user-agent")
+        db.create_session(token, int(user["id"]), _make_session_expiry().isoformat(), user_agent=ua)
+        response = RedirectResponse(url="/", status_code=302)
+        response.set_cookie(
+            "zahul_session",
+            token,
+            httponly=True,
+            secure=_cookie_secure(request),
+            samesite="lax",
+            max_age=SESSION_MAX_AGE_SECONDS,
+        )
+        return response
+
+    _record_login_failure(ip_key, user_key)
     return RedirectResponse(url="/login?error=1", status_code=302)
 
 
@@ -659,19 +735,35 @@ async def discord_oauth_callback(request: Request, code: str = "", state: str = 
     allowed = db.get_config("discord_allowed_usernames") or []
     if not isinstance(allowed, list):
         allowed = []
-    allowed_handles_lower = [str(u).strip().lower() for u in allowed if str(u).strip()]
+    allowed_handles_lower = {str(u).strip().lower() for u in allowed if str(u).strip()}
     allowlist_active = bool(allowed_handles_lower)
-    on_allowlist = allowlist_active and discord_username.lower() in allowed_handles_lower
+
+    # Allowlist entries are placeholders admins create by HANDLE before inviting someone
+    # (the immutable Discord ID isn't known until that person logs in). On the first matching
+    # login we bind the handle to the user's Discord ID; from then on membership is decided by
+    # ID, so a later rename — or a freed handle re-claimed by someone else — can neither grant
+    # nor silently keep panel access. A handle already bound to one ID cannot be claimed by another.
+    bindings = db.get_config("discord_allowlist_bindings") or {}
+    if not isinstance(bindings, dict):
+        bindings = {}
+    uname_l = discord_username.lower()
+    on_allowlist, new_binding = _evaluate_discord_allowlist(
+        allowed_handles_lower, bindings, discord_id, uname_l
+    )
+    if new_binding is not None:
+        handle, bound_id = new_binding
+        bindings[handle] = bound_id
+        db.set_config("discord_allowlist_bindings", bindings)
 
     user_id = db.create_or_update_discord_user(
         discord_id=discord_id,
         discord_username=discord_username,
         discord_avatar_hash=discord_avatar_hash,
     )
-    # Trusted Discord handles (non-empty allowlist): first-time Discord users on the list become super_admin.
+    # Trusted Discord accounts (bound to an allowlisted handle): first-time users become super_admin.
     # Anyone not on the list can still complete OAuth with role "pending" and request access on /no-access.
     # With Discord login enabled, the panel requires at least one trusted handle (validated on save).
-    if allowlist_active and on_allowlist:
+    if on_allowlist:
         row_u = db.get_user_by_id(user_id)
         if row_u and row_u.get("role") in ("pending", "user"):
             db._update_record("users", "id", user_id, role="super_admin", updated_at=db._utcnow_iso())

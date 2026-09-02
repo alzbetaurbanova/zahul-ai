@@ -21,7 +21,7 @@ from fastapi import APIRouter, Body, Path, HTTPException, Request, UploadFile, F
 from fastapi.responses import Response
 from typing import List, Optional
 from api.auth import require_role, ROLE_LEVEL
-from api.url_safety import validate_proxy_image_url
+from api.url_safety import validate_proxy_image_url, safe_image_fetch
 
 _AVATARS_DIR = "/app/static/avatars" if os.path.isdir("/app") else "static/avatars"
 
@@ -183,9 +183,9 @@ async def _mirror_avatar(name: str, url: str) -> str:
         safe_name = _safe_avatar_filename(name)
         os.makedirs(_AVATARS_DIR, exist_ok=True)
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
-        async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
+        # SSRF-safe: validates the URL and every redirect hop (no blind follow_redirects).
+        resp = await safe_image_fetch(url, headers=headers, timeout=5)
+        resp.raise_for_status()
         content_type = (resp.headers.get("content-type") or "").split(";")[0].lower()
         if content_type and content_type not in _ALLOWED_AVATAR_TYPES:
             return url
@@ -335,16 +335,15 @@ async def proxy_image(
     _: dict = Depends(require_role("guest")),
 ):
     """Fetches an external image server-side and returns it, bypassing browser CORS restrictions."""
-    await asyncio.to_thread(validate_proxy_image_url, url)
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            content_type = (resp.headers.get("content-type") or "image/png").split(";")[0].strip().lower()
-            if not content_type.startswith("image/"):
-                raise HTTPException(status_code=400, detail="URL did not return an image.")
-            return Response(content=resp.content, media_type=content_type)
+        # SSRF-safe: validates the URL and every redirect hop (no blind follow_redirects).
+        resp = await safe_image_fetch(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "image/png").split(";")[0].strip().lower()
+        if not content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="URL did not return an image.")
+        return Response(content=resp.content, media_type=content_type)
     except HTTPException:
         raise
     except Exception as e:

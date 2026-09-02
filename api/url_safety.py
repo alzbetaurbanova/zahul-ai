@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import httpx
 
 _FORBIDDEN_HOSTNAMES = frozenset(
     {
@@ -103,3 +106,39 @@ def validate_proxy_image_url(url: str) -> None:
             status_code=400,
             detail="http is only allowed when the host resolves to loopback (e.g. localhost, 127.0.0.1).",
         )
+
+
+# Redirect codes httpx treats as redirects.
+_REDIRECT_STATUS = frozenset({301, 302, 303, 307, 308})
+
+
+async def safe_image_fetch(
+    url: str,
+    *,
+    headers: dict | None = None,
+    timeout: float = 10.0,
+    max_redirects: int = 5,
+) -> httpx.Response:
+    """
+    SSRF-safe GET for server-side image fetches.
+
+    Redirects are followed MANUALLY, re-validating every hop against
+    validate_proxy_image_url. This closes the redirect-bypass where a public
+    URL 302s to an internal/loopback/metadata address (httpx follow_redirects
+    would otherwise skip validation on the redirected request).
+
+    Raises fastapi.HTTPException on any disallowed hop or too many redirects.
+    """
+    from fastapi import HTTPException
+
+    current = (url or "").strip()
+    async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+        for _ in range(max_redirects + 1):
+            # DNS resolution inside the validator is blocking -> off the event loop.
+            await asyncio.to_thread(validate_proxy_image_url, current)
+            resp = await client.get(current, headers=headers or {})
+            if resp.status_code in _REDIRECT_STATUS and resp.headers.get("location"):
+                current = urljoin(current, resp.headers["location"])
+                continue
+            return resp
+    raise HTTPException(status_code=400, detail="Too many redirects.")
