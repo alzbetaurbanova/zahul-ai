@@ -227,6 +227,24 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Row 4: Server System Addon -->
+                    <div class="col-span-full">
+                        <div class="flex-between mb-1">
+                            <div>
+                                <label class="label-xs label-tt">Server System Addon <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Overrides the global System Addon for this server only. Per-model rules still take priority over this. Leave off to inherit global or per-model value.</span></span></label>
+                                <p class="text-hint text-xs">Leave off to use the global or per-model default.</p>
+                            </div>
+                            <label class="toggle-wrap">
+                                <input id="sc-system-addon-toggle" type="checkbox" class="sr-only peer">
+                                <div class="toggle-track"></div>
+                            </label>
+                        </div>
+                        <div id="sc-system-addon-section" class="hidden">
+                            <textarea id="sc-system-addon" rows="2"
+                                      class="input-field w-full text-sm font-mono mt-1"
+                                      placeholder="Server-specific addon text..."></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -63,6 +63,8 @@ class BotConfig(BaseModel):
     notify_contacts: List[str] = Field(default_factory=list)
     notify_channel_id: str = ""
     system_addon: str = ""
+    system_addon_rules: List[dict] = Field(default_factory=list)
+    # Each rule: {"models": ["model-a"], "text": "...", "use_default": false}
 
 # ------------------------------------------------------
 # Servers (maps to the 'servers' table)
@@ -80,6 +82,8 @@ class ServerConfig(BaseModel):
     use_prefill: Optional[bool] = None
     token_limit_tpm: Optional[int] = Field(None, ge=0)
     token_limit_tpd: Optional[int] = Field(None, ge=0)
+    system_addon: Optional[str] = None
+    # None = don't override global; "" or text = explicit server value
 
 class Server(BaseModel):
     """Represents a single row in the 'servers' table."""

@@ -44,11 +44,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Server Config ---
     const scToggle = document.getElementById('sc-toggle');
     const scFields = document.getElementById('sc-fields');
+    let _usePrefillDirty = false;
 
     function setScEnabled(enabled) {
         scToggle.checked = enabled;
         scFields.classList.toggle('hidden', !enabled);
     }
+
+    document.getElementById('sc-system-addon-toggle').addEventListener('change', e => {
+        document.getElementById('sc-system-addon-section').classList.toggle('hidden', !e.target.checked);
+    });
+
+    document.getElementById('sc-use-prefill').addEventListener('change', () => {
+        _usePrefillDirty = true;
+    });
 
     async function loadServerAllowedModels() {
         try {
@@ -86,7 +95,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sc-auto-cap').value = cfg.auto_cap ?? '';
         document.getElementById('sc-token-limit-tpm').value = cfg.token_limit_tpm ?? '';
         document.getElementById('sc-token-limit-tpd').value = cfg.token_limit_tpd ?? '';
+        const hasPrefill = cfg.use_prefill !== null && cfg.use_prefill !== undefined;
         document.getElementById('sc-use-prefill').checked = cfg.use_prefill === true;
+        _usePrefillDirty = hasPrefill;
+        const hasAddon = cfg.system_addon !== null && cfg.system_addon !== undefined;
+        document.getElementById('sc-system-addon-toggle').checked = hasAddon;
+        document.getElementById('sc-system-addon-section').classList.toggle('hidden', !hasAddon);
+        document.getElementById('sc-system-addon').value = cfg.system_addon || '';
     }
 
     function clearScFields() {
@@ -97,11 +112,16 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById(id).value = '';
         });
         document.getElementById('sc-use-prefill').checked = false;
+        _usePrefillDirty = false;
+        document.getElementById('sc-system-addon-toggle').checked = false;
+        document.getElementById('sc-system-addon-section').classList.add('hidden');
+        document.getElementById('sc-system-addon').value = '';
     }
 
     function hasAnyOverride(cfg) {
         const aiFields = ['base_llm','fallback_llm','temperature','max_tokens',
-                          'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd'];
+                          'history_limit','auto_cap','use_prefill','token_limit_tpm','token_limit_tpd',
+                          'system_addon'];
         return aiFields.some(f => cfg[f] !== null && cfg[f] !== undefined);
     }
 
@@ -224,7 +244,10 @@ document.addEventListener('DOMContentLoaded', function() {
             auto_cap: num('sc-auto-cap'),
             token_limit_tpm: num('sc-token-limit-tpm'),
             token_limit_tpd: num('sc-token-limit-tpd'),
-            use_prefill: document.getElementById('sc-use-prefill').checked,
+            use_prefill: _usePrefillDirty ? document.getElementById('sc-use-prefill').checked : null,
+            system_addon: document.getElementById('sc-system-addon-toggle').checked
+                ? (document.getElementById('sc-system-addon').value || '')
+                : null,
         }).filter(([, v]) => v !== null)) : {};
         const rangeChecks = [
             ['temperature', 0, 2], ['max_tokens', 64, 4096], ['history_limit', 1, 50],
@@ -289,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     auto_cap: globalCfg.auto_cap,
                     token_limit_tpm: globalCfg.token_limit_tpm,
                     token_limit_tpd: globalCfg.token_limit_tpd,
-                    use_prefill: globalCfg.use_prefill,
+                    use_prefill: undefined,
                 });
                 setScEnabled(true);
             } catch {
@@ -316,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const res = await fetch('/api/config');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const globalCfg = await res.json();
-            fillScFields(globalCfg);
+            fillScFields({ ...globalCfg, system_addon: undefined });
             setScEnabled(true);
             await saveServerSettings();
         } catch (e) { showToast(`Failed to load defaults: ${e.message}`, 'error'); }

@@ -696,16 +696,8 @@
         const copyBtn = document.getElementById('copy-response-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const cb = document.getElementById('req-prettier');
-                let text;
-                if (cb && cb.checked && item.conversation_history) {
-                    text = item.conversation_history.map(m => {
-                        const content = (m.content || '').replace(/\n/g, '\n').replace(/\[Reply\]/g, '').replace(/\[End\]/g, '').replace(/\[History\]/g, '\n\n[History]').replace(/\]\n(?!\n)/g, ']\n\n').replace(/\n(?!\n)\[/g, '\n\n[').replace(/\n{3,}/g, '\n\n').trim();
-                        return `--------------# ${m.role.toUpperCase()} #--------------\n\n${content}`;
-                    }).join('\n\n');
-                } else {
-                    text = item.response || '';
-                }
+                const el = document.getElementById('req-json');
+                const text = el ? el.innerText : '';
                 navigator.clipboard.writeText(text).then(() => {
                     copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
                     setTimeout(() => { copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 1500);

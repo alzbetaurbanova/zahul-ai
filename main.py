@@ -99,6 +99,8 @@ async def initialize_database():
         "history_limit": 10,
         "max_tokens": 256,
         "use_prefill": False,
+        "system_addon": "",
+        "system_addon_rules": [],
         "fallback_llm": "llama-3.1-8b-instant",
         "fallback_llm_source": "",
         "multi_model_enable": False,
@@ -118,7 +120,6 @@ async def initialize_database():
         "discord_login_enabled": False,
         "local_login_enabled": True,
         "discord_allowed_usernames": [],
-        "system_addon": "",
     }
     for key, value in default_config.items():
         db.set_config(key, value)

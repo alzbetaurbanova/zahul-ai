@@ -79,9 +79,14 @@ The default prompt template shapes every AI request (variables such as character
 - **Allowed Discord Usernames** - optional allowlist (one per line)  
 - **Default Character** - used for DMs and when no trigger matches; see [Characters](03-characters.md)
 
+## System Addon
+
+Text appended to every system prompt globally. Supports per-model rules and per-server overrides — see [System Addon](12-system-addon.md).
+
 ## See also
 
-- [Characters](03-characters.md) - personas and triggers  
+- [Characters](03-characters.md) - personas and triggers
 - [Multi-Model](11-multi-model.md) - vision / image description + multi-model providers
+- [System Addon](12-system-addon.md) - global / per-model / per-server prompt addon
 - [Slash commands → Tools](06-slash-commands.md#tools) - `/rolldice`, `/random`, `/wheel`, `/search`, `/image`
 

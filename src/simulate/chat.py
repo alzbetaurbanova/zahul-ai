@@ -14,7 +14,7 @@ from openai import AsyncOpenAI
 from api.db.database import Database
 from src.models.aicharacter import ActiveCharacter
 from src.models.prompts import DEFAULT_PROMPT_TEMPLATE
-from src.utils.llm_new import clean_string, clean_thonk, get_bot_config, track_tokens
+from src.utils.llm_new import clean_string, clean_thonk, get_bot_config, track_tokens, resolve_system_addon
 
 
 @dataclass
@@ -248,6 +248,9 @@ async def generate_simulated_response(
     prompt, stop_strings, history_count = build_simulation_prompt(
         db, character, user_name, history_text, global_note
     )
+    addon = resolve_system_addon(bot_config, db, effective_model).strip()
+    if addon:
+        prompt = f"{prompt}\n{addon}"
 
     client, endpoint, provider = _resolve_llm_client(bot_config, model_source or "primary")
 

@@ -126,6 +126,24 @@
                         <fieldset class="fieldset-section">
                             <legend class="legend-section">Advanced Features</legend>
                             <div class="space-y-4 mt-4">
+                                <div>
+                                    <label for="system_addon" class="label-form label-tt">System Addon <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Appended to every system prompt globally — chat, scheduler, and simulator. Per-model rules and per-server overrides can replace this value. Priority: per-model rule → server addon → global default.</span></span></label>
+                                    <p class="text-hint mb-2">Use for output instructions, e.g. "Keep responses to 1-2 sentences, no line breaks."</p>
+                                    <textarea id="system_addon" rows="3" class="input-field w-full font-mono text-sm" placeholder="e.g. Keep responses to 1-2 sentences, no line breaks."></textarea>
+                                </div>
+                                <div class="divider"></div>
+                                <!-- Per-model Addon Rules -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div>
+                                            <label class="label-form label-tt">Per-model Addon Rules <span class="tt"><i class="fas fa-circle-info icon-info-indigo"></i><span class="tt-body tt-align-left">Override the addon for a specific model. Takes priority over both the server addon and the global default. Enable "Use global default" on a rule to force that model to always use the global text, bypassing any server override.</span></span></label>
+                                            <p class="text-hint">These rules are <strong>global</strong> — they apply across all servers. Use Server System Addon (in Servers) to override per server.</p>
+                                        </div>
+                                        <button id="add-addon-rule-btn" type="button" class="btn-sm">+ Add Rule</button>
+                                    </div>
+                                    <div id="addon-rules-list" class="space-y-3"></div>
+                                </div>
+                                <div class="divider"></div>
                                 <div class="flex-between">
                                     <div>
                                         <label for="use_prefill" class="label-inline">Use AI Prefill</label>
@@ -157,15 +175,6 @@
                                         <input type="hidden" id="multi_model_ai_provider">
                                     </div>
                                 </div>
-                            </div>
-                        </fieldset>
-
-                        <fieldset class="fieldset-section">
-                            <legend class="legend-section">System Addon</legend>
-                            <div class="space-y-2 mt-4">
-                                <label for="system_addon" class="label-form">Global System Addon</label>
-                                <p class="text-hint">Appended to every system prompt across all characters and servers. Leave empty to disable.</p>
-                                <textarea id="system_addon" rows="3" class="input-field w-full font-mono text-sm" placeholder="e.g. Keep all replies to 3 sentences or fewer."></textarea>
                             </div>
                         </fieldset>
 

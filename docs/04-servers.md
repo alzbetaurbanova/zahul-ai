@@ -39,5 +39,6 @@ For DMs and unmatched mentions, set **Default Character** in [AI Config](02-ai-c
 
 ## See also
 
-- [Scheduler](05-scheduler.md) - timed messages to channels or DMs  
-- [Slash commands](06-slash-commands.md) - full command list  
+- [Scheduler](05-scheduler.md) - timed messages to channels or DMs
+- [Slash commands](06-slash-commands.md) - full command list
+- [System Addon](12-system-addon.md) - per-server addon text and priority chain

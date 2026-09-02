@@ -13,5 +13,6 @@
 | [Users](09-users.md) | Panel accounts, access requests, permissions |
 | [Dashboard, logs & tools](10-panel-tools.md) | Home console, `/logs`, avatar editor, prompt presets |
 | [Multi-Model](11-multi-model.md) | Image description via a vision model + multi-model providers |
+| [System Addon](12-system-addon.md) | Global / per-model / per-server prompt addon and priority chain |
 
 Start with [Getting Started](01-getting-started.md), then [AI Config](02-ai-config.md).

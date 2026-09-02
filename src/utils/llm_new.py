@@ -188,6 +188,15 @@ def _resolve_fallback_client(bot_config: BotConfig, primary_client: AsyncOpenAI)
 
     return primary_client, bot_config.ai_endpoint
 
+def resolve_system_addon(effective_config: BotConfig, db: Database, effective_model: str) -> str:
+    """Priority: per-model rule > server addon > global default."""
+    for rule in (effective_config.system_addon_rules or []):
+        if effective_model in (rule.get("models") or []):
+            if rule.get("use_default"):
+                return get_bot_config(db).system_addon or ""
+            return rule.get("text") or ""
+    return effective_config.system_addon or ""
+
 async def generate_response(task: QueueItem, db: Database):
     """
     Generates an AI response for a given task using configuration from the database.
@@ -283,19 +292,8 @@ async def generate_response(task: QueueItem, db: Database):
                     _effective_provider = p.name
                     break
 
-        system_prompt = task.prompt
-        if bot_config.system_addon:
-            system_prompt = f"{system_prompt}\n{bot_config.system_addon.strip()}"
         content_description = get_gif_content_description(task.message)
         user_message = content_description if content_description is not None else clean_string(task.message.content)
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
-
-        if bot_config.use_prefill:
-            messages.append({"role": "assistant", "content": f"[Reply] {task.bot}:"})
 
         async def _call(model, is_fallback=False):
             if is_fallback:
@@ -330,6 +328,18 @@ async def generate_response(task: QueueItem, db: Database):
                 from datetime import datetime
                 back_at = datetime.fromtimestamp(_fallback_end).strftime("%H:%M")
                 print(f"Daily token budget exhausted — switching to fallback ({fallback_model}) until {back_at}")
+
+        # Build prompt after fallback state is known so the correct model's rule is applied
+        system_prompt = task.prompt
+        addon = resolve_system_addon(bot_config, db, fallback_model if _fallback_active else effective_base_model).strip()
+        if addon:
+            system_prompt = f"{system_prompt}\n{addon}"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+        if bot_config.use_prefill:
+            messages.append({"role": "assistant", "content": f"[Reply] {task.bot}:"})
 
         just_switched = False
         fallback_status = None
@@ -501,7 +511,27 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         active_char = ActiveCharacter(char_data, db)
         character_prompt = active_char.get_character_prompt()
         history_section = f"\n[History]\n{history}" if history else ""
-        global_addon = (bot_config.system_addon or "").strip()
+
+        global _fallback_active, _fallback_end
+        fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
+        fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
+
+        primary_client = AsyncOpenAI(base_url=bot_config.ai_endpoint, api_key=bot_config.ai_key)
+
+        if _fallback_active:
+            client, _ = _resolve_fallback_client(bot_config, primary_client)
+            model = fallback_model
+        else:
+            client = primary_client
+            model = bot_config.base_llm
+            # Auto-bind to a multi-provider endpoint when the model is listed in its allowed_models.
+            for p in (bot_config.multi_model_providers or []):
+                if p.endpoint and model in (p.allowed_models or []):
+                    client = AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key)
+                    break
+
+        # Build prompt after fallback state is known so the correct model's rule is applied
+        global_addon = resolve_system_addon(bot_config, db, model).strip()
         combined_addon = f"{system_addon}\n{global_addon}" if global_addon else system_addon
         final_system_prompt = f"{character_prompt}{history_section}\n{combined_addon}"
 
@@ -521,24 +551,6 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             f"history={_chars_history}ch addon={_chars_addon}ch user={_chars_user}ch "
             f"total≈{_total_chars // 4}tok"
         )
-
-        global _fallback_active, _fallback_end
-        fallback_model = bot_config.fallback_llm or FALLBACK_MODEL
-        fallback_duration = bot_config.fallback_duration or FALLBACK_DURATION
-
-        primary_client = AsyncOpenAI(base_url=bot_config.ai_endpoint, api_key=bot_config.ai_key)
-
-        if _fallback_active:
-            client, _ = _resolve_fallback_client(bot_config, primary_client)
-            model = fallback_model
-        else:
-            client = primary_client
-            model = bot_config.base_llm
-            # Auto-bind to a multi-provider endpoint when the model is listed in its allowed_models.
-            for p in (bot_config.multi_model_providers or []):
-                if p.endpoint and model in (p.allowed_models or []):
-                    client = AsyncOpenAI(base_url=p.endpoint, api_key=p.api_key or bot_config.ai_key)
-                    break
 
         try:
             _extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(model) else {}

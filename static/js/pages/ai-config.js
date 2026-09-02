@@ -61,11 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'default_character', 'ai_endpoint', 'base_llm', 'primary_allowed_models', 'temperature', 'auto_cap',
         'history_limit', 'max_tokens',
         'fallback_llm', 'fallback_duration', 'token_limit_tpm', 'token_limit_tpd',
-        'ai_key', 'discord_key', 'use_prefill', 'dm_list',
+        'ai_key', 'discord_key', 'use_prefill', 'system_addon', 'dm_list',
         'multi_model_enable', 'multi_model_ai_model', 'multi_model_ai_provider',
         'public_url', 'discord_oauth_client_id', 'discord_oauth_client_secret', 'discord_oauth_redirect_uri',
         'panel_auth_enabled', 'discord_login_enabled', 'local_login_enabled',
-        'notify_contacts', 'notify_channel_id', 'system_addon',
+        'notify_contacts', 'notify_channel_id',
     ];
     const ARRAY_TEXTAREA_FIELDS = new Set(['dm_list', 'primary_allowed_models', 'notify_contacts']);
     const elements = Object.fromEntries(fieldIds.map(id => [id, document.getElementById(id)]));
@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             renderProviders(Array.isArray(config.multi_model_providers) ? config.multi_model_providers : []);
+            renderAddonRules(Array.isArray(config.system_addon_rules) ? config.system_addon_rules : []);
             const fbSource = config.fallback_llm_source || inferFallbackSource(config.fallback_llm);
             setAiModelField('base_llm', config.base_llm, 'primary');
             setAiModelField('fallback_llm', config.fallback_llm, fbSource);
@@ -199,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         configData['multi_model_providers'] = getProvidersFromDOM();
+        configData['system_addon_rules'] = getAddonRulesFromDOM();
         configData['base_llm'] = getAiConfigModelValue('base_llm', 'primary');
         configData['fallback_llm'] = getAiConfigModelValue('fallback_llm', 'primary');
         configData['fallback_llm_source'] = (
@@ -387,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ai_key: 'setup', history_limit: 'setup', max_tokens: 'setup',
         temperature: 'setup', auto_cap: 'setup',
         fallback_llm: 'setup', fallback_duration: 'setup', token_limit_tpm: 'setup',
-        token_limit_tpd: 'setup', use_prefill: 'setup', multi_model_enable: 'setup', system_addon: 'setup',
+        token_limit_tpd: 'setup', use_prefill: 'setup', system_addon: 'setup', multi_model_enable: 'setup',
         multi_model_ai_model: 'setup',
         discord_key: 'discord', public_url: 'discord', default_character: 'discord', dm_list: 'discord',
     };
@@ -759,6 +761,59 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }).filter(p => p.name || p.endpoint);
     }
+
+    // --- Per-model Addon Rules ---
+    function renderAddonRules(rules) {
+        const list = document.getElementById('addon-rules-list');
+        list.innerHTML = '';
+        (rules || []).forEach(r => addAddonRuleCard(r));
+    }
+
+    function addAddonRuleCard(rule = {}) {
+        const card = document.createElement('div');
+        card.className = 'addon-rule-card border border-gray-700 rounded-lg p-3 space-y-2';
+        card.innerHTML = `
+            <div class="flex justify-between items-center">
+                <label class="label-xs">Models (one per line)</label>
+                <button type="button" class="btn-icon addon-rule-delete">&#x2715;</button>
+            </div>
+            <textarea class="rule-models input-field w-full text-sm font-mono" rows="2"
+                      placeholder="gpt-4o&#10;claude-3-5-sonnet"></textarea>
+            <div class="flex-between">
+                <div>
+                    <label class="label-xs label-inline">Use global default</label>
+                    <p class="text-hint text-xs">Ignores server addon; falls back to the global default.</p>
+                </div>
+                <label class="toggle-wrap">
+                    <input type="checkbox" class="sr-only peer rule-use-default">
+                    <div class="toggle-track"></div>
+                </label>
+            </div>
+            <div class="rule-text-section">
+                <label class="label-xs">Custom addon text</label>
+                <textarea class="rule-text input-field w-full text-sm font-mono" rows="2"
+                          placeholder="Keep responses under 2 sentences."></textarea>
+            </div>`;
+        card.querySelector('.addon-rule-delete').addEventListener('click', () => card.remove());
+        const toggle = card.querySelector('.rule-use-default');
+        const textSection = card.querySelector('.rule-text-section');
+        toggle.addEventListener('change', () => textSection.classList.toggle('hidden', toggle.checked));
+        card.querySelector('.rule-models').value = (rule.models || []).join('\n');
+        toggle.checked = !!rule.use_default;
+        textSection.classList.toggle('hidden', !!rule.use_default);
+        card.querySelector('.rule-text').value = rule.text || '';
+        document.getElementById('addon-rules-list').appendChild(card);
+    }
+
+    function getAddonRulesFromDOM() {
+        return [...document.querySelectorAll('.addon-rule-card')].map(card => ({
+            models: card.querySelector('.rule-models').value.split('\n').map(s => s.trim()).filter(Boolean),
+            use_default: card.querySelector('.rule-use-default').checked,
+            text: card.querySelector('.rule-text').value,
+        })).filter(r => r.models.length);
+    }
+
+    document.getElementById('add-addon-rule-btn').addEventListener('click', () => addAddonRuleCard());
 
     function getModelsFromTextarea(id) {
         const el = document.getElementById(id);
