@@ -106,24 +106,29 @@
 
     function renderAccess(me, servers) {
         const role = me.role || 'guest';
-        const limitedMod = role === 'mod' && (me.server_ids || []).length > 0;
+        /* servers.py scopes every mod to their granted servers — an unassigned
+           mod reaches none, so this is never "all servers" for a mod. */
+        const scopedMod = role === 'mod';
+        const granted = (me.server_ids || []).length;
 
-        $('acc-scope').textContent = limitedMod
-            ? `${me.server_ids.length} server${me.server_ids.length === 1 ? '' : 's'}`
+        $('acc-scope').textContent = scopedMod
+            ? (granted === 0 ? 'No servers assigned' : `${granted} server${granted === 1 ? '' : 's'}`)
             : 'All servers';
-        $('acc-servers-head').textContent = limitedMod ? 'You moderate' : 'Servers you can reach';
+        $('acc-servers-head').textContent = scopedMod ? 'You moderate' : 'Servers you can reach';
 
         const list = $('acc-servers');
         if (!servers) {
             $('acc-servers-wrap').classList.add('hidden');
         } else if (!servers.length) {
-            list.innerHTML = '<div class="prof-empty">No servers yet.</div>';
+            list.innerHTML = `<div class="prof-empty">${scopedMod
+                ? 'No servers assigned to you yet — ask an admin for access.'
+                : 'No servers yet.'}</div>`;
         } else {
             list.innerHTML = servers.map(s => `
                 <div class="scope-row">
                     <i class="fas fa-fw fa-server"></i>
                     <span>${s.server_name || s.server_id}</span>
-                    <span class="tag">${limitedMod ? 'MOD' : 'ALL'}</span>
+                    <span class="tag">${scopedMod ? 'MOD' : 'ALL'}</span>
                 </div>`).join('');
         }
 
