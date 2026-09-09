@@ -1712,3 +1712,78 @@ class Database:
                 "SELECT attempts FROM discord_dm_queue WHERE id = ?", (queue_id,)
             ).fetchone()
             return int(row["attempts"]) if row else 0
+    # ------------------------------------------------------
+    # Bot uptime
+    # ------------------------------------------------------
+    def _ensure_uptime_table(self):
+        with self._get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS bot_uptime_intervals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    status TEXT NOT NULL CHECK (status IN ('up','down')),
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT NOT NULL
+                );
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_uptime_ended
+                ON bot_uptime_intervals (ended_at)
+            """)
+            conn.commit()
+
+    def get_last_uptime_interval(self) -> Optional[Dict[str, Any]]:
+        """Newest interval, or None when tracking has never run."""
+        self._ensure_uptime_table()
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM bot_uptime_intervals ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            return dict(row) if row else None
+
+    def extend_uptime_interval(self, interval_id: int, ended_at: str):
+        """Advance the open interval's end. The heartbeat's hot path — one UPDATE, no row growth."""
+        self._ensure_uptime_table()
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE bot_uptime_intervals SET ended_at = ? WHERE id = ?",
+                (ended_at, interval_id),
+            )
+            conn.commit()
+
+    def insert_uptime_interval(self, status: str, started_at: str, ended_at: str) -> int:
+        self._ensure_uptime_table()
+        with self._get_connection() as conn:
+            cur = conn.execute(
+                "INSERT INTO bot_uptime_intervals (status, started_at, ended_at) VALUES (?, ?, ?)",
+                (status, started_at, ended_at),
+            )
+            conn.commit()
+            return int(cur.lastrowid)
+
+    def get_uptime_intervals(self, cutoff: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Intervals overlapping [cutoff, now), oldest first. cutoff=None returns everything."""
+        self._ensure_uptime_table()
+        with self._get_connection() as conn:
+            if cutoff:
+                rows = conn.execute(
+                    "SELECT * FROM bot_uptime_intervals WHERE ended_at >= ? ORDER BY started_at ASC",
+                    (cutoff,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM bot_uptime_intervals ORDER BY started_at ASC"
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_uptime_tracking_since(self) -> Optional[str]:
+        """Earliest recorded timestamp, i.e. when tracking began.
+
+        Keyed on started_at rather than id: rows normally arrive in chronological
+        order, but backfilled history would break that assumption silently.
+        """
+        self._ensure_uptime_table()
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT MIN(started_at) AS first_seen FROM bot_uptime_intervals"
+            ).fetchone()
+            return row["first_seen"] if row and row["first_seen"] else None

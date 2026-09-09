@@ -4270,3 +4270,126 @@ body[data-page="logs"] #detail-modal .modal-box {
     flex-shrink: 0;
     background-color: var(--surface-raised);
 }
+
+/* ─── Bot uptime card ─────────────────────────────────────
+   Layout only. The surface, heading and range switcher are reused from
+   .card-dark, .heading-card and .range-btn (Stats page) — the mock drew its
+   own versions of all three, but they already exist. */
+.up-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+.up-head h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.up-head h2 i {
+    color: var(--primary-light);
+    font-size: 0.8125rem;
+}
+.up-pct {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--success);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.up-sub {
+    font-size: 0.78125rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.up-range {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.up-track {
+    display: flex;
+    height: 34px;
+    border-radius: 0.375rem;
+    background: var(--surface);
+    border: 1px solid var(--surface-raised);
+    /* Deliberately NOT overflow:hidden — that would clip the segment tooltips,
+       which sit above the track. The end segments carry the rounding instead. */
+}
+.up-seg { position: relative; min-width: 1px; }
+.up-seg:first-child { border-radius: 5px 0 0 5px; }
+.up-seg:last-child { border-radius: 0 5px 5px 0; }
+.up-seg:only-child { border-radius: 5px; }
+.up-seg.on { background: linear-gradient(180deg, #34d399, var(--success)); }
+.up-seg.off {
+    /* Solid, not the mock's faint 45° stripes: a real outage is a sliver of a
+       week-long bar, and a stripe pattern is unreadable at that width. */
+    background: linear-gradient(180deg, #f87171, var(--danger-bright));
+    /* Floor the width so short outages stay visible and hoverable instead of
+       collapsing sub-pixel — the bar would read as solid green while the legend
+       still counted the outage. Costs a little proportional accuracy. */
+    min-width: 6px;
+}
+.up-seg:hover { filter: brightness(1.15); }
+.up-seg .tip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--darker);
+    color: var(--light);
+    border: 1px solid var(--surface-raised);
+    font-size: 0.71875rem;
+    padding: 5px 9px;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s;
+    z-index: 20;
+    box-shadow: var(--shadow-card, 0 8px 20px rgba(0, 0, 0, 0.35));
+}
+.up-seg:hover .tip { opacity: 1; }
+/* Edge segments would otherwise push their tooltip past the card. */
+.up-seg:first-child .tip { left: 0; transform: none; }
+.up-seg:last-child .tip { left: auto; right: 0; transform: none; }
+
+.up-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    margin-top: 7px;
+    font-variant-numeric: tabular-nums;
+}
+.up-legend {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--dark);
+    font-size: 0.78125rem;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+}
+.up-legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+.up-legend .sw {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.up-legend .sw.on { background: var(--success); }
+.up-legend .sw.off { background: var(--danger-bright); }
+.up-legend .spacer { flex: 1; }
+.up-legend b {
+    color: var(--light);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}

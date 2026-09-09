@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import logging
 import os
 import secrets
 import time
@@ -28,8 +29,11 @@ from api.routers import characters, servers, config, discord as discord_router, 
 from api.routers import users as users_router
 from api.routers import stats as stats_router
 from api.routers import simulate as simulate_router
+from api.routers import uptime as uptime_router
 from api.db.database import Database
 from api.auth import require_role
+from api.bot_state import bot_state
+from api.uptime import HEARTBEAT_SECONDS, record_state, reconcile_on_startup
 from api.version_info import get_version_info
 
 # --- Default Data for First-Time Setup ---
@@ -282,23 +286,45 @@ async def _auto_activate():
             pass
 
 
+async def _uptime_heartbeat():
+    """Sample bot availability forever, so the dashboard card has history to draw.
+
+    Reads the same condition as /api/discord/status: the bot counts as up only
+    once the Discord gateway is ready, not merely because this process is alive.
+    """
+    while True:
+        try:
+            is_up = bool(bot_state.bot_instance and bot_state.bot_instance.is_ready())
+            record_state(is_up)
+        except Exception:
+            # A failed sample must never kill the loop; the gap it leaves is
+            # itself readable as downtime.
+            logging.exception("uptime heartbeat failed")
+        await asyncio.sleep(HEARTBEAT_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: DB init, housekeeping, background bot activation. Shutdown: cancel background task."""
+    """Startup: DB init, housekeeping, background bot activation. Shutdown: cancel background tasks."""
     await initialize_database()
     from api.db.trash import TrashDB
 
     TrashDB().purge_old()
     Database().purge_expired_sessions()
+    # Before the first heartbeat overwrites it, turn any interval left dangling
+    # by a crash into recorded downtime.
+    reconcile_on_startup()
     auto_task = asyncio.create_task(_auto_activate())
+    uptime_task = asyncio.create_task(_uptime_heartbeat())
     try:
         yield
     finally:
-        auto_task.cancel()
-        try:
-            await auto_task
-        except asyncio.CancelledError:
-            pass
+        for task in (auto_task, uptime_task):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 # --- FastAPI App Setup ---
@@ -353,6 +379,7 @@ app.include_router(trash_router.router)
 app.include_router(users_router.router)
 app.include_router(stats_router.router)
 app.include_router(simulate_router.router)
+app.include_router(uptime_router.router)
 
 # Set up CORS
 app.add_middleware(
