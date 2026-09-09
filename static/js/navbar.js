@@ -1,7 +1,10 @@
 (async function () {
     const container = document.getElementById('navbar-container');
-    const NAVBAR_CACHE_KEY = 'sidebar-html-v1';
-    localStorage.removeItem('navbar-html');
+    // The cached copy is rendered before the fresh one arrives, so a stale entry
+    // is shown for one page load. Bump this key whenever navbar.html changes,
+    // otherwise users keep clicking links that no longer exist.
+    const NAVBAR_CACHE_KEY = 'sidebar-html-v2';
+    ['navbar-html', 'sidebar-html-v1'].forEach(k => localStorage.removeItem(k));
 
     let html = localStorage.getItem(NAVBAR_CACHE_KEY);
     if (html) {
