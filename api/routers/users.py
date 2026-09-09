@@ -1,5 +1,6 @@
 import os
 import time
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, Coroutine, Any
@@ -267,6 +268,68 @@ async def revoke_all_sessions(current_user: dict = Depends(require_role("admin")
     db.delete_all_sessions()
     db.log_admin("user.sessions.revoke_all", actor=current_user)
     return {"ok": True}
+
+
+def _session_ref(token: str) -> str:
+    """Stable, non-reversible handle for a session — never expose the raw token."""
+    return hashlib.sha256(token.encode()).hexdigest()[:16]
+
+
+@router.get("/me/sessions")
+async def list_my_sessions(request: Request, current_user=Depends(get_current_user)):
+    """The caller's own active sessions. Self-scoped, so no admin role is needed."""
+    if not current_user:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    db = Database()
+    db.purge_expired_sessions()
+    current_token = (request.cookies.get("zahul_session") or "").strip()
+    result = []
+    for s in db.list_active_sessions():
+        if s["user_id"] != current_user["id"]:
+            continue
+        result.append({
+            "ref": _session_ref(s["session_token"]),
+            "created_at": s["created_at"],
+            "expires_at": s["expires_at"],
+            "user_agent": s.get("user_agent"),
+            "current": bool(current_token) and s["session_token"] == current_token,
+        })
+    return result
+
+
+@router.delete("/me/sessions")
+async def revoke_my_other_sessions(request: Request, current_user=Depends(get_current_user)):
+    """Sign out everywhere else — keeps the session making the request."""
+    if not current_user:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    db = Database()
+    current_token = (request.cookies.get("zahul_session") or "").strip()
+    revoked = 0
+    for s in db.list_active_sessions():
+        if s["user_id"] != current_user["id"] or s["session_token"] == current_token:
+            continue
+        db.delete_session(s["session_token"])
+        revoked += 1
+    return {"ok": True, "revoked": revoked}
+
+
+@router.delete("/me/sessions/{session_ref}")
+async def revoke_my_session(session_ref: str, request: Request, current_user=Depends(get_current_user)):
+    """Revoke one of the caller's own sessions, addressed by its opaque ref."""
+    if not current_user:
+        raise HTTPException(status_code=403, detail="Not authenticated")
+    db = Database()
+    current_token = (request.cookies.get("zahul_session") or "").strip()
+    for s in db.list_active_sessions():
+        if s["user_id"] != current_user["id"]:
+            continue
+        if _session_ref(s["session_token"]) != session_ref:
+            continue
+        if s["session_token"] == current_token:
+            raise HTTPException(status_code=400, detail="Cannot revoke the session you are using.")
+        db.delete_session(s["session_token"])
+        return {"ok": True}
+    raise HTTPException(status_code=404, detail="Session not found.")
 
 
 @router.delete("/{user_id}/sessions")

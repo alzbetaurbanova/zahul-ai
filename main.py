@@ -471,6 +471,16 @@ async def get_test_html():
     """Discord chat simulator for testing characters."""
     return "static/test.html"
 
+@app.get("/docs", response_class=FileResponse)
+async def get_docs_html():
+    """Serve the docs.html page. Readable by everyone; per-document access comes later."""
+    return "static/docs.html"
+
+@app.get("/account", response_class=FileResponse)
+async def get_account_html():
+    """Serve the account.html settings page."""
+    return "static/account.html"
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse("static/img/favicon.png")

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zahul-ai - Account settings</title><script>window.__authStatus=fetch("/api/me").then(r=>r.ok?r.json():null).catch(()=>null);</script>
+    <link rel="stylesheet" href="/static/css/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+</head>
+<body class="bg-darker text-light flex flex-col min-h-screen" data-page="account">
+    <div id="toast-container" class="toast z-50"></div>
+    <div id="navbar-container"></div>
+    <script src="/static/js/utils.js" defer></script>
+    <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/account.js" defer></script>
+
+    <main class="page">
+        <div class="main-content">
+            <div class="page-heading">
+                <h1 class="page-title">Account settings</h1>
+                <p class="page-subtitle">Your profile, appearance, access and active sessions.</p>
+            </div>
+
+            <div class="prof-grid mt-6">
+                <!-- ── Left column ─────────────────────────────────────── -->
+                <div class="prof-col">
+                    <!-- Identity -->
+                    <div class="prof-card">
+                        <div class="prof-id">
+                            <div class="big-av-wrap">
+                                <img class="big-av" id="acc-avatar" src="/static/avatars/default_user_avatar.png" alt="Your avatar" width="76" height="76">
+                                <span class="big-badge nav-user-badge hidden" id="acc-role-dot" title="Role"><i class="fas fa-user"></i></span>
+                            </div>
+                            <div class="who">
+                                <div class="uname" id="acc-username">—</div>
+                                <div class="sub">
+                                    <span class="role-badge" id="acc-role-badge"></span>
+                                    <span class="via" id="acc-via"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="kv-list mt-5" id="acc-identity-kv"></div>
+                    </div>
+
+                    <!-- Appearance -->
+                    <div class="prof-card">
+                        <h2><i class="fas fa-fw fa-palette"></i>Appearance</h2>
+                        <div class="setting-row">
+                            <div>
+                                <div class="lbl">Theme</div>
+                                <div class="hint">Dark is the default. Light mode is partial — some panels still use dark surfaces.</div>
+                            </div>
+                            <div class="mode-tab-group">
+                                <button type="button" id="acc-theme-light" class="mode-tab mode-tab-off"><i class="fas fa-sun"></i>Light</button>
+                                <button type="button" id="acc-theme-dark" class="mode-tab mode-tab-on"><i class="fas fa-moon"></i>Dark</button>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div>
+                                <div class="lbl">Compact lists</div>
+                                <div class="hint">Tighter rows in Scheduler and Logs so more fits on screen. Saved in this browser only.</div>
+                            </div>
+                            <label class="toggle-wrap">
+                                <input id="acc-compact" type="checkbox" class="sr-only peer">
+                                <div class="toggle-track"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Active sessions -->
+                    <div class="prof-card">
+                        <h2><i class="fas fa-fw fa-desktop"></i>Active sessions<span class="count" id="acc-sess-count"></span></h2>
+                        <div class="sess-list" id="acc-sessions">
+                            <div class="prof-empty">Loading sessions…</div>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button class="btn-danger hidden" id="acc-signout-others">Sign out everywhere else</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Right column ────────────────────────────────────── -->
+                <div class="prof-col">
+                    <!-- Role & access -->
+                    <div class="prof-card">
+                        <h2><i class="fas fa-fw fa-user-shield" id="acc-role-icon"></i>Role &amp; access</h2>
+                        <div class="kv-list">
+                            <div class="kv"><span class="k">Role</span><span class="v" id="acc-role-name">—</span></div>
+                            <div class="kv"><span class="k">Scope</span><span class="v" id="acc-scope">—</span></div>
+                        </div>
+                        <div class="mt-5" id="acc-servers-wrap">
+                            <div class="subhead" id="acc-servers-head">Servers you can reach</div>
+                            <div class="scope-list" id="acc-servers"></div>
+                        </div>
+                        <div class="mt-5 pt-4" style="border-top:1px solid var(--dark)">
+                            <div class="subhead">Permissions</div>
+                            <div class="perm-list" id="acc-perms"></div>
+                        </div>
+                    </div>
+
+                    <!-- Usage -->
+                    <div class="prof-card hidden" id="acc-usage-card">
+                        <h2><i class="fas fa-fw fa-chart-simple"></i>Your usage<span class="count">30 days</span></h2>
+                        <div class="usage-top">
+                            <div class="usage-tile">
+                                <div class="t">Messages sent</div>
+                                <div class="v" id="acc-usage-messages">—</div>
+                            </div>
+                            <div class="usage-tile">
+                                <div class="t">Tokens used</div>
+                                <div class="v" id="acc-usage-tokens">—</div>
+                            </div>
+                        </div>
+                        <div class="kv-list">
+                            <div class="kv"><span class="k">Errors</span><span class="v" id="acc-usage-errors">—</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Security -->
+                    <div class="prof-card">
+                        <h2><i class="fas fa-fw fa-key"></i>Security</h2>
+                        <div class="kv-list">
+                            <div class="kv"><span class="k">Password</span><span class="v" id="acc-password-state">—</span></div>
+                            <div class="kv"><span class="k">Session expires</span><span class="v" id="acc-session-exp">—</span></div>
+                        </div>
+                        <div class="mt-4 hidden" id="acc-password-wrap">
+                            <div class="flex flex-wrap gap-2 items-end">
+                                <div class="flex-1 min-w-0">
+                                    <label class="label-xs" for="acc-new-password">New password</label>
+                                    <input id="acc-new-password" type="password" class="input-field w-full" placeholder="At least 8 characters" autocomplete="new-password">
+                                </div>
+                                <button class="btn-primary" id="acc-save-password"><i class="fas fa-key mr-2"></i>Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <site-footer></site-footer>
+    <script src="/static/js/footer.js" defer></script>
+</body>
+</html>

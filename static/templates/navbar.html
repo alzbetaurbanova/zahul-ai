@@ -1,62 +1,135 @@
-<nav class="site-nav">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex-between h-16 nav-row">
-            <div class="flex items-center min-w-0 overflow-hidden nav-left">
-                <div class="flex-shrink-0">
-                    <a href="/" class="flex items-center space-x-3 text-white">
-                        <img class="h-8 w-8" src="/zahul" alt="zahul-ai" width="32" height="32">
-                        <span class="font-bold text-xl hidden sm:inline">zahul-ai</span>
-                    </a>
-                </div>
-                <div class="hidden md:block nav-desktop">
-                    <div class="ml-10 flex items-baseline space-x-4 nav-desktop-links">
-                        <a href="/" data-page="dashboard" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
-                        <a href="/characters" data-page="characters" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
-                        <a href="/scheduler" data-page="scheduler" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-                        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-link nav-users-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
-                        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-link nav-admin-link hidden px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0 whitespace-nowrap nav-right">
-                <span class="text-sm text-gray-400 nav-status-label">Status:</span>
-                <span id="bot-status-indicator" class="status-indicator"></span>
-                <span id="bot-status-text" class="text-sm text-gray-300 nav-status-text"></span>
-                <div class="hidden md:block nav-user-wrap">
-                    <button type="button" class="nav-user-btn hidden" aria-haspopup="true" aria-expanded="false" aria-label="Open user menu">
-                        <img class="nav-user-avatar" src="/static/avatars/default_user_avatar.png" alt="User avatar" width="32" height="32">
-                        <span class="nav-user-badge hidden" aria-label="User role" title="User role">
-                            <i class="fas fa-user"></i>
-                        </span>
-                    </button>
-                    <div class="nav-user-menu hidden" role="menu" aria-label="User menu">
-                        <div class="nav-user-name" role="presentation">user</div>
-                        <hr class="nav-user-divider" aria-hidden="true">
-                        <div class="nav-theme-toggle" role="menuitem">
-                            <div class="flex rounded-lg overflow-hidden border border-gray-700">
-                                <button type="button" id="theme-btn-light" class="mode-tab mode-tab-off px-6 py-1" title="Light mode"><i class="fas fa-sun"></i></button>
-                                <button type="button" id="theme-btn-dark" class="mode-tab mode-tab-on px-6 py-1" title="Dark mode"><i class="fas fa-moon"></i></button>
-                            </div>
-                        </div>
-                        <hr class="nav-user-divider" aria-hidden="true">
-                        <a href="/logout" class="nav-user-logout" role="menuitem">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>
-                            Logout
-                        </a>
-                    </div>
-                </div>
-                <button id="nav-hamburger" class="hamburger-btn md:hidden" aria-label="Open menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
+<aside class="rail" id="app-rail" data-collapsed="0" aria-label="Main navigation">
+    <div class="brand">
+        <a href="/" class="brand-mark" aria-label="zahul-ai home">
+            <img src="/zahul" alt="zahul-ai" width="40" height="40">
+        </a>
+        <div class="brand-text">
+            <div class="brand-name">zahul-ai</div>
+            <div class="brand-sub">workspace</div>
         </div>
     </div>
-    <div id="nav-mobile-menu" class="nav-mobile-menu hidden md:hidden">
-        <a href="/" data-page="dashboard" class="nav-mobile-link"><i class="fas fa-fw fa-home mr-2"></i>Dashboard</a>
-        <a href="/characters" data-page="characters" class="nav-mobile-link"><i class="fas fa-fw fa-robot mr-2"></i>Characters</a>
-        <a href="/scheduler" data-page="scheduler" class="nav-mobile-link"><i class="fas fa-fw fa-clock mr-2"></i>Scheduler</a>
-        <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-mobile-link nav-users-mobile-link hidden"><i class="fas fa-fw fa-users mr-2"></i>Users</a>
-        <a href="/ai-config" data-page="ai-config" title="Super admin only" class="nav-mobile-link nav-admin-mobile-link hidden"><i class="fas fa-fw fa-cog mr-2"></i>AI Config</a>
-        <a href="/logout" class="nav-mobile-logout nav-mobile-link hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="display:inline;vertical-align:-1px;margin-right:6px"><path d="M7 2a1 1 0 0 0 0 2h4v8H7a1 1 0 0 0 0 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7z"/><path d="M5.707 9.707a1 1 0 0 1-1.414-1.414L5.586 7H1a1 1 0 1 1 0-2h4.586L4.293 3.707a1 1 0 1 1 1.414-1.414l3 3a1 1 0 0 1 0 1.414l-3 3z"/></svg>Logout</a>
+
+    <button type="button" id="rail-collapse" class="collapse-btn" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+
+    <div class="rail-scroll">
+        <div class="rail-group" data-group="main">
+            <div class="rail-section-label">Main</div>
+            <nav class="nav">
+                <a href="/" data-page="dashboard" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-home"></i></span>
+                    <span class="nav-label">Dashboard</span>
+                    <span class="tip">Dashboard</span>
+                </a>
+                <a href="/characters" data-page="characters" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-robot"></i></span>
+                    <span class="nav-label">Characters</span>
+                    <span class="tip">Characters</span>
+                </a>
+                <a href="/scheduler" data-page="scheduler" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-clock"></i></span>
+                    <span class="nav-label">Scheduler</span>
+                    <span class="tip">Scheduler</span>
+                </a>
+                <a href="/servers" data-page="servers" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-server"></i></span>
+                    <span class="nav-label">Servers</span>
+                    <span class="tip">Servers</span>
+                </a>
+                <a href="/test" data-page="test" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-comments"></i></span>
+                    <span class="nav-label">Simulator</span>
+                    <span class="tip">Simulator</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="rail-group" data-group="administration">
+            <div class="rail-section-label">Administration</div>
+            <nav class="nav">
+                <a href="/users" data-page="users" title="Visible to admin and super admin" class="nav-item nav-users-link hidden">
+                    <span class="icon"><i class="fas fa-fw fa-users"></i></span>
+                    <span class="nav-label">Users</span>
+                    <span class="tip">Users</span>
+                </a>
+                <a href="/ai-config" data-page="ai-config" title="Visible to mod and above" class="nav-item nav-admin-link hidden">
+                    <span class="icon"><i class="fas fa-fw fa-cog"></i></span>
+                    <span class="nav-label">AI Config</span>
+                    <span class="tip">AI Config</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="rail-group" data-group="insights">
+            <div class="rail-section-label">Insights</div>
+            <nav class="nav">
+                <a href="/stats" data-page="stats" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-chart-bar"></i></span>
+                    <span class="nav-label">Stats</span>
+                    <span class="tip">Stats</span>
+                </a>
+                <a href="/logs" data-page="logs" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-file-alt"></i></span>
+                    <span class="nav-label">Logs</span>
+                    <span class="tip">Logs</span>
+                </a>
+                <a href="/docs" data-page="docs" class="nav-item">
+                    <span class="icon"><i class="fas fa-fw fa-book"></i></span>
+                    <span class="nav-label">Docs</span>
+                    <span class="tip">Docs</span>
+                </a>
+            </nav>
+        </div>
     </div>
-</nav>
+
+    <div class="rail-bottom">
+        <div class="status-card" title="Bot status">
+            <span id="bot-status-indicator" class="status-indicator"></span>
+            <div class="status-card-text">
+                <div class="t">Status</div>
+                <div class="v" id="bot-status-text"></div>
+            </div>
+        </div>
+
+        <div class="user-menu-wrap">
+            <div class="nav-user-menu user-menu hidden" role="menu" aria-label="User menu">
+                <a href="/account" class="user-menu-item" role="menuitem">
+                    <i class="fas fa-fw fa-user-gear"></i>
+                    <span>Account settings</span>
+                </a>
+                <hr class="nav-user-divider" aria-hidden="true">
+                <div class="nav-theme-toggle" role="menuitem">
+                    <div class="mode-tab-group">
+                        <button type="button" id="theme-btn-light" class="mode-tab mode-tab-off" title="Light mode"><i class="fas fa-sun"></i>Light</button>
+                        <button type="button" id="theme-btn-dark" class="mode-tab mode-tab-on" title="Dark mode"><i class="fas fa-moon"></i>Dark</button>
+                    </div>
+                </div>
+                <hr class="nav-user-divider" aria-hidden="true">
+                <a href="/logout" class="user-menu-item danger nav-user-logout" role="menuitem">
+                    <i class="fas fa-fw fa-right-from-bracket"></i>
+                    <span>Log out</span>
+                </a>
+            </div>
+
+            <button type="button" class="user-card nav-user-btn hidden" aria-haspopup="true" aria-expanded="false" aria-label="Open user menu">
+                <span class="avatar-wrap">
+                    <img class="avatar nav-user-avatar" src="/static/avatars/default_user_avatar.png" alt="User avatar" width="34" height="34">
+                    <span class="role-dot nav-user-badge hidden" aria-label="User role" title="User role">
+                        <i class="fas fa-user"></i>
+                    </span>
+                </span>
+                <span class="meta">
+                    <span class="name nav-user-name">user</span>
+                    <span class="role nav-user-role"></span>
+                </span>
+                <span class="chev"><i class="fas fa-chevron-down"></i></span>
+            </button>
+        </div>
+    </div>
+</aside>
+
+<button id="nav-hamburger" class="hamburger-btn" aria-label="Open menu" aria-expanded="false">
+    <i class="fas fa-bars"></i>
+</button>
+<div id="rail-scrim" class="rail-scrim" hidden></div>

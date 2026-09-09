@@ -1,0 +1,12 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0}iframe{display:block;border:0;width:100vw;height:100vh}</style></head>
+<body><iframe id="f" src="/static/_login.html"></iframe>
+<script>
+const target = new URLSearchParams(location.search).get('to') || '/account';
+let step = 0;
+const f = document.getElementById('f');
+f.addEventListener('load', () => {
+  step++;
+  if (step === 2) setTimeout(() => { f.src = target; }, 200);
+});
+setTimeout(() => { if (step < 2) f.src = target; }, 2500);
+</script></body></html>

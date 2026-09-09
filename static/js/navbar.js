@@ -1,6 +1,7 @@
 (async function () {
     const container = document.getElementById('navbar-container');
-    const NAVBAR_CACHE_KEY = 'navbar-html';
+    const NAVBAR_CACHE_KEY = 'sidebar-html-v1';
+    localStorage.removeItem('navbar-html');
 
     let html = localStorage.getItem(NAVBAR_CACHE_KEY);
     if (html) {
@@ -10,11 +11,9 @@
             .then(fresh => { if (fresh !== html) localStorage.setItem(NAVBAR_CACHE_KEY, fresh); })
             .catch(() => {});
     } else {
-        container.style.minHeight = '64px';
         const res = await fetch('/static/templates/navbar.html', { credentials: 'omit' });
         html = await res.text();
         localStorage.setItem(NAVBAR_CACHE_KEY, html);
-        container.style.minHeight = '';
         container.innerHTML = html;
     }
 
@@ -44,30 +43,79 @@
         }
     }
 
-    // Mark active link (desktop + mobile)
+    const rail = container.querySelector('#app-rail');
+    const scrim = container.querySelector('#rail-scrim');
+
+    // Mark the active nav item
     const page = document.body.dataset.page || window.activePage || '';
-    container.querySelectorAll('[data-page]').forEach(a => {
-        if (a.dataset.page === page) {
-            a.classList.add('active', 'text-white');
-            a.classList.remove('text-gray-300');
-        }
+    container.querySelectorAll('.nav-item[data-page]').forEach(a => {
+        a.classList.toggle('active', a.dataset.page === page);
+        if (a.dataset.page === page) a.setAttribute('aria-current', 'page');
     });
 
-    // Hamburger toggle
-    const hamburger = container.querySelector('#nav-hamburger');
-    const mobileMenu = container.querySelector('#nav-mobile-menu');
-    if (hamburger && mobileMenu) {
-        hamburger.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-        });
-        mobileMenu.querySelectorAll('a[data-page]').forEach(a => {
-            a.addEventListener('click', () => mobileMenu.classList.add('hidden'));
+    // The account page has no nav item — the user card is its entry point.
+    if (page === 'account') {
+        container.querySelector('.user-card')?.classList.add('active');
+    }
+
+    // Collapse / expand (desktop) — persisted per browser
+    const RAIL_COLLAPSED_KEY = 'sidebar-collapsed';
+    const collapseBtn = container.querySelector('#rail-collapse');
+
+    function applyCollapsed(collapsed) {
+        if (rail) rail.dataset.collapsed = collapsed ? '1' : '0';
+        document.body.dataset.rail = collapsed ? 'collapsed' : 'expanded';
+        if (collapseBtn) {
+            collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            collapseBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            collapseBtn.title = collapsed ? 'Expand' : 'Collapse';
+            const icon = collapseBtn.querySelector('i');
+            if (icon) icon.className = collapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+        }
+    }
+
+    applyCollapsed(localStorage.getItem(RAIL_COLLAPSED_KEY) === '1');
+
+    if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+            const collapsed = rail?.dataset.collapsed !== '1';
+            localStorage.setItem(RAIL_COLLAPSED_KEY, collapsed ? '1' : '0');
+            applyCollapsed(collapsed);
         });
     }
 
+    // Mobile: off-canvas drawer
+    const hamburger = container.querySelector('#nav-hamburger');
+
+    function setDrawer(open) {
+        if (rail) rail.dataset.open = open ? '1' : '0';
+        if (scrim) {
+            scrim.dataset.open = open ? '1' : '0';
+            scrim.hidden = !open;
+        }
+        if (hamburger) hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    setDrawer(false);
+
+    if (hamburger) {
+        hamburger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setDrawer(rail?.dataset.open !== '1');
+        });
+    }
+    if (scrim) scrim.addEventListener('click', () => setDrawer(false));
+    container.querySelectorAll('.nav-item[data-page]').forEach(a => {
+        a.addEventListener('click', () => setDrawer(false));
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setDrawer(false);
+    });
+
     const userMenuBtn = container.querySelector('.nav-user-btn');
     const userMenu = container.querySelector('.nav-user-menu');
-    const userMenuName = container.querySelector('.nav-user-name');
+    const userMenuNames = container.querySelectorAll('.nav-user-name');
+    const userRoleLabel = container.querySelector('.nav-user-role');
     const userAvatar = container.querySelector('.nav-user-avatar');
     const userBadge = container.querySelector('.nav-user-badge');
     const DEFAULT_AVATAR = '/static/avatars/default_user_avatar.png';
@@ -171,16 +219,14 @@
 
     // Show profile menu only if auth enabled — cached to avoid flash
     function setLogoutVisible(visible) {
-        const mobileLogout = container.querySelector('a.nav-mobile-logout');
         if (userMenuBtn) userMenuBtn.classList.toggle('hidden', !visible);
         if (userMenu) userMenu.classList.add('hidden');
         if (userMenuBtn) userMenuBtn.setAttribute('aria-expanded', 'false');
-        if (mobileLogout) mobileLogout.classList.toggle('hidden', !visible);
     }
 
     function setUserIdentity(identity = {}) {
-        const username = String(identity.username || userMenuName?.textContent || 'user');
-        if (userMenuName) userMenuName.textContent = username;
+        const username = String(identity.username || userMenuNames[0]?.textContent || 'user');
+        userMenuNames.forEach(el => { el.textContent = username; });
         let avatarUrl = identity.avatar_url;
         if (avatarUrl === undefined || avatarUrl === null || avatarUrl === '') {
             avatarUrl = localStorage.getItem(AVATAR_URL_KEY) || DEFAULT_AVATAR;
@@ -228,6 +274,16 @@
         const iconClass = map[role] || 'fa-user';
         userBadge.innerHTML = `<i class="fas ${iconClass}"></i>`;
         setBadgeVisible(!!role);
+
+        if (userRoleLabel) {
+            const labels = {
+                super_admin: 'Super Admin',
+                admin: 'Admin',
+                mod: 'Mod',
+                guest: 'Guest',
+            };
+            userRoleLabel.textContent = labels[role] || '';
+        }
     }
 
     const themeBtnLight = container.querySelector('#theme-btn-light');
@@ -253,15 +309,17 @@
 
     function applyNavVisibility(authEnabled, role) {
         const usersLink = container.querySelector('a.nav-users-link');
-        const usersMobileLink = container.querySelector('a.nav-users-mobile-link');
         const adminLink = container.querySelector('a.nav-admin-link');
-        const adminMobileLink = container.querySelector('a.nav-admin-mobile-link');
         const showUsers = authEnabled && (role === 'super_admin' || role === 'admin');
         const showAiConfig = !authEnabled || role === 'super_admin' || role === 'admin' || role === 'mod';
         if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
-        if (usersMobileLink) usersMobileLink.classList.toggle('hidden', !showUsers);
         if (adminLink) adminLink.classList.toggle('hidden', !showAiConfig);
-        if (adminMobileLink) adminMobileLink.classList.toggle('hidden', !showAiConfig);
+
+        // A group whose items are all hidden must not leave its label behind.
+        container.querySelectorAll('.rail-group').forEach(group => {
+            const visible = group.querySelectorAll('.nav-item:not(.hidden)').length;
+            group.classList.toggle('hidden', visible === 0);
+        });
     }
 
     // Pre-apply from cache to avoid flash
