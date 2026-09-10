@@ -27,12 +27,12 @@
                     <p class="page-subtitle">Manage your zahul-ai instance</p>
                 </div>
 
+                <!-- Bot control + uptime side by side -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Bot Control + Uptime -->
-                    <div class="lg:col-span-1 flex flex-col gap-4">
-                        <div class="card-dark">
+                    <div class="lg:col-span-1">
+                        <div class="card-dark h-full">
                             <h2 class="heading-card mb-4">Bot Control</h2>
-                            
+
                             <div class="flex-between mb-6">
                                 <div>
                                     <span class="text-sm text-gray-400">Current Status:</span>
@@ -45,7 +45,7 @@
                                     <i class="fas fa-power-off mr-2"></i> Activate
                                 </button>
                             </div>
-                            
+
                             <div class="mt-4">
                                 <label class="label-muted">Invite Link</label>
                                 <div class="flex">
@@ -56,31 +56,32 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Bot uptime -->
-                        <uptime-card></uptime-card>
-
                     </div>
 
-                    <!-- Log Stream -->
+                    <!-- Bot uptime -->
                     <div class="lg:col-span-2">
-                        <div class="card-dark h-full">
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="heading-card">Console</h2>
-                                <div class="flex items-center">
-                                    <span class="text-xs text-gray-400 mr-2">Auto-scroll</span>
-                                    <label class="toggle-wrap">
-                                        <input id="auto-scroll-toggle" type="checkbox" value="" class="sr-only peer" checked>
-                                        <div class="toggle-track"></div>
-                                    </label>
-                                </div>
+                        <uptime-card></uptime-card>
+                    </div>
+                </div>
+
+                <!-- Log Stream -->
+                <div class="mt-6">
+                    <div class="card-dark">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="heading-card">Console</h2>
+                            <div class="flex items-center">
+                                <span class="text-xs text-gray-400 mr-2">Auto-scroll</span>
+                                <label class="toggle-wrap">
+                                    <input id="auto-scroll-toggle" type="checkbox" value="" class="sr-only peer" checked>
+                                    <div class="toggle-track"></div>
+                                </label>
                             </div>
-                            <div id="log-container" class="log-stream rounded-lg p-4 h-96 overflow-y-auto">
-                                <div class="text-muted">Waiting for logs...</div>
-                            </div>
-                            <div class="mt-3 text-right">
-                                <a href="/logs" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View full logs →</a>
-                            </div>
+                        </div>
+                        <div id="log-container" class="log-stream rounded-lg p-4 h-96 overflow-y-auto">
+                            <div class="text-muted">Waiting for logs...</div>
+                        </div>
+                        <div class="mt-3 text-right">
+                            <a href="/logs" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">View full logs →</a>
                         </div>
                     </div>
                 </div>

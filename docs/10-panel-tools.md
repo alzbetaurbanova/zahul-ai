@@ -2,13 +2,27 @@
 
 Pages and features that are not covered in depth by the topic-specific guides.
 
+## Navigation
+
+Every panel page shares a **sidebar** pinned to the left edge. It is grouped into
+**Main** (Dashboard, Characters, Scheduler, Servers, Simulator), **Administration**
+(Users, AI Config) and **Insights** (Stats, Logs, Docs). Entries you are not allowed
+to open are hidden, and a group whose entries are all hidden disappears with them.
+
+- The round handle on the sidebar's edge collapses it to icons only; the choice is
+  remembered in this browser.
+- Below 900 px the sidebar becomes a drawer opened by the hamburger button.
+- The bottom of the rail shows bot status and your avatar. Clicking the avatar opens
+  the user menu: [Account settings](14-account.md), the theme toggle, and log out.
+
 ## Admin dashboard (`/`)
 
 - **Bot control** - see whether the bot process is running, **Activate** / power control, and (when active) the **invite link** to add the bot to a server.
-- **Servers** - quick list of guilds the bot sees; detailed channel setup stays in [Servers & channels](04-servers.md).
+- **Uptime** - availability of the bot over a selectable range.
 - **Console** - live log stream from the bot with optional auto-scroll.
 
-Start or stop the bot here after saving [AI Config](02-ai-config.md).
+Start or stop the bot here after saving [AI Config](02-ai-config.md). Servers and Stats
+are reached from the sidebar rather than from shortcut cards on this page.
 
 ## Activity logs (`/logs`)
 

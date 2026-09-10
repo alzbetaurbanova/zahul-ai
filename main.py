@@ -30,6 +30,7 @@ from api.routers import users as users_router
 from api.routers import stats as stats_router
 from api.routers import simulate as simulate_router
 from api.routers import uptime as uptime_router
+from api.routers import docs as docs_router
 from api.db.database import Database
 from api.auth import require_role
 from api.bot_state import bot_state
@@ -380,6 +381,7 @@ app.include_router(users_router.router)
 app.include_router(stats_router.router)
 app.include_router(simulate_router.router)
 app.include_router(uptime_router.router)
+app.include_router(docs_router.router)
 
 # Set up CORS
 app.add_middleware(

@@ -3,8 +3,8 @@
     // The cached copy is rendered before the fresh one arrives, so a stale entry
     // is shown for one page load. Bump this key whenever navbar.html changes,
     // otherwise users keep clicking links that no longer exist.
-    const NAVBAR_CACHE_KEY = 'sidebar-html-v2';
-    ['navbar-html', 'sidebar-html-v1'].forEach(k => localStorage.removeItem(k));
+    const NAVBAR_CACHE_KEY = 'sidebar-html-v3';
+    ['navbar-html', 'sidebar-html-v1', 'sidebar-html-v2'].forEach(k => localStorage.removeItem(k));
 
     let html = localStorage.getItem(NAVBAR_CACHE_KEY);
     if (html) {
@@ -313,10 +313,14 @@
     function applyNavVisibility(authEnabled, role) {
         const usersLink = container.querySelector('a.nav-users-link');
         const adminLink = container.querySelector('a.nav-admin-link');
+        const swaggerLink = container.querySelector('a.nav-swagger-link');
         const showUsers = authEnabled && (role === 'super_admin' || role === 'admin');
         const showAiConfig = !authEnabled || role === 'super_admin' || role === 'admin' || role === 'mod';
+        // With panel auth off every caller is treated as super admin server-side.
+        const showSwagger = !authEnabled || role === 'super_admin';
         if (usersLink) usersLink.classList.toggle('hidden', !showUsers);
         if (adminLink) adminLink.classList.toggle('hidden', !showAiConfig);
+        if (swaggerLink) swaggerLink.classList.toggle('hidden', !showSwagger);
 
         // A group whose items are all hidden must not leave its label behind.
         container.querySelectorAll('.rail-group').forEach(group => {

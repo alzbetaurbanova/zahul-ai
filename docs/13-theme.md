@@ -1,4 +1,4 @@
-# Theme (scaffold)
+# Theme
 
 Default: **dark**. Optional: **light** (partial — token overrides only).
 
@@ -6,7 +6,7 @@ Default: **dark**. Optional: **light** (partial — token overrides only).
 
 | File | Role |
 |------|------|
-| `static/js/theme.js` | `data-theme` on `<html>`, localStorage, navbar wiring |
+| `static/js/theme.js` | `data-theme` on `<html>`, localStorage, toggle wiring |
 | `static/css/theme.css` | Light palette overrides (`[data-theme="light"]`) |
 
 ## HTML (panel pages)
@@ -34,7 +34,9 @@ ZahulTheme.getTheme();              // 'dark' | 'light'
 ZahulTheme.syncFromSession();       // when API has user.theme
 ```
 
-Navbar toggle uses `ZahulTheme.wireToggle(lightBtn, darkBtn)`.
+The sidebar wires the toggle in the user menu (click your avatar at the bottom of the
+rail) with `ZahulTheme.wireToggle(lightBtn, darkBtn)`. The same pair of buttons appears
+under **Appearance** on [Account settings](14-account.md).
 
 ## Extending light mode
 
