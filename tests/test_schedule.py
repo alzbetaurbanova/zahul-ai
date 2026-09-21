@@ -7,6 +7,7 @@ tests avoid freezing the clock - they assert the properties that must hold
 whenever the suite happens to run (always in the future, always on an allowed
 day, always on the requested minute).
 """
+from calendar import monthrange
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -65,6 +66,33 @@ class TestNextRun:
 
         assert parse(monthly) > datetime.now(SK)
         assert parse(yearly) > datetime.now(SK)
+
+    @pytest.mark.parametrize("day", [28, 29, 30, 31])
+    def test_a_monthly_task_near_the_end_of_the_month_still_fires(self, day):
+        """
+        The 31st does not exist in September - the task has to land on the last
+        day of the month instead of being skipped for the whole month.
+        """
+        result = compute_next_run(schedule({"type": "monthly", "time": "09:00", "day": day}))
+
+        assert result is not None, f"a monthly task on day {day} would never run"
+        moment = parse(result)
+        assert moment > datetime.now(SK)
+        assert moment.day == min(day, monthrange(moment.year, moment.month)[1])
+        assert (moment.hour, moment.minute) == (9, 0)
+
+    def test_a_yearly_task_on_29_february_falls_back_to_the_28th(self):
+        result = compute_next_run(schedule({"type": "yearly", "time": "09:00", "month": 2, "day": 29}))
+
+        assert result is not None, "a yearly task on 29 February would only run in a leap year"
+        moment = parse(result)
+        assert moment > datetime.now(SK)
+        assert moment.month == 2
+        assert moment.day == (29 if monthrange(moment.year, 2)[1] == 29 else 28)
+
+    def test_a_malformed_day_or_month_is_not_guessed(self):
+        assert compute_next_run(schedule({"type": "monthly", "time": "09:00", "day": "last"})) is None
+        assert compute_next_run(schedule({"type": "yearly", "time": "09:00", "month": 13, "day": 1})) is None
 
     def test_a_paused_schedule_has_no_next_run(self):
         assert compute_next_run(schedule({"type": "daily", "time": "09:00"}, status="paused")) is None
