@@ -1,0 +1,19 @@
+name: Tests
+
+# The suite is pure logic (config encryption, endpoint resolution, scheduling,
+# text clean-up) - no network, no Discord, no database of its own, so it runs
+# in seconds on every push.
+on:
+  push:
+    branches: [master, tests]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - run: uv run --with pytest pytest -q
