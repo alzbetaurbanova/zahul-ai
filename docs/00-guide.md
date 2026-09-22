@@ -14,5 +14,10 @@
 | [Dashboard, logs & tools](10-panel-tools.md) | Home console, `/logs`, avatar editor, prompt presets |
 | [Multi-Model](11-multi-model.md) | Image description via a vision model + multi-model providers |
 | [System Addon](12-system-addon.md) | Global / per-model / per-server prompt addon and priority chain |
+| [Theme](13-theme.md) | Dark / light tokens and how to extend light mode |
+| [Account settings](14-account.md) | Your profile, appearance, sessions, role and access |
 
 Start with [Getting Started](01-getting-started.md), then [AI Config](02-ai-config.md).
+
+> These guides are also readable in the panel under **Docs**, which renders this same
+> folder. This file is the plain-text index for reading the repository directly.

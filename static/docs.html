@@ -9,24 +9,48 @@
     <script src="/static/js/theme.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="stylesheet" href="/static/css/theme.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
 </head>
 <body class="bg-darker text-light flex flex-col min-h-screen" data-page="docs">
     <div id="toast-container" class="toast z-50"></div>
     <div id="navbar-container"></div>
     <script src="/static/js/utils.js" defer></script>
     <script src="/static/js/navbar.js" defer></script>
+    <script src="/static/js/pages/docs.js" defer></script>
 
     <main class="page">
         <div class="main-content">
-            <div class="page-heading">
-                <h1 class="page-title">Documentation</h1>
-                <p class="page-subtitle">Guides and how-tos for running zahul-ai.</p>
-            </div>
 
-            <div class="card-dark mt-6">
-                <h2 class="heading-card mb-2"><i class="fas fa-fw fa-book mr-2"></i>Coming soon</h2>
-                <p class="text-sm text-gray-400">This page is a placeholder — the sidebar entry is wired up, the content is not built yet.</p>
-            </div>
+            <!-- ── Index view ────────────────────────────────────────── -->
+            <section id="docs-index">
+                <div class="docs-hero">
+                    <div class="docs-eyebrow">Documentation</div>
+                    <h1>Run your AI characters with confidence.</h1>
+                    <p>Guides, references and how-tos for setting up zahul-ai, designing memorable characters, and keeping your community humming.</p>
+                    <div class="docs-search">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <input id="docs-search" type="search" placeholder="Search guides…" aria-label="Search guides" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="docs-section-label">Guides</div>
+                <div class="docs-grid" id="docs-grid">
+                    <div class="docs-empty">Loading guides…</div>
+                </div>
+                <div class="docs-empty hidden" id="docs-no-results">No guide matches that search.</div>
+            </section>
+
+            <!-- ── Reader view ───────────────────────────────────────── -->
+            <section id="docs-reader" class="hidden">
+                <div class="doc-toolbar">
+                    <button type="button" class="btn-back" id="docs-back">
+                        <i class="fas fa-arrow-left"></i>All guides
+                    </button>
+                    <span class="doc-toolbar-meta" id="doc-meta"></span>
+                </div>
+                <article class="doc-body" id="doc-body"></article>
+            </section>
+
         </div>
     </main>
     <site-footer></site-footer>

@@ -1,3 +1,4 @@
+import calendar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -112,6 +113,16 @@ def _validate_task_dependencies(type_value: str, character: str, target_type: st
         return
 
 
+def _clamp_day(year: int, month: int, day: int) -> int:
+    """
+    The requested day, or the last day of that month when it does not exist
+    there - a task set to the 31st has to fire on the 30th in September rather
+    than be skipped for the whole month (same for 29 February outside a leap
+    year).
+    """
+    return min(day, calendar.monthrange(year, month)[1])
+
+
 def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
     """Return the next scheduled run time (SK time, no tz suffix) for a task."""
     now = datetime.now(_SK_TZ)
@@ -152,12 +163,16 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
 
     if ptype == 'monthly':
         day = pattern.get('day', 1)
+        if not isinstance(day, int) or day < 1:
+            return None
         try:
-            candidate = now.replace(day=day, hour=h, minute=m, second=0, microsecond=0)
+            candidate = now.replace(
+                day=_clamp_day(now.year, now.month, day), hour=h, minute=m, second=0, microsecond=0
+            )
             if candidate <= now:
                 month = now.month % 12 + 1
                 year = now.year + (1 if now.month == 12 else 0)
-                candidate = candidate.replace(year=year, month=month)
+                candidate = candidate.replace(year=year, month=month, day=_clamp_day(year, month, day))
             return candidate.strftime("%Y-%m-%dT%H:%M:%S")
         except ValueError:
             return None
@@ -165,10 +180,15 @@ def compute_next_run(task: Dict[str, Any]) -> Optional[str]:
     if ptype == 'yearly':
         month = pattern.get('month', 1)
         day = pattern.get('day', 1)
+        if not isinstance(month, int) or not isinstance(day, int) or not 1 <= month <= 12 or day < 1:
+            return None
         try:
-            candidate = now.replace(month=month, day=day, hour=h, minute=m, second=0, microsecond=0)
+            candidate = now.replace(
+                month=month, day=_clamp_day(now.year, month, day), hour=h, minute=m, second=0, microsecond=0
+            )
             if candidate <= now:
-                candidate = candidate.replace(year=now.year + 1)
+                year = now.year + 1
+                candidate = candidate.replace(year=year, day=_clamp_day(year, month, day))
             return candidate.strftime("%Y-%m-%dT%H:%M:%S")
         except ValueError:
             return None

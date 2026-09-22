@@ -13,7 +13,9 @@ SENSITIVE_KEYS = {
     "ai_key",
     "discord_oauth_client_secret",
     "fallback_ai_key",
-    "multimodal_ai_api",
+    # Must match the BotConfig field name exactly - a key that is not in this
+    # set is written to the DB in plain text.
+    "multi_model_ai_api",
 }
 
 

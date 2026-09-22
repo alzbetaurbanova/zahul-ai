@@ -28,3 +28,9 @@ dependencies = [
     "youtube-transcript-api>=1.0.3",
     "pynacl>=1.5.0",
 ]
+
+[tool.pytest.ini_options]
+# Tests import the app as `api.*` / `src.*`, so pytest has to run from the repo
+# root - keeping the paths here means `pytest` alone does the right thing.
+testpaths = ["tests"]
+pythonpath = ["."]
