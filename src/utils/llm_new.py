@@ -16,6 +16,15 @@ def _is_thinking_model(model: str) -> bool:
     m = model.lower()
     return any(k in m for k in _THINKING_MODEL_KEYWORDS)
 
+# Claude 5 family rejects the `temperature` param with a 400 ("temperature is deprecated for this model").
+_NO_TEMPERATURE_RE = re.compile(r'claude-(?:fable|opus|sonnet|haiku)-5', re.IGNORECASE)
+
+def _temperature_kwargs(model: str, temperature) -> dict:
+    """Return {'temperature': t} unless the model doesn't accept it (or none is set)."""
+    if temperature is None or _NO_TEMPERATURE_RE.search(model or ''):
+        return {}
+    return {'temperature': temperature}
+
 _last_error: dict | None = None
 
 def get_last_error() -> dict | None:
@@ -301,7 +310,7 @@ async def generate_response(task: QueueItem, db: Database):
             else:
                 c = primary_client
             effective_max_tokens = max(max_tokens * 4, 2048) if _is_thinking_model(model) else max_tokens
-            kwargs = dict(model=model, stop=task.stop, max_tokens=effective_max_tokens, temperature=temperature, messages=messages)
+            kwargs = dict(model=model, stop=task.stop, max_tokens=effective_max_tokens, messages=messages, **_temperature_kwargs(model, temperature))
             if _is_thinking_model(model):
                 kwargs['extra_body'] = {'enable_thinking': False}
             return await c.chat.completions.create(**kwargs)
@@ -391,7 +400,7 @@ async def generate_response(task: QueueItem, db: Database):
             print(f"[llm] Empty response from thinking model {model}, retrying with higher max_tokens")
             retry_completion = await primary_client.chat.completions.create(
                 model=model, stop=task.stop, max_tokens=max(max_tokens * 8, 8192),
-                temperature=temperature, messages=messages
+                messages=messages, **_temperature_kwargs(model, temperature)
             )
             retry_result = retry_completion.choices[0].message.content if retry_completion.choices else ""
             result = clean_thonk(retry_result.replace("[Reply]", "").replace(f"{task.bot}:", "").strip())
@@ -482,12 +491,12 @@ async def generate_blank(system: str, user: str, db: Database) -> str:
         )
         completion = await client.chat.completions.create(
             model=bot_config.base_llm,
-            temperature=bot_config.temperature,
             max_tokens=8192,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
-            ]
+            ],
+            **_temperature_kwargs(bot_config.base_llm, bot_config.temperature),
         )
         result = completion.choices[0].message.content if completion.choices else "//[Error: No response]"
         return clean_thonk(result)
@@ -555,7 +564,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
         try:
             _extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(model) else {}
             completion = await client.chat.completions.create(
-                model=model, temperature=temperature, max_tokens=bot_config.max_tokens, messages=messages, **_extra
+                model=model, max_tokens=bot_config.max_tokens, messages=messages, **_temperature_kwargs(model, temperature), **_extra
             )
         except (NotFoundError, RateLimitError) as e:
             if not _fallback_active:
@@ -566,7 +575,7 @@ async def generate_in_character(character_name: str, system_addon: str, user: st
             fallback_client, _ = _resolve_fallback_client(bot_config, primary_client)
             _fb_extra = {'extra_body': {'enable_thinking': False}} if _is_thinking_model(fallback_model) else {}
             completion = await fallback_client.chat.completions.create(
-                model=fallback_model, temperature=temperature, max_tokens=bot_config.max_tokens, messages=messages, **_fb_extra
+                model=fallback_model, max_tokens=bot_config.max_tokens, messages=messages, **_temperature_kwargs(fallback_model, temperature), **_fb_extra
             )
             model = fallback_model
 

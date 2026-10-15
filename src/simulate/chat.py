@@ -14,7 +14,7 @@ from openai import AsyncOpenAI
 from api.db.database import Database
 from src.models.aicharacter import ActiveCharacter
 from src.models.prompts import DEFAULT_PROMPT_TEMPLATE
-from src.utils.llm_new import clean_string, clean_thonk, get_bot_config, track_tokens, resolve_system_addon
+from src.utils.llm_new import clean_string, clean_thonk, _temperature_kwargs, get_bot_config, track_tokens, resolve_system_addon
 
 
 @dataclass
@@ -293,8 +293,8 @@ async def generate_simulated_response(
             model=effective_model,
             stop=stop_strings,
             max_tokens=effective_max_tokens,
-            temperature=effective_temperature,
             messages=messages,
+            **_temperature_kwargs(effective_model, effective_temperature),
         )
         raw = (
             completion.choices[0].message.content
